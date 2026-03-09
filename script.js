@@ -40,13 +40,12 @@ document.addEventListener('keydown', e => {
 // ── API ──
 function saveApiKey() {
   const k = document.getElementById('apiKeyInput').value.trim();
-  if (!k.startsWith('sk-')) { alert('请输入有效的 API Key（sk- 开头）'); return; }
+  if (!k) return;
   apiKey = k; localStorage.setItem('drawer_api_key', k); closeModal('apiModal');
 }
 function saveSettings() {
   const k = document.getElementById('newApiKeyInput').value.trim();
   const fs = document.getElementById('fontSizeSel').value;
-  if (k && !k.startsWith('sk-')) { alert('请输入有效的 API Key'); return; }
   if (k) { apiKey = k; localStorage.setItem('drawer_api_key', k); }
   fontSize = fs;
   localStorage.setItem('drawer_font_size', fs);
@@ -534,7 +533,11 @@ async function generateIdeaCard(auto) {
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+      if (apiKey.startsWith('sk-')) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        headers['X-Access-Code'] = apiKey;
+      }
     }
 
     let res = await fetch('/api/chat', {
@@ -673,7 +676,11 @@ ${ctx}
 
     const headers = { 'Content-Type': 'application/json' };
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+      if (apiKey.startsWith('sk-')) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        headers['X-Access-Code'] = apiKey;
+      }
     }
 
     let res = await fetch('/api/chat', {
@@ -796,7 +803,11 @@ async function pinToTimeline(btn, isTodo, msgIdx) {
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+      if (apiKey.startsWith('sk-')) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        headers['X-Access-Code'] = apiKey;
+      }
     }
 
     let res = await fetch('/api/chat', {
