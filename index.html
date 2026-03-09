@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>抽屉 Drawer - 捕捉你的灵感</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#1a1510">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;700&family=Space+Mono&display=swap" rel="stylesheet">
+  
+  <!-- External JS -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app">
+    <!-- Overlay for mobile sidebar -->
+    <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- COL 1: Idea list -->
+    <div class="list-panel" id="listPanel">
+      <div class="list-hdr">
+        <div class="app-label">Idea Archive</div>
+        <h1 class="app-title">抽屉 <span>Drawer</span></h1>
+        <div class="app-tagline">在这里，点子不是为了完成，<br>而是为了生长。</div>
+        <button class="new-btn" onclick="openModal('newIdeaModal')"><span>+</span> 新的点子</button>
+      </div>
+      <div class="ideas-list" id="ideasList">
+        <!-- JS Rendered -->
+      </div>
+      <div class="bottom-sec">
+        <button class="settings-link" onclick="openModal('settingsModal')">⚙ 设置 & API</button>
+      </div>
+    </div>
+
+    <!-- COL 2: Main Content -->
+    <div class="main-panel">
+      <!-- Mobile Header -->
+      <div class="mobile-hdr">
+        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <div class="mobile-hdr-title">抽屉 Drawer</div>
+      </div>
+
+      <!-- No Selection State -->
+      <div class="no-sel" id="noSel">
+        <div class="no-sel-icon">🗄</div>
+        <div class="no-sel-text">拉开抽屉，<br>看看里面藏着什么灵感。</div>
+        <div class="no-sel-hint">点击左侧列表查看点子，<br>或创建一个新的。</div>
+      </div>
+
+      <!-- Idea View -->
+      <div class="main-panel" id="ideaView" style="display: none;">
+        <div class="idea-bar">
+          <div class="idea-bar-name" id="ideaBarName" onclick="startRename()" title="点击重命名">点子载入中...</div>
+          <div class="idea-bar-controls">
+            <select class="status-sel" id="statusSel" onchange="updateStatus(this.value)">
+              <option value="seed">🌱 萌芽</option>
+              <option value="grow">🌿 推进</option>
+              <option value="pause">❄️ 搁置</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="graph-hdr">
+          <div class="panel-tabs">
+            <button class="tab-btn active" id="tabCard" onclick="switchTab('card')">点子卡片</button>
+            <button class="tab-btn" id="tabGraph" onclick="switchTab('graph')">灵感图谱</button>
+          </div>
+        </div>
+
+        <!-- Card View -->
+        <div class="card-panel" id="cardPanel">
+          <div class="card-empty" id="cardEmpty">
+            <div class="card-empty-icon">📝</div>
+            <div class="card-empty-text">聊上几句，我来帮你整理思路。</div>
+            <button class="card-gen-btn" id="cardGenBtn" style="display:none;" onclick="generateIdeaCard(false)">整理成卡片</button>
+          </div>
+
+          <div class="card-content" id="cardContent" style="display:none;">
+            <div class="card-core-text" id="cardCore"></div>
+            
+            <div class="card-branches-wrap">
+              <div class="card-section-label">关键方向</div>
+              <div class="card-chips" id="cardBranches"></div>
+            </div>
+
+            <div class="card-tension-block">
+              <div class="card-section-label">未解决的张力</div>
+              <div class="card-tension-content" id="cardTensions"></div>
+            </div>
+
+            <div class="card-next-block">
+              <div class="card-section-label">最小一步</div>
+              <div class="card-next-action">
+                <span class="card-next-arrow">→</span>
+                <span id="cardNext"></span>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <button class="card-copy-btn" onclick="copyCard()">复制卡片</button>
+              <button class="card-regen-btn" onclick="generateIdeaCard(false)">重新整理</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graph View -->
+        <div class="graph-svg-wrap" id="graphSvgWrap" style="display:none;">
+          <svg id="graphSvg"></svg>
+          <div class="graph-empty" id="graphEmpty">
+            <div class="graph-empty-icon">🕸</div>
+            <div class="graph-empty-text">在这里钉入你的思维节点，<br>连成线，织成网。</div>
+          </div>
+        </div>
+
+        <!-- Drawer (Chat Interface) -->
+        <div class="drawer-panel closed" id="drawerPanel">
+          <div class="drawer-header" onclick="toggleDrawer()">
+            <button class="drawer-toggle-btn" id="drawerToggleBtn">↑ 展开对话</button>
+          </div>
+          <div class="messages" id="messages"></div>
+          <div class="chat-input-area" id="chatInputArea">
+            <div class="input-row">
+              <textarea class="chat-input" id="chatInput" placeholder="新的火花..." rows="1"></textarea>
+              <button class="send-btn" id="sendBtn" onclick="sendMessage(event)">↵</button>
+            </div>
+            <div class="input-hint">Shift+Enter 换行 · 对话灵感可钉入图谱</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Node Tooltip -->
+  <div class="node-tip" id="nodeTip"></div>
+
+  <!-- MODALS -->
+  <div class="overlay hidden" id="apiModal">
+    <div class="modal">
+      <h2>欢迎来到抽屉</h2>
+      <p>为了让 AI 帮你整理灵感，我们需要一个 SiliconFlow 的 API Key。它会安全地保存在你的本地浏览器中。</p>
+      <input type="password" class="modal-input" id="apiKeyInput" placeholder="sk-...">
+      <button class="modal-btn" onclick="saveApiKey()">保存并开始</button>
+      <div class="modal-note">没有 Key？去 <a href="https://siliconflow.cn/" target="_blank" style="color:var(--accent)">siliconflow.cn</a> 免费申请一个。</div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="newIdeaModal">
+    <div class="modal">
+      <h2>捕捉新点子</h2>
+      <p>给这个灵感起个名字。别担心，以后随时可以改。</p>
+      <input type="text" class="modal-input-lg" id="newIdeaInput" placeholder="点子名称..." autofocus>
+      <button class="modal-btn" onclick="createIdea()">放入抽屉</button>
+      <button class="modal-cancel" onclick="closeModal('newIdeaModal')">取消</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="settingsModal">
+    <div class="modal">
+      <h2>应用设置</h2>
+      
+      <div class="setting-item" style="margin-bottom:20px;">
+        <label>API Key</label>
+        <input type="password" class="modal-input" id="newApiKeyInput" placeholder="sk-...">
+      </div>
+
+      <div class="setting-item" style="margin-bottom:20px;">
+        <label>显示字号</label>
+        <select class="modal-input" id="fontSizeSel" style="background:var(--bg); color:var(--text); border:1px solid var(--border2);">
+          <option value="small">偏小</option>
+          <option value="medium">适中</option>
+          <option value="large">偏大</option>
+        </select>
+      </div>
+
+      <button class="modal-btn" onclick="saveSettings()">保存更改</button>
+      <button class="modal-cancel" onclick="closeModal('settingsModal')">取消</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('SW registered!', reg))
+          .catch(err => console.log('SW registration failed: ', err));
+      });
+    }
+  </script>
+</body>
+</html>

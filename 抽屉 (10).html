@@ -1,0 +1,2392 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>抽屉</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root {
+      --bg: #1a1510;
+      --surface: #221c14;
+      --surface2: #2a2318;
+      --border: #3a3020;
+      --border2: #4a3e28;
+      --accent: #e8b86d;
+      --accent2: #c47a3a;
+      --accent3: #8fba6e;
+      --text: #f0e8d8;
+      --text2: #c8b89a;
+      --muted: #7a6a50;
+      --muted2: #5a4e38;
+      --danger: #c47a6a;
+
+      /* Font Sizes */
+      --fs-base: 15px;
+      --fs-h1: 22px;
+      --fs-small: 11px;
+      --fs-label: 9px;
+      --fs-title: 21px;
+      --fs-list: 13px;
+      --fs-empty: 17px;
+    }
+
+    body.size-small {
+      --fs-base: 13px;
+      --fs-h1: 18px;
+      --fs-small: 10px;
+      --fs-label: 8px;
+      --fs-title: 19px;
+      --fs-list: 11px;
+      --fs-empty: 15px;
+    }
+
+    body.size-large {
+      --fs-base: 17px;
+      --fs-h1: 26px;
+      --fs-small: 13px;
+      --fs-label: 10px;
+      --fs-title: 24px;
+      --fs-list: 15px;
+      --fs-empty: 20px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Serif SC', serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: .5;
+    }
+
+    /* ── SHELL: Responsive Layout ── */
+    .app {
+      display: flex;
+      height: 100vh;
+      position: relative;
+    }
+
+    /* ── Overlay for mobile sidebar ── */
+    .mobile-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 90;
+      backdrop-filter: blur(2px);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .mobile-overlay.show {
+      display: block;
+      opacity: 1;
+    }
+
+    /* ── COL 1: Idea list (Sidebar) ── */
+    .list-panel {
+      width: 260px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      z-index: 100;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .list-hdr {
+      padding: 22px 18px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .app-label {
+      font-family: 'Space Mono', monospace;
+      font-size: var(--fs-label);
+      letter-spacing: .35em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+
+    .app-title {
+      font-family: 'Crimson Pro', serif;
+      font-size: var(--fs-title);
+      font-weight: 300;
+    }
+
+    .app-title span {
+      color: var(--accent);
+    }
+
+    .app-tagline {
+      font-family: 'Space Mono', monospace;
+      font-size: var(--fs-label);
+      letter-spacing: .05em;
+      color: var(--muted2);
+      margin-top: 5px;
+      line-height: 1.5;
+    }
+
+    .new-btn {
+      width: 100%;
+      margin-top: 12px;
+      background: none;
+      border: 1px solid var(--border2);
+      color: var(--accent);
+      padding: 9px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .15em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all .25s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+
+    .new-btn:hover {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+
+    .ideas-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+
+    .ideas-list::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .ideas-list::-webkit-scrollbar-thumb {
+      background: var(--border2);
+    }
+
+    .idea-item {
+      padding: 11px 18px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all .2s;
+    }
+
+    .idea-item:hover {
+      background: var(--surface2);
+    }
+
+    .idea-item.active {
+      background: var(--surface2);
+      border-left-color: var(--accent);
+    }
+
+    /* Freshness States */
+    .idea-item.dusty {
+      opacity: 0.65;
+    }
+
+    .idea-item.dusty .idea-item-info {
+      color: var(--accent2);
+    }
+
+    .idea-item.dormant {
+      opacity: 0.45;
+    }
+
+    .idea-item.dormant .idea-item-name {
+      font-style: italic;
+    }
+
+    .idea-item.dormant .idea-item-info {
+      color: var(--muted2);
+    }
+
+    /* Hover restores full opacity */
+    .idea-item.dusty:hover,
+    .idea-item.dormant:hover {
+      opacity: 1;
+    }
+
+    .idea-item.dormant:hover .idea-item-name {
+      font-style: normal;
+    }
+
+    .idea-item-name {
+      font-size: var(--fs-list);
+      color: var(--text);
+      margin-bottom: 4px;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .idea-item-meta {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .idea-item-snippet {
+      font-size: var(--fs-small);
+      color: var(--muted);
+      margin-bottom: 6px;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .idea-item-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .list-del-btn {
+      background: none;
+      border: 1px solid var(--border2);
+      color: var(--muted2);
+      padding: 3px 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all .2s;
+    }
+
+    .list-del-btn:hover {
+      color: var(--text2);
+      border-color: var(--muted);
+    }
+
+    .list-del-btn.danger:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    .sdot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .s-seed {
+      background: #e8b86d;
+    }
+
+    .s-grow {
+      background: #8fba6e;
+    }
+
+    .s-pause {
+      background: #5a4e38;
+    }
+
+    .idea-item-info {
+      font-family: 'Space Mono', monospace;
+      font-size: var(--fs-label);
+      color: var(--muted2);
+    }
+
+    .list-empty {
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--muted2);
+      font-size: 13px;
+      font-style: italic;
+      font-family: 'Crimson Pro', serif;
+      line-height: 1.7;
+    }
+
+    .bottom-sec {
+      border-top: 1px solid var(--border);
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+
+    .settings-link {
+      background: none;
+      border: none;
+      color: var(--muted2);
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .1em;
+      cursor: pointer;
+      text-align: left;
+      padding: 3px 0;
+      transition: color .2s;
+    }
+
+    .settings-link:hover {
+      color: var(--muted);
+    }
+
+    /* ── COL 2: MAIN PANEL (Card/Graph) ── */
+    .main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      position: relative;
+    }
+
+    /* Mobile Header (Hamburger) */
+    .mobile-hdr {
+      display: none;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      gap: 16px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    .menu-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .mobile-hdr-title {
+      font-family: 'Crimson Pro', serif;
+      font-size: 18px;
+      font-weight: 300;
+      color: var(--text);
+    }
+
+    .idea-bar {
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .idea-bar-name {
+      font-family: 'Crimson Pro', serif;
+      font-size: 20px;
+      font-weight: 300;
+      cursor: pointer;
+      transition: color .2s;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .idea-bar-name:hover {
+      color: var(--accent);
+    }
+
+    .idea-bar-name-input {
+      font-family: 'Crimson Pro', serif;
+      font-size: 20px;
+      font-weight: 300;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--accent);
+      outline: none;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+    }
+
+    .idea-bar-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .status-sel {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text2);
+      padding: 4px 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .del-btn {
+      background: none;
+      border: none;
+      color: var(--muted2);
+      cursor: pointer;
+      font-size: 15px;
+      padding: 3px;
+      transition: color .2s;
+    }
+
+    .del-btn:hover {
+      color: var(--danger);
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 22px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+
+    .messages::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .messages::-webkit-scrollbar-thumb {
+      background: var(--border2);
+    }
+
+    .msg {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      animation: fadeUp .3s ease;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .msg.user {
+      align-items: flex-end;
+    }
+
+    .msg.ai {
+      align-items: flex-start;
+    }
+
+    .msg-who {
+      font-family: 'Space Mono', monospace;
+      font-size: var(--fs-label);
+      color: var(--muted2);
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+
+    .msg-bubble {
+      max-width: 72%;
+      padding: 13px 17px;
+      font-size: var(--fs-base);
+      font-weight: 300;
+      line-height: 1.8;
+    }
+
+    .msg.user .msg-bubble {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text2);
+    }
+
+    .msg.ai .msg-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--accent3);
+      color: var(--text);
+    }
+
+    .msg.ai .msg-bubble strong {
+      color: var(--accent);
+      font-weight: 400;
+    }
+
+    .pin-btn {
+      margin-top: 6px;
+      background: none;
+      border: 1px solid var(--accent2);
+      color: var(--accent2);
+      padding: 5px 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .1em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all .2s;
+      align-self: flex-start;
+    }
+
+    .pin-btn:hover {
+      background: var(--accent2);
+      color: var(--bg);
+    }
+
+    .pin-btn:disabled {
+      opacity: .4;
+      cursor: default;
+    }
+
+    .typing {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 13px 17px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--accent3);
+      width: fit-content;
+    }
+
+    .tdot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--accent3);
+      animation: tb 1.2s infinite;
+    }
+
+    .tdot:nth-child(2) {
+      animation-delay: .2s
+    }
+
+    .tdot:nth-child(3) {
+      animation-delay: .4s
+    }
+
+    @keyframes tb {
+
+      0%,
+      60%,
+      100% {
+        transform: translateY(0);
+        opacity: .4
+      }
+
+      30% {
+        transform: translateY(-5px);
+        opacity: 1
+      }
+    }
+
+    /* ── DRAWER (Chat) ── */
+    .drawer-panel {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 70vh;
+      /* Max height when open */
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      /* Closed by default relative to its height */
+      transition: transform 0.4s cubic-bezier(0.3, 1, 0.3, 1);
+      z-index: 50;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+      border-radius: 16px 16px 0 0;
+    }
+
+    .drawer-panel.open {
+      transform: translateY(0);
+    }
+
+    /* When closed, the input bar and toggle button are visible */
+    .drawer-panel.closed {
+      /* Show input area + header (~120px) */
+      transform: translateY(calc(100% - 120px));
+      box-shadow: none;
+      border-radius: 0;
+    }
+
+    .drawer-header {
+      padding: 8px;
+      text-align: center;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 16px 16px 0 0;
+      flex-shrink: 0;
+    }
+
+    .drawer-panel.closed .drawer-header {
+      /* Now visible so user can see "Expand" button */
+      background: transparent;
+      border-top: 1px solid var(--border);
+    }
+
+    .drawer-toggle-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 4px 12px;
+      transition: color 0.2s;
+    }
+
+    .drawer-toggle-btn:hover {
+      color: var(--text);
+    }
+
+    .chat-input-area {
+      padding: 12px 18px 20px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      cursor: pointer;
+      /* Clicking input area can expand drawer */
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: 'Noto Serif SC', serif;
+      font-size: var(--fs-base);
+      font-weight: 300;
+      line-height: 1.6;
+      padding: 12px 16px;
+      resize: none;
+      outline: none;
+      min-height: 50px;
+      max-height: 160px;
+      transition: border-color .3s;
+    }
+
+    .chat-input:focus {
+      border-color: var(--accent3);
+    }
+
+    .chat-input::placeholder {
+      color: var(--muted2);
+    }
+
+    .send-btn {
+      background: var(--accent3);
+      border: none;
+      color: var(--bg);
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 700;
+      transition: opacity .2s;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .send-btn:hover {
+      opacity: .8;
+    }
+
+    .send-btn:disabled {
+      opacity: .3;
+      cursor: default;
+    }
+
+    .input-hint {
+      margin-top: 7px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--muted2);
+    }
+
+    /* No selection */
+    .no-sel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: var(--muted2);
+      text-align: center;
+      padding: 40px;
+    }
+
+    .no-sel-icon {
+      font-size: 36px;
+      opacity: .15;
+    }
+
+    .no-sel-text {
+      font-family: 'Crimson Pro', serif;
+      font-size: var(--fs-empty);
+      font-weight: 300;
+      font-style: italic;
+      line-height: 1.7;
+      max-width: 260px;
+      color: var(--muted);
+    }
+
+    .no-sel-hint {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--muted2);
+      letter-spacing: .05em;
+      line-height: 1.7;
+      max-width: 240px;
+    }
+
+    /* ── Responsive Media Queries ── */
+    @media (max-width: 768px) {
+      .list-panel {
+        position: absolute;
+        bottom: 0;
+        top: 0;
+        left: 0;
+        transform: translateX(-100%);
+      }
+
+      .list-panel.open {
+        transform: translateX(0);
+      }
+
+      .mobile-hdr {
+        display: flex;
+      }
+
+      /* Adjust padding for mobile main panel */
+      .idea-bar {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .idea-bar-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .idea-bar-name {
+        font-size: 18px;
+      }
+
+      .card-content {
+        padding: 12px;
+      }
+
+      .drawer-panel {
+        height: 85vh;
+      }
+    }
+
+    .graph-hdr {
+      padding: 18px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .graph-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .3em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .graph-title {
+      font-family: 'Crimson Pro', serif;
+      font-size: 16px;
+      font-weight: 300;
+      color: var(--text2);
+    }
+
+    .graph-title span {
+      color: var(--accent3);
+    }
+
+    .graph-svg-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #graphSvg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .graph-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--muted2);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .graph-empty-icon {
+      font-size: 28px;
+      opacity: .25;
+    }
+
+    .graph-empty-text {
+      font-family: 'Crimson Pro', serif;
+      font-size: 14px;
+      font-weight: 300;
+      font-style: italic;
+      line-height: 1.7;
+    }
+
+    /* Node tooltip */
+    .node-tip {
+      position: fixed;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-left: 2px solid var(--accent);
+      padding: 9px 13px;
+      max-width: 220px;
+      font-size: 12px;
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--text);
+      pointer-events: none;
+      z-index: 300;
+      opacity: 0;
+      transition: opacity .15s;
+    }
+
+    .node-tip.show {
+      opacity: 1;
+    }
+
+    .node-tip-meta {
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      color: var(--muted2);
+      margin-bottom: 4px;
+      letter-spacing: .08em;
+    }
+
+    /* ── Modals ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .75);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      padding: 36px;
+      max-width: 420px;
+      width: 90%;
+    }
+
+    .modal h2 {
+      font-family: 'Crimson Pro', serif;
+      font-size: 22px;
+      font-weight: 300;
+      margin-bottom: 10px;
+    }
+
+    .modal p {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.7;
+      margin-bottom: 18px;
+      font-weight: 300;
+    }
+
+    .modal-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      padding: 12px 14px;
+      outline: none;
+      margin-bottom: 12px;
+      transition: border-color .3s;
+    }
+
+    .modal-input:focus {
+      border-color: var(--accent);
+    }
+
+    .modal-input-lg {
+      width: 100%;
+      background: var(--bg);
+      border: none;
+      border-bottom: 2px solid var(--accent);
+      color: var(--text);
+      font-family: 'Crimson Pro', serif;
+      font-size: 22px;
+      font-weight: 300;
+      padding: 10px 0;
+      outline: none;
+      margin-bottom: 16px;
+    }
+
+    .modal-btn {
+      background: var(--accent);
+      border: none;
+      color: var(--bg);
+      padding: 12px 24px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .15em;
+      cursor: pointer;
+      width: 100%;
+      text-transform: uppercase;
+      transition: opacity .2s;
+    }
+
+    .modal-btn:hover {
+      opacity: .85;
+    }
+
+    .modal-note {
+      margin-top: 10px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--muted2);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .modal-cancel {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .1em;
+      margin-top: 10px;
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 6px;
+    }
+
+    .setting-item label {
+      display: block;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+    }
+
+    /* Think box & Todo */
+    .think-box {
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--muted2);
+      border-left: 2px solid var(--border2);
+      padding-left: 12px;
+    }
+
+    .think-box summary {
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      text-transform: uppercase;
+      outline: none;
+    }
+
+    .think-content {
+      margin-top: 6px;
+      line-height: 1.5;
+      font-family: 'Noto Serif SC', serif;
+    }
+
+    .todo-btn {
+      margin-top: 6px;
+      background: none;
+      border: 1px dashed var(--accent3);
+      color: var(--accent3);
+      padding: 5px 14px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .1em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all .2s;
+      align-self: flex-start;
+    }
+
+    .todo-btn:hover {
+      background: var(--accent3);
+      color: var(--bg);
+      border-style: solid;
+    }
+
+    /* Node Checkbox for Todo nodes */
+    .node-todo-cb {
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border: 1px solid var(--accent3);
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .node-todo-cb:checked {
+      background: var(--accent3);
+      border-color: var(--accent3);
+    }
+
+    .node-todo-cb:checked::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 1px;
+      width: 3px;
+      height: 6px;
+      border: solid var(--bg);
+      border-width: 0 1.5px 1.5px 0;
+      transform: rotate(45deg);
+    }
+
+    /* ── Panel Tabs ── */
+    .panel-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin: 0 -16px;
+      padding: 0 16px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: all .2s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text2);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* ── Idea Card ── */
+    .card-panel {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .card-panel::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .card-panel::-webkit-scrollbar-thumb {
+      background: var(--border2);
+    }
+
+    .card-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .card-empty-icon {
+      font-size: 28px;
+      opacity: .2;
+    }
+
+    .card-empty-text {
+      font-family: 'Crimson Pro', serif;
+      font-size: 14px;
+      font-style: italic;
+      color: var(--muted2);
+      line-height: 1.7;
+    }
+
+    .card-gen-btn {
+      margin-top: 4px;
+      background: none;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 7px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .15em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all .2s;
+    }
+
+    .card-gen-btn:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .card-gen-btn:disabled {
+      opacity: .5;
+      cursor: default;
+    }
+
+    .card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 28px;
+      gap: 28px;
+      overflow-y: auto;
+    }
+
+    /* Core thought: dominant, no label */
+    .card-core-text {
+      font-family: 'Crimson Pro', serif;
+      font-size: var(--fs-h1);
+      font-weight: 300;
+      line-height: 1.65;
+      color: var(--text);
+      letter-spacing: .01em;
+    }
+
+    /* Branches: horizontal chip row */
+    .card-branches-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-section-label {
+      font-family: 'Space Mono', monospace;
+      font-size: var(--fs-label);
+      letter-spacing: .25em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .card-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .card-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text2);
+      font-size: var(--fs-small);
+      font-weight: 300;
+      padding: 5px 13px;
+      border-radius: 20px;
+      line-height: 1.5;
+    }
+
+    /* Tension: orange left border */
+    .card-tension-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-tension-content {
+      border-left: 2px solid var(--accent2);
+      padding-left: 14px;
+      font-size: var(--fs-base);
+      font-weight: 300;
+      line-height: 1.75;
+      color: var(--text2);
+    }
+
+    /* Next action: CTA style */
+    .card-next-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-next-action {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-left: 2px solid var(--accent3);
+      padding: 12px 16px;
+      font-size: var(--fs-base);
+      font-weight: 400;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .card-next-arrow {
+      color: var(--accent3);
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .card-section-content {
+      font-size: 13px;
+      font-weight: 300;
+      line-height: 1.7;
+      color: var(--text2);
+    }
+
+    .card-branch {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      padding-top: 4px;
+      flex-shrink: 0;
+      margin-top: auto;
+    }
+
+    .card-copy-btn,
+    .card-regen-btn {
+      flex: 1;
+      background: none;
+      border: 1px solid var(--border2);
+      color: var(--muted);
+      padding: 7px 0;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: .1em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all .2s;
+    }
+
+    .card-copy-btn:hover {
+      border-color: var(--accent3);
+      color: var(--accent3);
+    }
+
+    .card-regen-btn:hover {
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Modals -->
+  <div class="overlay" id="apiModal">
+    <div class="modal">
+      <h2>输入 API Key</h2>
+      <p>抽屉用 SiliconFlow 驱动 AI 追问。Key 只存在你的浏览器本地，不上传任何地方。</p>
+      <input type="password" class="modal-input" id="apiKeyInput" placeholder="sk-..." />
+      <button class="modal-btn" onclick="saveApiKey()">开始使用 →</button>
+      <div class="modal-note">cloud.siliconflow.cn 获取 Key</div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="newIdeaModal">
+    <div class="modal">
+      <h2>新点子叫什么？</h2>
+      <p>起个名字，哪怕一个词。以后可以改。</p>
+      <input type="text" class="modal-input-lg" id="newIdeaInput" placeholder="比如：反人性产品逻辑" maxlength="40" />
+      <button class="modal-btn" onclick="createIdea()">创建 →</button>
+      <button class="modal-cancel" onclick="closeModal('newIdeaModal')">取消</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="settingsModal">
+    <div class="modal">
+      <h2>设置</h2>
+      <div class="setting-item">
+        <label>API Key</label>
+        <input type="password" class="modal-input" id="newApiKeyInput" placeholder="sk-..." style="margin-bottom:0;" />
+      </div>
+      <div class="setting-item" style="margin-top:20px; margin-bottom:24px;">
+        <label>显示字号</label>
+        <select class="modal-input" id="fontSizeSel" style="margin-bottom:0; cursor:pointer;">
+          <option value="small">小 (Small)</option>
+          <option value="medium">中 (Medium)</option>
+          <option value="large">大 (Large)</option>
+        </select>
+      </div>
+      <button class="modal-btn" onclick="saveSettings()">保存配置 →</button>
+      <button class="modal-cancel" onclick="closeModal('settingsModal')">取消</button>
+    </div>
+  </div>
+
+  <div class="node-tip" id="nodeTip"></div>
+
+  <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+
+  <div class="app">
+
+    <!-- COL 1 (Sidebar) -->
+    <div class="list-panel" id="listPanel">
+      <div class="list-hdr">
+        <div class="app-label">抽屉 · Drawer</div>
+        <div class="app-title">我的<span>点子</span></div>
+        <div class="app-tagline">随手记 · 聊完整理</div>
+        <button class="new-btn" onclick="openModal('newIdeaModal')">＋ 新点子</button>
+      </div>
+      <div class="ideas-list" id="ideasList">
+        <div class="list-empty">还没有点子。<br>想到什么就加进来。</div>
+      </div>
+      <div class="bottom-sec">
+        <button class="settings-link" onclick="openModal('settingsModal')">⚙ 设置</button>
+      </div>
+    </div>
+
+    <!-- MAIN PANEL (Card/Graph) -->
+    <div class="main-panel" id="mainPanel">
+      <div class="mobile-hdr">
+        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <div class="mobile-hdr-title">抽屉</div>
+      </div>
+
+      <!-- No selection state -->
+      <div class="no-sel" id="noSel">
+        <div class="no-sel-icon">◻</div>
+        <div class="no-sel-text">选一个点子，<br>或者新建一个开始记录。</div>
+        <div class="no-sel-hint">随手说出脑子里的想法，<br>抽屉帮你追问、整理。</div>
+      </div>
+
+      <!-- Idea view -->
+      <div id="ideaView" style="display:none;flex-direction:column;flex:1;min-height:0;padding-bottom:74px;">
+        <div class="idea-bar">
+          <div class="idea-bar-name" id="ideaBarName" onclick="startRename()" title="点击重命名">未命名</div>
+          <div class="idea-bar-controls">
+            <select class="status-sel" id="statusSel" onchange="updateStatus(this.value)">
+              <option value="seed">萌芽</option>
+              <option value="grow">推进中</option>
+              <option value="pause">搁置</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="graph-hdr" style="padding:0">
+          <div class="panel-tabs">
+            <button class="tab-btn active" id="tabCard" onclick="switchTab('card')">点子卡</button>
+            <button class="tab-btn" id="tabGraph" onclick="switchTab('graph')">节点图</button>
+          </div>
+        </div>
+
+        <!-- Card Panel -->
+        <div class="card-panel" id="cardPanel">
+          <div class="card-empty" id="cardEmpty">
+            <div class="card-empty-icon">◻</div>
+            <div class="card-empty-text">聊上几句，<br>我来帮你整理思路。</div>
+            <button class="card-gen-btn" id="cardGenBtn" style="display:none"
+              onclick="generateIdeaCard(false)">整理成卡片</button>
+          </div>
+          <div class="card-content" id="cardContent" style="display:none">
+            <!-- Core Thought: dominant text, no label -->
+            <div class="card-core-text" id="cardCore"></div>
+
+            <!-- Branches: chips -->
+            <div class="card-branches-wrap">
+              <div class="card-section-label">关键方向</div>
+              <div class="card-chips" id="cardBranches"></div>
+            </div>
+
+            <!-- Tension: orange left border -->
+            <div class="card-tension-block">
+              <div class="card-section-label">未解决的张力</div>
+              <div class="card-tension-content" id="cardTensions"></div>
+            </div>
+
+            <!-- Next action: CTA block -->
+            <div class="card-next-block">
+              <div class="card-section-label">最小一步</div>
+              <div class="card-next-action">
+                <span class="card-next-arrow">→</span>
+                <span id="cardNext"></span>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <button class="card-copy-btn" onclick="copyCard()">复制卡片</button>
+              <button class="card-regen-btn" onclick="generateIdeaCard(false)">重新整理</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Graph Panel -->
+        <div class="graph-svg-wrap" id="graphSvgWrap" style="display:none">
+          <div class="graph-empty" id="graphEmpty" style="padding-top:40px;">
+            <div class="graph-empty-icon">○</div>
+            <div class="graph-empty-text">钉入节点后，<br>这里会长出一张图。</div>
+          </div>
+          <svg id="graphSvg" style="width:100%;height:100%;min-height:300px;"></svg>
+        </div>
+
+        <!-- DRAWER (Chat) -->
+        <div class="drawer-panel closed" id="drawerPanel">
+          <div class="drawer-header" onclick="toggleDrawer()">
+            <button class="drawer-toggle-btn" id="drawerToggleBtn">↓ 收起对话</button>
+          </div>
+          <div class="messages" id="messages"></div>
+          <div class="chat-input-area" onclick="expandDrawerIfNot()">
+            <div class="input-row">
+              <textarea class="chat-input" id="chatInput" placeholder="随便说，我来追问……" rows="1"></textarea>
+              <button class="send-btn" id="sendBtn" onclick="sendMessage(event)">→</button>
+            </div>
+            <div class="input-hint">Enter 发送 · Shift+Enter 换行</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──
+    let apiKey = localStorage.getItem('drawer_api_key') || '';
+    let fontSize = localStorage.getItem('drawer_font_size') || 'medium';
+    let ideas = JSON.parse(localStorage.getItem('drawer_ideas') || '[]');
+    let currentId = null;
+    let chatHistory = [];
+    let loading = false;
+    let graphCollapsed = false;
+    let sim = null;
+    let cardGenerating = false;
+
+    // ── Init ──
+    window.addEventListener('load', () => {
+      if (apiKey) closeModal('apiModal');
+      else openModal('apiModal');
+      applyFontSize(fontSize);
+      renderList();
+      initTextarea();
+    });
+
+    // ── Modals ──
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      if (id === 'settingsModal') {
+        document.getElementById('newApiKeyInput').value = apiKey;
+        document.getElementById('fontSizeSel').value = fontSize;
+      } else {
+        const inp = document.getElementById(id).querySelector('input');
+        if (inp) setTimeout(() => inp.focus(), 80);
+      }
+    }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModal('newIdeaModal'); closeModal('settingsModal'); }
+      if (e.key === 'Enter' && !document.getElementById('newIdeaModal').classList.contains('hidden')) createIdea();
+    });
+
+    // ── API ──
+    function saveApiKey() {
+      const k = document.getElementById('apiKeyInput').value.trim();
+      if (!k.startsWith('sk-')) { alert('请输入有效的 API Key（sk- 开头）'); return; }
+      apiKey = k; localStorage.setItem('drawer_api_key', k); closeModal('apiModal');
+    }
+    function saveSettings() {
+      const k = document.getElementById('newApiKeyInput').value.trim();
+      const fs = document.getElementById('fontSizeSel').value;
+      if (k && !k.startsWith('sk-')) { alert('请输入有效的 API Key'); return; }
+      if (k) { apiKey = k; localStorage.setItem('drawer_api_key', k); }
+      fontSize = fs;
+      localStorage.setItem('drawer_font_size', fs);
+      applyFontSize(fs);
+      closeModal('settingsModal');
+    }
+    function applyFontSize(size) {
+      document.body.classList.remove('size-small', 'size-medium', 'size-large');
+      document.body.classList.add('size-' + size);
+    }
+
+    // ── Layout Toggles ──
+    function toggleSidebar() {
+      const panel = document.getElementById('listPanel');
+      const overlay = document.getElementById('mobileOverlay');
+      if (panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        overlay.classList.remove('show');
+      } else {
+        panel.classList.add('open');
+        overlay.classList.add('show');
+      }
+    }
+
+    function toggleDrawer() {
+      const drawer = document.getElementById('drawerPanel');
+      const btn = document.getElementById('drawerToggleBtn');
+      if (drawer.classList.contains('closed')) {
+        drawer.classList.remove('closed');
+        drawer.classList.add('open');
+        if (btn) btn.innerHTML = '↓ 收起对话';
+        // Scroll to bottom of msgs after opening
+        setTimeout(() => {
+          const msgs = document.getElementById('messages');
+          msgs.scrollTop = msgs.scrollHeight;
+        }, 100);
+      } else {
+        drawer.classList.add('closed');
+        drawer.classList.remove('open');
+        if (btn) btn.innerHTML = '↑ 展开对话';
+      }
+    }
+
+    function expandDrawerIfNot() {
+      const drawer = document.getElementById('drawerPanel');
+      const btn = document.getElementById('drawerToggleBtn');
+      if (drawer.classList.contains('closed')) {
+        drawer.classList.remove('closed');
+        drawer.classList.add('open');
+        if (btn) btn.innerHTML = '↓ 收起对话';
+        const msgs = document.getElementById('messages');
+        setTimeout(() => msgs.scrollTop = msgs.scrollHeight, 100);
+      }
+    }
+
+    function initTextarea() {
+      const ta = document.getElementById('chatInput');
+      ta.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+      });
+      ta.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+      });
+    }
+
+    // ── Ideas ──
+    function saveIdeas() { localStorage.setItem('drawer_ideas', JSON.stringify(ideas)); }
+    function getIdea(id) { return ideas.find(i => i.id === id); }
+
+    function createIdea() {
+      const name = document.getElementById('newIdeaInput').value.trim();
+      if (!name) return;
+      const idea = { id: Date.now(), name, status: 'seed', nodes: [], chatHistory: [], createdAt: Date.now(), updatedAt: Date.now() };
+      ideas.unshift(idea);
+      saveIdeas();
+      document.getElementById('newIdeaInput').value = '';
+      closeModal('newIdeaModal');
+      renderList();
+      selectIdea(idea.id);
+      // Close sidebar on mobile after creation
+      const panel = document.getElementById('listPanel');
+      if (panel.classList.contains('open')) toggleSidebar();
+    }
+
+    function deleteCurrentIdea() {
+      if (!currentId || !confirm('删掉这个整个点子？')) return;
+      ideas = ideas.filter(i => i.id !== currentId);
+      saveIdeas(); currentId = null; chatHistory = [];
+      renderList(); showNoSel(); renderGraph();
+    }
+
+    function clearCurrentChat() {
+      if (!currentId || !confirm('清空这个点子的所有对话历史？\n（右侧的节点图谱会保留）')) return;
+      const idea = getIdea(currentId);
+      if (idea) {
+        idea.chatHistory = [];
+        chatHistory = [];
+        saveIdeas();
+        selectIdea(currentId);
+      }
+    }
+
+    function updateStatus(status) {
+      const idea = getIdea(currentId);
+      if (idea) { idea.status = status; idea.updatedAt = Date.now(); saveIdeas(); renderList(); }
+    }
+
+    function startRename() {
+      const idea = getIdea(currentId);
+      if (!idea) return;
+      const el = document.getElementById('ideaBarName');
+      const inp = document.createElement('input');
+      inp.className = 'idea-bar-name-input'; inp.value = idea.name;
+      el.replaceWith(inp); inp.focus(); inp.select();
+      const done = () => {
+        if (inp.value.trim()) { idea.name = inp.value.trim(); saveIdeas(); renderList(); }
+        const newEl = document.createElement('div');
+        newEl.className = 'idea-bar-name'; newEl.id = 'ideaBarName';
+        newEl.onclick = startRename; newEl.title = '点击重命名';
+        newEl.textContent = idea.name; inp.replaceWith(newEl);
+      };
+      inp.addEventListener('blur', done);
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = idea.name; inp.blur(); } });
+    }
+
+    function addNode(text, type, keyword) {
+      if (!currentId) return;
+      const idea = getIdea(currentId);
+      if (!idea) return;
+      idea.nodes.push({
+        id: Date.now(), text, type, keyword: keyword || text.slice(0, 6), tasks: [],
+        time: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      });
+      idea.updatedAt = Date.now();
+      saveIdeas(); renderList(); renderGraph();
+    }
+
+    // ── Select Idea ──
+    async function selectIdea(id) {
+      currentId = id;
+      const idea = getIdea(id);
+      chatHistory = idea.chatHistory || [];
+      renderList(); showIdeaView(); renderGraph(); renderCard();
+
+      document.getElementById('ideaBarName').textContent = idea.name;
+      document.getElementById('statusSel').value = idea.status;
+
+      const drawer = document.getElementById('drawerPanel');
+      const drawerBtn = document.getElementById('drawerToggleBtn');
+      if (chatHistory.length > 0) {
+        drawer.classList.add('open');
+        drawer.classList.remove('closed');
+        if (drawerBtn) drawerBtn.innerHTML = '↓ 收起对话';
+      } else {
+        drawer.classList.add('closed');
+        drawer.classList.remove('open');
+        if (drawerBtn) drawerBtn.innerHTML = '↑ 展开对话';
+      }
+
+      // Seed memory (only for old ideas that lack chatHistory)
+      if (idea.nodes.length > 0 && (!chatHistory || chatHistory.length === 0)) {
+        const memory = idea.nodes.slice(-4).map(n => n.text).join('；');
+        chatHistory = [
+          { role: 'user', content: `点子名：${idea.name}。之前的节点：${memory}` },
+          { role: 'assistant', content: '我记着了。' }
+        ];
+        idea.chatHistory = chatHistory;
+        saveIdeas();
+      }
+
+      const msgs = document.getElementById('messages');
+      msgs.innerHTML = '';
+
+      if (chatHistory.length > 0) {
+        // Render existing chat history
+        chatHistory.forEach((msg, idx) => {
+          // Don't show pin button for old history messages to keep UI clean, or show based on some logic
+          appendMsg(msg.role === 'user' ? 'user' : 'ai', msg.content, msg.role !== 'user' && idx >= 2, idx);
+        });
+      } else if (idea.nodes.length === 0 && chatHistory.length === 0) {
+        // First time
+        const initialMsg = `"${idea.name}"——现在在你脑子里是什么状态？哪怕一个词。`;
+        appendMsg('ai', initialMsg, false);
+        chatHistory.push({ role: 'assistant', content: initialMsg });
+        idea.chatHistory = chatHistory;
+        saveIdeas();
+      } else {
+        if (chatHistory.length === 0 || chatHistory[chatHistory.length - 1].role !== 'assistant') {
+          appendMsg('ai', '⋯', false);
+          const hook = await generateHook(idea);
+          msgs.lastElementChild.remove(); // Remove the typing dots msg
+          appendMsg('ai', hook, false);
+          chatHistory.push({ role: 'assistant', content: hook });
+          saveIdeas();
+        }
+      }
+    }
+
+    async function generateHook(idea) {
+      const lastNode = idea.nodes[idea.nodes.length - 1];
+      const allNodes = idea.nodes.map(n => n.text).join('；');
+      try {
+        let res = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 120,
+            messages: [
+              {
+                role: 'system', content: `你帮用户重新进入一个搁置中的想法。
+根据这些节点，生成一个钩子句——不是"你有什么新想法"，而是从节点里找一个未解决的张力或者悬而未决的问题，直接抛给用户。
+例如："上次卡在'切入点'这里——你现在还卡着吗？"
+或者："你之前说想对大写的人有用，但同时又说不能太难落地。这个矛盾解了吗？"
+一句话，不超过40字，口语，直接。不要任何解释或前缀。` },
+              { role: 'user', content: `点子：${idea.name}\n节点：${allNodes}\n最新节点：${lastNode.text}` }
+            ]
+          })
+        });
+        const data = await res.json();
+        return data.choices[0].message.content.trim().replace(/^["「『]|["」』]$/g, '');
+      } catch (e) {
+        return `上次聊到"${lastNode.keyword}"——那个方向现在怎么样了？`;
+      }
+    }
+
+    function showIdeaView() {
+      document.getElementById('noSel').style.display = 'none';
+      const v = document.getElementById('ideaView');
+      v.style.display = 'flex';
+    }
+    function showNoSel() {
+      document.getElementById('noSel').style.display = 'flex';
+      document.getElementById('ideaView').style.display = 'none';
+    }
+
+    // ── Render List ──
+    function renderList() {
+      const el = document.getElementById('ideasList');
+      if (!ideas.length) { el.innerHTML = '<div class="list-empty">还没有点子。<br>想到什么就加进来。</div>'; return; }
+      const now = Date.now();
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+
+      el.innerHTML = ideas.map(idea => {
+        const diffDays = Math.floor((now - idea.updatedAt) / ONE_DAY);
+
+        let dateStr = new Date(idea.updatedAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+        let freshClass = '';
+
+        if (diffDays > 15) {
+          freshClass = 'dormant';
+          dateStr = `${diffDays}天前`;
+        } else if (diffDays >= 3) {
+          freshClass = 'dusty';
+          dateStr = `${diffDays}天前`;
+        }
+
+        let snippet = '';
+        if (idea.chatHistory && idea.chatHistory.length > 1) {
+          const msg = idea.chatHistory.find(m => m.role === 'user') || idea.chatHistory[1];
+          if (msg && msg.content) {
+            snippet = `<div class="idea-item-snippet">${esc(msg.content.slice(0, 20))}...</div>`;
+          }
+        }
+
+        let controls = '';
+        if (idea.id === currentId) {
+          freshClass = ''; // always fully visible when active
+          controls = `
+            <div class="idea-item-controls">
+              <button class="list-del-btn" onclick="event.stopPropagation(); clearCurrentChat()">清空对话</button>
+              <button class="list-del-btn danger" onclick="event.stopPropagation(); deleteCurrentIdea()">删除点子</button>
+            </div>
+          `;
+        }
+
+        return `<div class="idea-item ${idea.id === currentId ? 'active' : ''} ${freshClass}" onclick="selectIdea(${idea.id})">
+      <div class="idea-item-name">${esc(idea.name)}</div>
+      ${snippet}
+      <div class="idea-item-meta">
+        <span class="sdot s-${idea.status}"></span>
+        <span class="idea-item-info">${dateStr}·${idea.nodes.length}节</span>
+      </div>
+      ${controls}
+    </div>`;
+      }).join('');
+    }
+
+    // ── Graph ──
+
+    function renderGraph() {
+      const svg = d3.select('#graphSvg');
+      svg.selectAll('*').remove();
+      if (sim) { sim.stop(); sim = null; }
+
+      const empty = document.getElementById('graphEmpty');
+
+      if (!currentId) { empty.style.display = 'flex'; return; }
+      const idea = getIdea(currentId);
+      if (!idea || idea.nodes.length === 0) { empty.style.display = 'flex'; return; }
+      empty.style.display = 'none';
+
+      const wrap = document.querySelector('.graph-svg-wrap');
+      const w = wrap.clientWidth || 280;
+      const h = wrap.clientHeight || 400;
+
+      // Build nodes — show keyword only
+      const nodes = idea.nodes.map((n, i) => ({
+        id: n.id, fullText: n.text, keyword: n.keyword || n.text.slice(0, 6),
+        type: n.type, time: n.time, index: i, done: n.done
+      }));
+
+      // Links: sequential + semantic
+      const links = [];
+      nodes.forEach((n, i) => {
+        if (i > 0) links.push({ source: nodes[i - 1].id, target: n.id, seq: true });
+      });
+      // Semantic: shared chars (stop-word filtered)
+      const stop = new Set('我的了是在有就也都这那和或但如果一个什么会能要不没很更最到把被让用去来说做想看知道觉得感觉因为所以比如其实'.split(''));
+      nodes.forEach((a, i) => {
+        nodes.forEach((b, j) => {
+          if (j <= i + 1) return;
+          const wa = new Set([...a.fullText].filter(c => !stop.has(c) && /[\u4e00-\u9fa5]/.test(c)));
+          const wb = new Set([...b.fullText].filter(c => !stop.has(c) && /[\u4e00-\u9fa5]/.test(c)));
+          const shared = [...wa].filter(c => wb.has(c)).length;
+          if (shared >= 2) links.push({ source: a.id, target: b.id, seq: false });
+        });
+      });
+
+      const nodeMap = {};
+      nodes.forEach(n => nodeMap[n.id] = n);
+      const validLinks = links.filter(l => nodeMap[l.source] && nodeMap[l.target]);
+
+      // Arrow marker
+      svg.append('defs').append('marker')
+        .attr('id', 'arr').attr('viewBox', '0 -3 6 6')
+        .attr('refX', 16).attr('refY', 0)
+        .attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
+        .append('path').attr('d', 'M0,-3L6,0L0,3').attr('fill', '#4a3e28');
+
+      const linkSel = svg.append('g').selectAll('line')
+        .data(validLinks).join('line')
+        .attr('stroke', d => d.seq ? '#4a3e28' : '#3a3020')
+        .attr('stroke-width', d => d.seq ? 1.5 : 1)
+        .attr('stroke-dasharray', d => d.seq ? null : '3,3')
+        .attr('marker-end', d => d.seq ? 'url(#arr)' : null)
+        .attr('opacity', .8);
+
+      const nodeSel = svg.append('g').selectAll('g')
+        .data(nodes).join('g')
+        .attr('cursor', 'pointer')
+        .call(d3.drag()
+          .on('start', (e, d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+          .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+          .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }))
+        .on('click', (e, d) => {
+          // 移除原有的 node detail 打开逻辑，现在只是展示 tooltip
+          e.stopPropagation();
+        });
+
+      // Node shape (circle for normal, rect/checkbox for todo)
+      nodeSel.each(function (d) {
+        const el = d3.select(this);
+        if (d.type === 'todo') {
+          const g = el.append('g').attr('transform', 'translate(-6, -6)');
+          g.append('rect')
+            .attr('width', 12).attr('height', 12).attr('rx', 2)
+            .attr('fill', d.done ? '#8fba6e' : 'transparent')
+            .attr('stroke', '#8fba6e').attr('stroke-width', 1.5)
+            .attr('cursor', 'pointer')
+            .on('click', (e, d) => {
+              e.stopPropagation();
+              toggleTodoNode(d.id);
+            });
+          if (d.done) {
+            g.append('path')
+              .attr('d', 'M3,6 L5,8 L9,3')
+              .attr('fill', 'none').attr('stroke', '#221c14').attr('stroke-width', 1.5);
+          }
+        } else {
+          el.append('circle')
+            .attr('r', 5)
+            .attr('fill', d.type === 'ai' ? '#8fba6e' : '#e8b86d')
+            .attr('stroke', d.type === 'ai' ? '#5a9a4e' : '#b89040')
+            .attr('stroke-width', 1.5);
+        }
+      });
+
+      // Keyword label
+      nodeSel.append('text')
+        .attr('x', 9).attr('y', 4)
+        .attr('font-family', 'Noto Serif SC, serif')
+        .attr('font-size', '11px')
+        .attr('font-weight', '300')
+        .attr('fill', '#c8b89a')
+        .text(d => d.keyword);
+
+      // Tooltip
+      const tip = document.getElementById('nodeTip');
+      nodeSel
+        .on('mouseenter', (e, d) => {
+          tip.innerHTML = `<div class="node-tip-meta">${d.time} · ${d.type === 'ai' ? '提炼' : '你说的'}</div>${esc(d.fullText)}`;
+          tip.classList.add('show');
+        })
+        .on('mousemove', e => { tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 8) + 'px'; })
+        .on('mouseleave', () => tip.classList.remove('show'));
+
+      sim = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(validLinks).id(d => d.id).distance(70).strength(d => d.seq ? .7 : .25))
+        .force('charge', d3.forceManyBody().strength(-140))
+        .force('center', d3.forceCenter(w / 2, h / 2))
+        .force('x', d3.forceX(w / 2).strength(.05))
+        .force('y', d3.forceY(h / 2).strength(.07))
+        .force('collision', d3.forceCollide(24));
+
+      sim.on('tick', () => {
+        linkSel
+          .attr('x1', d => cx(d.source.x, w)).attr('y1', d => cy(d.source.y, h))
+          .attr('x2', d => cx(d.target.x, w)).attr('y2', d => cy(d.target.y, h));
+        nodeSel.attr('transform', d => `translate(${cx(d.x, w)},${cy(d.y, h)})`);
+      });
+    }
+
+    const cx = (v, w) => Math.max(12, Math.min(w - 12, v));
+    const cy = (v, h) => Math.max(10, Math.min(h - 10, v));
+
+    // ── Tab & Card ──
+    function switchTab(tab) {
+      document.getElementById('tabCard').classList.toggle('active', tab === 'card');
+      document.getElementById('tabGraph').classList.toggle('active', tab === 'graph');
+      document.getElementById('cardPanel').style.display = tab === 'card' ? 'flex' : 'none';
+      document.getElementById('graphSvgWrap').style.display = tab === 'graph' ? 'block' : 'none';
+      if (tab === 'graph') renderGraph();
+    }
+
+    function renderCard() {
+      const idea = currentId ? getIdea(currentId) : null;
+      const cardEmpty = document.getElementById('cardEmpty');
+      const cardContent = document.getElementById('cardContent');
+      const cardGenBtn = document.getElementById('cardGenBtn');
+      if (!cardEmpty) return;
+
+      if (!idea) {
+        cardEmpty.style.display = 'flex';
+        cardContent.style.display = 'none';
+        if (cardGenBtn) cardGenBtn.style.display = 'none';
+        return;
+      }
+
+      if (idea.card) {
+        cardEmpty.style.display = 'none';
+        cardContent.style.display = 'flex';
+        document.getElementById('cardCore').textContent = idea.card.core || '';
+        document.getElementById('cardBranches').innerHTML =
+          (idea.card.branches || []).map(b => `<span class="card-chip">${esc(b)}</span>`).join('');
+        document.getElementById('cardTensions').textContent = idea.card.tensions || '';
+        document.getElementById('cardNext').textContent = idea.card.next || '';
+      } else {
+        cardEmpty.style.display = 'flex';
+        cardContent.style.display = 'none';
+        const chatLen = (idea.chatHistory || []).length;
+        if (cardGenBtn) cardGenBtn.style.display = chatLen >= 4 ? 'block' : 'none';
+      }
+    }
+
+    async function generateIdeaCard(auto) {
+      if (!currentId || cardGenerating) return;
+      const idea = getIdea(currentId);
+      if (!idea) return;
+      const history = idea.chatHistory || [];
+      if (history.length < 2) return;
+
+      cardGenerating = true;
+      const cardGenBtn = document.getElementById('cardGenBtn');
+      if (cardGenBtn) { cardGenBtn.disabled = true; cardGenBtn.textContent = '整理中…'; }
+      // Show loading state in card area
+      const cardEmpty = document.getElementById('cardEmpty');
+      const cardContent = document.getElementById('cardContent');
+      const regenBtn = document.querySelector('.card-regen-btn');
+      if (regenBtn) { regenBtn.disabled = true; regenBtn.textContent = '整理中…'; }
+      if (cardContent && cardContent.style.display !== 'none') {
+        // Already has a card — show spinner overlay on regen btn, keep content visible
+      } else if (cardEmpty) {
+        // Show a simple loading text in the empty area
+        cardEmpty.querySelector('.card-empty-text').textContent = '正在随手整理思路…';
+      }
+
+      const conversation = history.map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`).join('\n');
+      try {
+        let res = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 400,
+            messages: [
+              {
+                role: 'system',
+                content: `从以下对话中提炼一张点子卡，返回JSON，不要任何markdown包裹，branches数组包含3到5个方向（根据对话丰富程度决定）：
+{"core":"核心想法，1-2句，第一人称，像日记里的发现","branches":["方向1，10字内","方向2，10字内","方向3，10字内"],"tensions":"最大的矛盾或未解决问题，1句话","next":"最小的一步行动，10字内，具体可执行"}`
+              },
+              { role: 'user', content: `点子名：${idea.name}\n\n对话：\n${conversation}` }
+            ]
+          })
+        });
+        const data = await res.json();
+        const raw = data.choices[0].message.content.replace(/```json|```/g, '').trim();
+        idea.card = JSON.parse(raw);
+        idea.updatedAt = Date.now();
+        saveIdeas();
+        renderCard();
+        switchTab('card');
+      } catch (e) {
+        if (cardGenBtn) { cardGenBtn.disabled = false; cardGenBtn.textContent = '整理成卡片'; }
+        if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = '重新整理'; }
+        if (cardEmpty) cardEmpty.querySelector('.card-empty-text').textContent = '聊上几句，我来帮你整理思路。';
+        if (!auto) alert('生成点子卡失败，请重试');
+      } finally {
+        cardGenerating = false;
+        if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = '重新整理'; }
+      }
+    }
+
+    function copyCard() {
+      const idea = currentId ? getIdea(currentId) : null;
+      if (!idea || !idea.card) return;
+      const c = idea.card;
+      const text = `# ${idea.name}\n\n**核心想法**\n${c.core}\n\n**关键方向**\n${(c.branches || []).map(b => '· ' + b).join('\n')}\n\n**未解决的张力**\n${c.tensions}\n\n**最小一步**\n${c.next}`;
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          const btn = document.querySelector('.card-copy-btn');
+          if (btn) { btn.textContent = '✓ 已复制'; setTimeout(() => btn.textContent = '复制卡片', 2000); }
+        })
+        .catch(() => alert('复制失败，请手动复制'));
+    }
+
+    // ── Node & Todo Methods ──
+    function toggleTodoNode(nodeId) {
+      const idea = getIdea(currentId);
+      if (!idea) return;
+      const node = idea.nodes.find(n => n.id === nodeId);
+      if (!node || node.type !== 'todo' || node.done) return; // Only allow checking off, not unchecking
+
+      node.done = true;
+      idea.updatedAt = Date.now();
+      saveIdeas();
+      renderGraph();
+
+      // Fire confetti
+      if (window.confetti) {
+        confetti({
+          particleCount: 60,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#e8b86d', '#8fba6e', '#c47a3a']
+        });
+      }
+
+      // Auto-send message describing the completion
+      document.getElementById('chatInput').value = `我刚刚完成了这个行动：【${node.keyword}】。下一步该做什么？`;
+      sendMessage();
+    }
+
+    // ── Chat ──
+    async function sendMessage(e) {
+      if (e) e.stopPropagation(); // prevent clicking send from toggling drawer multiple times if bubbling
+      expandDrawerIfNot();
+
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text || loading) return;
+      if (!apiKey) { openModal('apiModal'); return; }
+
+      input.value = ''; input.style.height = 'auto';
+      appendMsg('user', text, false);
+      chatHistory.push({ role: 'user', content: text });
+
+      const idea = currentId ? getIdea(currentId) : null;
+      if (idea) { idea.chatHistory = chatHistory; saveIdeas(); }
+
+      setLoad(true);
+      const ctx = idea
+        ? `当前点子：「${idea.name}」，状态：${{ seed: '萌芽', grow: '推进中', pause: '搁置' }[idea.status]}，已有${idea.nodes.length}个节点。`
+        : '用户还未选择点子。';
+
+      const msgs = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'msg ai';
+      div.innerHTML = `<div class="msg-who">抽屉</div><div class="msg-bubble ai-stream-bubble"></div>`;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+      const bubble = div.querySelector('.ai-stream-bubble');
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s max connection/hang timeout
+
+        const requestBody = {
+          model: 'Qwen/Qwen2.5-72B-Instruct',
+          max_tokens: 800,
+          stream: true,
+          messages: [
+            {
+              role: 'system', content: `你是"抽屉"——用户的思维速记员。
+
+${ctx}
+
+【目标】
+在用户灵感还热着的时候，帮他/她把脑子里的东西全倒出来、挖完、抓牢。不要挑战，不要教学，不要长篇大论。你是一个专注的倾听者和发掘者。
+
+【做法】
+- 追问细节：「这个X具体是什么意思？」
+- 寻找盲区：「你刚才同时提到了A和B，它们之间有联系吗？」
+- 拓宽边界：「除了这个方向，还有什么你没覆盖到的？」
+- 如果想法已经聊得差不多了，直接抛出一个"最小的一步行动"，并建议用户把它钉为"待办"。
+
+【说话风格】
+极其简洁，口语化，像一个聪明的活人跟你对话。
+绝对不列清单，不总结（除非用户要求），不说教，不说"非常好""很棒"。每次只问一个精准的问题，推着用户往下说。` },
+            ...chatHistory
+          ]
+        };
+
+        let res = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          const errText = await res.text();
+          let errMsg = '请求失败: ' + res.status;
+          try {
+            const e = JSON.parse(errText);
+            errMsg = e.error?.message || errMsg;
+          } catch (e) { }
+          throw new Error(errMsg);
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let aiText = '';
+        let aiThink = '';
+        let buffer = '';
+
+        while (true) {
+          // Read with 30s timeout per chunk to prevent infinite hangs
+          const readResult = await Promise.race([
+            reader.read(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('API Streaming timeout (No data for 30s)')), 30000))
+          ]);
+
+          if (readResult.done) break;
+          const value = readResult.value;
+          // Use TextDecoder with stream: true to properly handle chopped utf-8 chars
+          buffer += decoder.decode(value, { stream: true });
+
+          let eolIndex;
+          while ((eolIndex = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, eolIndex).trim();
+            buffer = buffer.slice(eolIndex + 1);
+
+            if (line === '') continue;
+            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.choices[0].delta.reasoning_content) {
+                  const r = data.choices[0].delta.reasoning_content;
+                  if (r) aiThink += r;
+                }
+                if (data.choices[0].delta.content) {
+                  aiText += data.choices[0].delta.content;
+                }
+
+                let displayThink = aiThink;
+                let displayText = aiText;
+                const thinkMatch = aiText.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
+                if (thinkMatch) {
+                  displayThink = (aiThink ? aiThink + '\n' : '') + thinkMatch[1];
+                  displayText = aiText.replace(/<think>[\s\S]*?(?:<\/think>|$)/, '');
+                }
+
+                let htmlStr = '';
+                if (displayThink) {
+                  htmlStr += `<details class="think-box"><summary>AI 思考过程</summary><div class="think-content">${fmt(displayThink)}</div></details><br>`;
+                }
+                htmlStr += fmt(displayText);
+                bubble.innerHTML = htmlStr;
+                msgs.scrollTop = msgs.scrollHeight;
+              } catch (e) {
+                console.error('SSE JSON parsing error:', e, line);
+                // DON'T throw, just skip parsing this chunk, so the UI doesn't freeze
+              }
+            }
+          }
+        }
+
+        const currentIdx = chatHistory.length; // index where AI msg will land
+        chatHistory.push({ role: 'assistant', content: aiText });
+        if (idea) { idea.chatHistory = chatHistory; saveIdeas(); }
+
+        // Auto-generate card after 4 rounds (8 msgs), first time only
+        if (idea && !idea.card && chatHistory.length >= 8) {
+          setTimeout(() => generateIdeaCard(true), 800);
+        } else {
+          renderCard();
+        }
+
+        if (chatHistory.length >= 3) {
+          const btnsDiv = document.createElement('div');
+          btnsDiv.style.display = 'flex'; btnsDiv.style.gap = '10px';
+
+          const pinBtn = document.createElement('button');
+          pinBtn.className = 'pin-btn';
+          pinBtn.textContent = '↓ 钉入时间线';
+          pinBtn.onclick = function () { pinToTimeline(this, false, currentIdx); };
+
+          const todoBtn = document.createElement('button');
+          todoBtn.className = 'todo-btn';
+          todoBtn.textContent = '☐ 钉为待办';
+          todoBtn.onclick = function () { pinToTimeline(this, true, currentIdx); };
+
+          btnsDiv.appendChild(pinBtn);
+          btnsDiv.appendChild(todoBtn);
+          div.appendChild(btnsDiv);
+        }
+
+      } catch (e) {
+        bubble.innerHTML = fmt(`出了点问题：${e.message}`);
+      } finally { setLoad(false); }
+    }
+
+    async function pinToTimeline(btn, isTodo, msgIdx) {
+      if (!currentId) { alert('请先选择一个点子'); return; }
+      btn.disabled = true; btn.textContent = '提炼中…';
+
+      const idea = getIdea(currentId);
+      const historyToUse = idea.chatHistory || chatHistory;
+      const endIdx = typeof msgIdx === 'number' ? msgIdx : historyToUse.length - 1;
+      const startIdx = Math.max(0, endIdx - 5);
+      const recent = historyToUse.slice(startIdx, endIdx + 1).map(m => `${m.role === 'user' ? '你' : 'AI'}: ${m.content}`).join('\n');
+      try {
+        let res = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 150,
+            messages: [
+              {
+                role: 'system', content: isTodo
+                  ? `从最后几轮对话中提炼出一个具体、可执行的待办事项（Action Item），返回JSON，不要任何markdown包裹：
+{"text":"不超过25字，描述要做的具体行为","keyword":"2-5字的核心短语，如：测试 DeepSeek，搭建脚手架"}`
+                  : `从对话提炼一个灵感或总结节点，返回JSON，不要任何markdown包裹：
+{"text":"15-35字，第一人称，像日记里的一个发现","keyword":"2-4字的核心词组，会显示在图谱节点上"}` },
+              { role: 'user', content: `提炼：\n${recent}` }
+            ]
+          })
+        });
+        const data = await res.json();
+        const raw = data.choices[0].message.content.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(raw);
+
+        const idea = getIdea(currentId);
+        idea.nodes.push({
+          id: Date.now(), text: parsed.text, type: isTodo ? 'todo' : 'ai', keyword: parsed.keyword,
+          done: false, time: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        });
+        idea.updatedAt = Date.now();
+        saveIdeas(); renderList(); renderGraph();
+
+        btn.textContent = '✓ 已钉入';
+        btn.style.borderColor = 'var(--accent3)';
+        btn.style.color = 'var(--accent3)';
+      } catch (e) {
+        btn.disabled = false; btn.textContent = isTodo ? '☐ 钉为待办' : '↓ 钉入时间线';
+        alert('提炼失败，请重试');
+      }
+    }
+
+    // ── DOM helpers ──
+    function appendMsg(role, text, showPin, msgIdx) {
+      const msgs = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = `msg ${role}`;
+      let actions = '';
+      if (showPin && role === 'ai') {
+        const idxParam = typeof msgIdx === 'number' ? msgIdx : 'null';
+        actions = `<div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="pin-btn" style="margin-top:0;" onclick="pinToTimeline(this, false, ${idxParam})">↓ 钉入时间线</button>
+      <button class="todo-btn" style="margin-top:0;" onclick="pinToTimeline(this, true, ${idxParam})">☐ 钉为待办</button>
+    </div>`;
+      }
+      div.innerHTML = `<div class="msg-who">${role === 'user' ? '你' : '抽屉'}</div><div class="msg-bubble">${fmt(text)}</div>${actions}`;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    let typingEl = null;
+    function showTyping() {
+      const msgs = document.getElementById('messages');
+      typingEl = document.createElement('div');
+      typingEl.className = 'msg ai';
+      typingEl.innerHTML = `<div class="msg-who">抽屉</div><div class="typing"><span class="tdot"></span><span class="tdot"></span><span class="tdot"></span></div>`;
+      msgs.appendChild(typingEl); msgs.scrollTop = msgs.scrollHeight;
+    }
+    function removeTyping() { if (typingEl) { typingEl.remove(); typingEl = null; } }
+    function setLoad(v) { loading = v; document.getElementById('sendBtn').disabled = v; document.getElementById('chatInput').disabled = v; }
+    function fmt(t) { return t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); }
+    function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    function initTextarea() {
+      const ta = document.getElementById('chatInput');
+      ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 160) + 'px'; });
+      ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+    }
+
+
+  </script>
+</body>
+
+</html>
