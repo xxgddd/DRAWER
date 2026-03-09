@@ -11,10 +11,9 @@ let cardGenerating = false;
 
 // ── Init ──
 window.addEventListener('load', () => {
-  // 如果在本地运行且没 Key，弹窗；在 Netlify 运行则不强制弹窗
-  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
-  if (apiKey || !isLocal) closeModal('apiModal');
-  else openModal('apiModal');
+  // 如果本地没有 Key，无论是哪种环境都弹窗提示
+  if (!apiKey) openModal('apiModal');
+  else closeModal('apiModal');
   applyFontSize(fontSize);
   renderList();
   initTextarea();
