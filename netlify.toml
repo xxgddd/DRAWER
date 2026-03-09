@@ -1,11 +1,12 @@
 [build]
   publish = "."
 
-# Netlify 函数配置
-[functions]
-  directory = "netlify/functions"
+# 将 /api/chat 路径指向 Edge Function
+[[edge_functions]]
+  path = "/api/chat"
+  function = "chat"
 
-# 将 /api/chat 转发到 Netlify 函数
+# 这里的 redirects 也可以留着作为兜底
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
