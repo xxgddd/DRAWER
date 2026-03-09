@@ -44,25 +44,37 @@
     ```
 7.  回到终端运行这些命令。现在你的代码已经安全地传到了 GitHub 上。
 
-### 第三步：部署到 Vercel (云端)
+### 第三步：云端部署 (二选一)
 
-1.  注册并登录 [Vercel](https://vercel.com/)（直接用 GitHub 账号登录最方便）。
+#### 选项 A：部署到 Vercel (首选)
+1.  注册并登录 [Vercel](https://vercel.com/)（直接用 GitHub 登录最方便）。
 2.  点击 **Add New...** -> **Project**。
-3.  在列表中找到你刚才创建的 `drawer` 仓库，点击 **Import**。
-4.  <strong>关键步骤：设置 API Key</strong>
-    *   展开 **Environment Variables** (环境变量) 区域。
-    *   **Key** 输入：`SILICONFLOW_API_KEY`
-    *   **Value** 输入：你的 SiliconFlow API Key (即那个 sk- 开头的长字符串)。
-    *   点击 **Add**。
+3.  导入你创建的 `drawer` 仓库。
+4.  **关键：设置环境变量**
+    *   展开 **Environment Variables**。
+    *   **Key**: `SILICONFLOW_API_KEY` | **Value**: 你的密钥。
 5.  点击 **Deploy**。
+
+#### 选项 B：部署到 Zeabur (备选，若 Vercel 访问困难)
+Zeabur 对中文环境友好，且配置极其简单。
+1.  登录 [Zeabur](https://zeabur.com/)。
+2.  点击 **"创建项目"** -> **"GitHub"**，导入你的仓库。
+3.  在服务详情页，点击 **"变量" (Variables)**。
+4.  添加 `SILICONFLOW_API_KEY`并填入密钥。
+5.  在 **"域名" (Domains)** 选项卡点击生成一个免费域名即可。
+
+#### 选项 C：部署到 Netlify
+1.  登录 [Netlify](https://www.netlify.com/)。
+2.  点击 **"Add new site"** -> **"Import an existing project"**。
+3.  配置页面找到 **"Environment variables"**，添加 `SILICONFLOW_API_KEY`。
+4.  点击 **"Deploy"**。
 
 ### 第四步：在手机上安装 (PWA)
 
-1.  部署完成后，Vercel 会给你一个网址（如 `drawer-xxx.vercel.app`）。
-2.  在手机浏览器（iPhone 建议使用 Safari，安卓建议使用 Chrome）中打开这个网址。
-3.  **iPhone**: 点击浏览器底部的「分享」图标，选择 **「添加到主屏幕」** (Add to Home Screen)。
-4.  **安卓**: 点击右上角三个点，选择 **「安装应用」** 或 「添加到主屏幕」。
+1.  使用手机浏览器打开你生成的域名（如 `drawer.zeabur.app` 或 `xxx.vercel.app`）。
+2.  **iPhone**: 点击「分享」 -> **「添加到主屏幕」**。
+3.  **安卓**: 点击菜单 -> **「安装应用」**。
 
 ---
 
-**现在，「抽屉」就像一个原生的 App 一样躺在你的手机桌面上，且所有的靈感交互都经过加密代理，非常安全！** 🌿
+**现在，「抽屉」就像一个原生的 App 一样躺在你的手机桌面上。无论是在地铁还是咖啡厅，想记点子了直接点开。对话内容实时通过云端加密转发，而你的点子库永远安全地留在你本地！** 🌿

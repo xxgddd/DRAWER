@@ -11,7 +11,9 @@ let cardGenerating = false;
 
 // ── Init ──
 window.addEventListener('load', () => {
-  if (apiKey) closeModal('apiModal');
+  // 如果在本地运行且没 Key，弹窗；在 Netlify 运行则不强制弹窗
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
+  if (apiKey || !isLocal) closeModal('apiModal');
   else openModal('apiModal');
   applyFontSize(fontSize);
   renderList();
@@ -614,7 +616,10 @@ async function sendMessage(e) {
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text || loading) return;
-  if (!apiKey) { openModal('apiModal'); return; }
+
+  // 检查是否可以使用云端代理
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
+  if (!apiKey && isLocal) { openModal('apiModal'); return; }
 
   input.value = ''; input.style.height = 'auto';
   appendMsg('user', text, false);

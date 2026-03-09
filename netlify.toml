@@ -1,0 +1,12 @@
+[build]
+  publish = "."
+
+# Netlify 函数配置
+[functions]
+  directory = "netlify/functions"
+
+# 将 /api/chat 转发到 Netlify 函数
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
