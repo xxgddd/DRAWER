@@ -194,17 +194,6 @@ async function selectIdea(id) {
   document.getElementById('ideaBarName').textContent = idea.name;
   document.getElementById('statusSel').value = idea.status;
 
-  const drawer = document.getElementById('drawerPanel');
-  const drawerBtn = document.getElementById('drawerToggleBtn');
-  if (chatHistory.length > 0) {
-    drawer.classList.add('open');
-    drawer.classList.remove('closed');
-    if (drawerBtn) drawerBtn.innerHTML = '↓ 收起对话';
-  } else {
-    drawer.classList.add('closed');
-    drawer.classList.remove('open');
-    if (drawerBtn) drawerBtn.innerHTML = '↑ 展开对话';
-  }
 
   // Seed memory (only for old ideas that lack chatHistory)
   if (idea.nodes.length > 0 && (!chatHistory || chatHistory.length === 0)) {
@@ -241,6 +230,19 @@ async function selectIdea(id) {
       chatHistory.push({ role: 'assistant', content: hook });
       saveIdeas();
     }
+  }
+
+  // 最后根据状态决定对话抽屉是否展开
+  const drawer = document.getElementById('drawerPanel');
+  const drawerBtn = document.getElementById('drawerToggleBtn');
+  if (chatHistory.length > 0 || idea.nodes.length === 0) {
+    drawer.classList.add('open');
+    drawer.classList.remove('closed');
+    if (drawerBtn) drawerBtn.innerHTML = '↓ 收起对话';
+  } else {
+    drawer.classList.add('closed');
+    drawer.classList.remove('open');
+    if (drawerBtn) drawerBtn.innerHTML = '↑ 展开对话';
   }
 }
 
@@ -560,7 +562,16 @@ async function generateIdeaCard(auto) {
     idea.updatedAt = Date.now();
     saveIdeas();
     renderCard();
-    switchTab('card');
+    
+    if (auto) {
+      const msg = '针对刚才聊的内容，我为你汇总了一份【点子卡片】，就在上方标签页里。有空记得去“擦擦灰”看看？🌿';
+      appendMsg('ai', msg, false);
+      idea.chatHistory = idea.chatHistory || [];
+      idea.chatHistory.push({ role: 'assistant', content: msg });
+      saveIdeas();
+    } else {
+      switchTab('card');
+    }
   } catch (e) {
     if (cardGenBtn) { cardGenBtn.disabled = false; cardGenBtn.textContent = '整理成卡片'; }
     if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = '重新整理'; }
