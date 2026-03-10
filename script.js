@@ -11,9 +11,9 @@ let cardGenerating = false;
 
 // ── Init ──
 window.addEventListener('load', () => {
-  // 如果本地没有 Key，无论是哪种环境都弹窗提示
-  if (!apiKey) openModal('apiModal');
-  else closeModal('apiModal');
+  // 小范围测试期间暂时停用 Key 门槛
+  // if (!apiKey) openModal('apiModal');
+  // else closeModal('apiModal');
   applyFontSize(fontSize);
   renderList();
   initTextarea();
@@ -672,9 +672,9 @@ async function sendMessage(e) {
   const text = input.value.trim();
   if (!text || loading) return;
 
-  // 检查是否可以使用云端代理
-  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
-  if (!apiKey && isLocal) { openModal('apiModal'); return; }
+  // 检查是否可以使用云端代理 (小范围测试期间注释掉门槛)
+  // const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
+  // if (!apiKey && isLocal) { openModal('apiModal'); return; }
 
   input.value = ''; input.style.height = 'auto';
   appendMsg('user', text, false);

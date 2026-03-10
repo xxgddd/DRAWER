@@ -18,6 +18,9 @@ export default async (request, context) => {
   let activeKey = null;
   if (clientKey) {
     activeKey = clientKey;
+  } else if (serverKey) {
+    // 小范围测试期间：即使没有 accessCode，只要服务端配置了 Key 就直接使用
+    activeKey = `Bearer ${serverKey}`;
   } else if (serverAccessCode && accessCode === serverAccessCode) {
     activeKey = serverKey ? `Bearer ${serverKey}` : null;
   }
