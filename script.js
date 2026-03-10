@@ -17,6 +17,7 @@ window.addEventListener('load', () => {
   applyFontSize(fontSize);
   renderList();
   initTextarea();
+  initQuickCapture();
 });
 
 // ── Modals ──
@@ -112,6 +113,58 @@ function initTextarea() {
   });
 }
 
+function initQuickCapture() {
+  const ta = document.getElementById('quickCaptureInput');
+  if (!ta) return;
+  ta.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+  });
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleQuickCapture();
+    }
+  });
+  // Auto focus if no idea is selected
+  if (!currentId) setTimeout(() => ta.focus(), 100);
+}
+
+async function handleQuickCapture() {
+  const ta = document.getElementById('quickCaptureInput');
+  const text = ta.value.trim();
+  if (!text) return;
+
+  // 1. Create temporary name
+  const name = text.length > 12 ? text.slice(0, 12) + '...' : text;
+  
+  // 2. Create the idea
+  const idea = { 
+    id: Date.now(), 
+    name, 
+    status: 'seed', 
+    nodes: [], 
+    chatHistory: [], 
+    createdAt: Date.now(), 
+    updatedAt: Date.now() 
+  };
+  
+  ideas.unshift(idea);
+  saveIdeas();
+  ta.value = '';
+  
+  // 3. Switch to the view
+  await selectIdea(idea.id);
+  
+  // 4. Send the text as the first message
+  const chatInput = document.getElementById('chatInput');
+  if (chatInput) {
+    chatInput.value = text;
+    // We need to trigger sendMessage manually
+    sendMessage();
+  }
+}
+
 // ── Ideas ──
 function saveIdeas() { localStorage.setItem('drawer_ideas', JSON.stringify(ideas)); }
 function getIdea(id) { return ideas.find(i => i.id === id); }
@@ -194,6 +247,17 @@ async function selectIdea(id) {
   document.getElementById('ideaBarName').textContent = idea.name;
   document.getElementById('statusSel').value = idea.status;
 
+  const drawer = document.getElementById('drawerPanel');
+  const drawerBtn = document.getElementById('drawerToggleBtn');
+  if (chatHistory.length > 0) {
+    drawer.classList.add('open');
+    drawer.classList.remove('closed');
+    if (drawerBtn) drawerBtn.innerHTML = '↓ 收起对话';
+  } else {
+    drawer.classList.add('closed');
+    drawer.classList.remove('open');
+    if (drawerBtn) drawerBtn.innerHTML = '↑ 展开对话';
+  }
 
   // Seed memory (only for old ideas that lack chatHistory)
   if (idea.nodes.length > 0 && (!chatHistory || chatHistory.length === 0)) {
@@ -230,19 +294,6 @@ async function selectIdea(id) {
       chatHistory.push({ role: 'assistant', content: hook });
       saveIdeas();
     }
-  }
-
-  // 最后根据状态决定对话抽屉是否展开
-  const drawer = document.getElementById('drawerPanel');
-  const drawerBtn = document.getElementById('drawerToggleBtn');
-  if (chatHistory.length > 0 || idea.nodes.length === 0) {
-    drawer.classList.add('open');
-    drawer.classList.remove('closed');
-    if (drawerBtn) drawerBtn.innerHTML = '↓ 收起对话';
-  } else {
-    drawer.classList.add('closed');
-    drawer.classList.remove('open');
-    if (drawerBtn) drawerBtn.innerHTML = '↑ 展开对话';
   }
 }
 
@@ -562,16 +613,7 @@ async function generateIdeaCard(auto) {
     idea.updatedAt = Date.now();
     saveIdeas();
     renderCard();
-    
-    if (auto) {
-      const msg = '针对刚才聊的内容，我为你汇总了一份【点子卡片】，就在上方标签页里。有空记得去“擦擦灰”看看？🌿';
-      appendMsg('ai', msg, false);
-      idea.chatHistory = idea.chatHistory || [];
-      idea.chatHistory.push({ role: 'assistant', content: msg });
-      saveIdeas();
-    } else {
-      switchTab('card');
-    }
+    switchTab('card');
   } catch (e) {
     if (cardGenBtn) { cardGenBtn.disabled = false; cardGenBtn.textContent = '整理成卡片'; }
     if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = '重新整理'; }

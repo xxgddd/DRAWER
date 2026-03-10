@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>抽屉 Drawer - 捕捉你的灵感</title>
-  
+
   <!-- PWA Meta Tags -->
   <meta name="theme-color" content="#1a1510">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,14 +14,17 @@
   <link rel="manifest" href="manifest.json">
 
   <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;700&family=Space+Mono&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;700&family=Space+Mono&display=swap"
+    rel="stylesheet">
+
   <!-- External JS -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
   <div class="app">
@@ -51,11 +55,17 @@
         <div class="mobile-hdr-title">抽屉 Drawer</div>
       </div>
 
-      <!-- No Selection State -->
+      <!-- No Selection State (Quick Capture) -->
       <div class="no-sel" id="noSel">
-        <div class="no-sel-icon">🗄</div>
-        <div class="no-sel-text">拉开抽屉，<br>看看里面藏着什么灵感。</div>
-        <div class="no-sel-hint">点击左侧列表查看点子，<br>或创建一个新的。</div>
+        <div class="quick-capture-container">
+          <textarea id="quickCaptureInput" class="quick-capture-input" placeholder="现在想到了什么？写下来..." rows="1"></textarea>
+          <div class="quick-capture-hint">输入文字并回车，开启灵感捕获</div>
+          
+          <div style="margin-top: 40px; opacity: 0.3;">
+            <div class="no-sel-icon">🗄️</div>
+            <div class="no-sel-hint">或从左侧侧边栏查看过往点子</div>
+          </div>
+        </div>
       </div>
 
       <!-- Idea View -->
@@ -83,12 +93,13 @@
           <div class="card-empty" id="cardEmpty">
             <div class="card-empty-icon">📝</div>
             <div class="card-empty-text">聊上几句，我来帮你整理思路。</div>
-            <button class="card-gen-btn" id="cardGenBtn" style="display:none;" onclick="generateIdeaCard(false)">整理成卡片</button>
+            <button class="card-gen-btn" id="cardGenBtn" style="display:none;"
+              onclick="generateIdeaCard(false)">整理成卡片</button>
           </div>
 
           <div class="card-content" id="cardContent" style="display:none;">
             <div class="card-core-text" id="cardCore"></div>
-            
+
             <div class="card-branches-wrap">
               <div class="card-section-label">关键方向</div>
               <div class="card-chips" id="cardBranches"></div>
@@ -151,7 +162,8 @@
       <p class="modal-desc">请输入站长提供的 <b>访问码</b>，或填入你自己的 <b>SiliconFlow API Key</b>。数据仅存在于本地。</p>
       <input type="password" class="modal-input" id="apiKeyInput" placeholder="访问码 或 sk-...">
       <button class="modal-btn" onclick="saveApiKey()">保存并开始</button>
-      <div class="modal-note">没有 Key？去 <a href="https://siliconflow.cn/" target="_blank" style="color:var(--accent)">siliconflow.cn</a> 免费申请一个。</div>
+      <div class="modal-note">没有 Key？去 <a href="https://siliconflow.cn/" target="_blank"
+          style="color:var(--accent)">siliconflow.cn</a> 免费申请一个。</div>
     </div>
   </div>
 
@@ -168,7 +180,7 @@
   <div class="overlay hidden" id="settingsModal">
     <div class="modal">
       <h2>应用设置</h2>
-      
+
       <div class="setting-item" style="margin-bottom:20px;">
         <label>API Key</label>
         <input type="password" class="modal-input" id="newApiKeyInput" placeholder="sk-...">
@@ -176,7 +188,8 @@
 
       <div class="setting-item" style="margin-bottom:20px;">
         <label>显示字号</label>
-        <select class="modal-input" id="fontSizeSel" style="background:var(--bg); color:var(--text); border:1px solid var(--border2);">
+        <select class="modal-input" id="fontSizeSel"
+          style="background:var(--bg); color:var(--text); border:1px solid var(--border2);">
           <option value="small">偏小</option>
           <option value="medium">适中</option>
           <option value="large">偏大</option>
@@ -200,4 +213,5 @@
     }
   </script>
 </body>
+
 </html>

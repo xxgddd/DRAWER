@@ -742,6 +742,59 @@ body::before {
   padding: 40px;
 }
 
+.quick-capture-container {
+  max-width: 500px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  animation: fadeIn 0.6s ease;
+}
+
+.quick-capture-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 20px;
+  font-weight: 300;
+  line-height: 1.6;
+  padding: 24px;
+  resize: none;
+  outline: none;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.quick-capture-input:focus {
+  border-color: var(--accent);
+  background: var(--surface2);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.quick-capture-input::placeholder {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+.quick-capture-hint {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--muted2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .no-sel-icon {
   font-size: 36px;
   opacity: .15;
