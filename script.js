@@ -9,6 +9,21 @@ let graphCollapsed = false;
 let sim = null;
 let cardGenerating = false;
 
+// ── Quota System ──
+const MAX_FREE_MESSAGES = 30;
+function getMessageCount() {
+  const today = new Date().toDateString();
+  const data = JSON.parse(localStorage.getItem('drawer_quota') || '{}');
+  if (data.date !== today) return 0;
+  return data.count || 0;
+}
+function incrementMessageCount() {
+  const today = new Date().toDateString();
+  const count = getMessageCount() + 1;
+  localStorage.setItem('drawer_quota', JSON.stringify({ date: today, count }));
+  return count;
+}
+
 // ── Init ──
 window.addEventListener('load', () => {
   // 小范围测试期间暂时停用 Key 门槛
@@ -676,12 +691,22 @@ async function sendMessage(e) {
   // const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '';
   // if (!apiKey && isLocal) { openModal('apiModal'); return; }
 
+  // 熔断机制：如果没有设置自己的 Key，且超过了每日 30 条的限制
+  if (!apiKey && getMessageCount() >= MAX_FREE_MESSAGES) {
+    alert(`今日可用额度（${MAX_FREE_MESSAGES}条）已用完。\n你可以明天再来，或者在“设置”中填入你自己的 API Key 继续使用。`);
+    openModal('settingsModal');
+    return;
+  }
+
   input.value = ''; input.style.height = 'auto';
   appendMsg('user', text, false);
   chatHistory.push({ role: 'user', content: text });
 
   const idea = currentId ? getIdea(currentId) : null;
   if (idea) { idea.chatHistory = chatHistory; saveIdeas(); }
+
+  // 增加今日计数
+  if (!apiKey) incrementMessageCount();
 
   setLoad(true);
   const ctx = idea
@@ -706,22 +731,24 @@ async function sendMessage(e) {
       stream: true,
       messages: [
         {
-          role: 'system', content: `你是"抽屉"——用户的思维速记员。
+          role: 'system', content: `你是"抽屉"——用户的思维搭档，不是助理。
 
 ${ctx}
 
-【目标】
-在用户灵感还热着的时候，帮他/她把脑子里的东西全倒出来、挖完、抓牢。不要挑战，不要教学，不要长篇大论。你是一个专注的倾听者和发掘者。
+【你的性格】
+犀利、幽默、有主见。你不是来哄用户的，你是来跟他们一起折腾一个想法的。
+遇到离经叛道的、拧巴的、黑暗的想法——不要拉回正轨，往那个方向再走深一步。
+偶尔可以不同意用户，说"我倒觉得你真正想聊的不是这个"。
 
-【做法】
-- 追问细节：「这个X具体是什么意思？」
-- 寻找盲区：「你刚才同时提到了A和B，它们之间有联系吗？」
-- 拓宽边界：「除了这个方向，还有什么你没覆盖到的？」
-- 如果想法已经聊得差不多了，直接抛出一个"最小的一步行动"，并建议用户把它钉为"待办"。
+【你的做法】
+- 先感应这个想法背后的情绪和张力，再问问题。
+- 追问要犀利，不要顺着最安全的路走——找矛盾，找反常，找用户自己没意识到的东西。
+- 可以用类比、可以反问、偶尔可以说一句让用户愣一下的话。
+- 如果想法已经聊透了，抛出一个具体的最小行动，建议钉为待办。
 
-【说话风格】
-极其简洁，口语化，像一个聪明的活人跟你对话。
-绝对不列清单，不总结（除非用户要求），不说教，不说"非常好""很棒"。每次只问一个精准的问题，推着用户往下说。` },
+【禁止】
+不列清单，不总结，不说教，不说"非常好""很棒"，不顺着"善意""正确"这类词往常规方向走。
+每次只说一件事、问一个问题。极其口语，像个聪明的活人。` },
         ...chatHistory
       ]
     };
