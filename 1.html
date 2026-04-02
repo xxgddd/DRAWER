@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抽屉 (Drawer) - 自动演化版</title>
+    <style>
+        :root {
+            --bg-base: #100d0b;
+            --bg-surface: rgba(30, 25, 20, 0.6);
+            --bg-drawer: rgba(20, 16, 13, 0.98);
+            --gold-accent: #d4af37;
+            --gold-muted: #8a732b;
+            --green-accent: #6b8e4e;
+            --text-main: #dfd7c5;
+            --text-muted: #7a7062;
+            --font-serif: 'Noto Serif SC', 'Songti SC', 'STSong', Georgia, serif;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-serif);
+            height: 100vh; overflow: hidden;
+            background-image: radial-gradient(circle at 30% 20%, #201a14 0%, transparent 60%);
+        }
+
+        /* View Management */
+        .view { display: none; height: 100vh; width: 100vw; position: absolute; top: 0; left: 0; }
+        .view.active { display: flex; }
+
+        /* --- View: Home (森林大厅) --- */
+        #view-home { flex-direction: column; padding: 60px 10%; box-sizing: border-box; overflow-y: auto; }
+        .home-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 50px; border-bottom: 1px solid rgba(212, 175, 55, 0.2); padding-bottom: 20px; }
+        .home-header h1 { font-size: 2rem; margin: 0; letter-spacing: 4px; }
+        .grid-trees { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
+        
+        .tree-card {
+            background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px; padding: 30px; cursor: pointer; transition: var(--transition);
+            display: flex; flex-direction: column; gap: 15px; position: relative; overflow: hidden;
+        }
+        .tree-card:hover { transform: translateY(-5px); border-color: rgba(212, 175, 55, 0.3); background: rgba(255,255,255,0.04); }
+        .tree-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--gold-accent), transparent); opacity: 0; transition: var(--transition); }
+        .tree-card:hover::before { opacity: 1; }
+        
+        .tree-title { font-size: 1.2rem; color: var(--gold-accent); font-family: var(--font-sans); margin: 0; }
+        .tree-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; }
+        .tree-preview { font-size: 0.9rem; color: var(--text-main); opacity: 0.8; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+        .btn-new-tree {
+            background: rgba(212, 175, 55, 0.1); border: 1px dashed var(--gold-muted);
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            color: var(--gold-accent); font-family: var(--font-sans); cursor: pointer; transition: var(--transition);
+            min-height: 180px; font-size: 1.1rem; letter-spacing: 2px;
+        }
+        .btn-new-tree:hover { background: rgba(212, 175, 55, 0.2); border-style: solid; }
+
+        /* --- View: Workspace (对话与抽屉) --- */
+        #view-workspace { flex-direction: row; position: relative; }
+        
+        /* Left Column (Chat) */
+        .left-col { 
+            flex: 1; display: flex; flex-direction: column; padding: 30px 80px 30px 40px; 
+            max-width: 800px; margin: 0 auto; box-sizing: border-box;
+        }
+
+        /* Right Column (Hover Drawer) */
+        .right-col { 
+            position: fixed; right: 0; top: 0; bottom: 0; width: 480px; 
+            background: var(--bg-drawer); backdrop-filter: blur(15px); border-left: 1px solid rgba(212, 175, 55, 0.1);
+            transform: translateX(calc(100% - 150px)); /* 修改：默认微露 150px 供标签显示 */
+            transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: 100; display: flex; flex-direction: column; box-shadow: -10px 0 40px rgba(0,0,0,0.5);
+        }
+        .right-col:hover { transform: translateX(0); } /* 鼠标进入完整拉开 */
+
+        .drawer-handle {
+            position: absolute; left: 0; top: 0; bottom: 0; width: 40px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: w-resize; border-right: 1px solid rgba(255,255,255,0.02);
+            background: rgba(20, 16, 13, 0.98); z-index: 10;
+        }
+        .handle-text {
+            writing-mode: vertical-rl; text-orientation: mixed; color: var(--gold-muted); letter-spacing: 4px; font-family: var(--font-sans); font-size: 0.85rem; text-transform: uppercase;
+        }
+        .drawer-content { margin-left: 40px; padding: 40px 30px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Common Elements */
+        h1 { font-size: 1.2rem; font-weight: normal; margin: 0; color: var(--gold-accent); letter-spacing: 2px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(212, 175, 55, 0.1); transition: var(--transition); }
+        .btn-ghost { background: transparent; border: none; color: var(--text-muted); padding: 6px 10px; cursor: pointer; font-family: var(--font-sans); font-size: 0.85rem; transition: var(--transition);}
+        .btn-ghost:hover { color: var(--text-main); }
+
+        /* Chat Area */
+        .chat-history { flex: 1; overflow-y: auto; padding-right: 20px; display: flex; flex-direction: column; gap: 30px; scrollbar-width: none; }
+        .chat-history::-webkit-scrollbar { display: none; }
+        
+        .message { max-width: 90%; line-height: 1.8; font-size: 1.05rem; position: relative; }
+        .message.user { align-self: flex-end; color: var(--green-accent); font-family: var(--font-sans); text-align: right; }
+        .message.ai { align-self: flex-start; color: var(--text-main); }
+        .message.ai::before { content: ''; position: absolute; left: -15px; top: 8px; bottom: 8px; width: 2px; background: var(--gold-muted); opacity: 0.3; }
+        
+        /* Auto Capture Notification */
+        .auto-capture-badge {
+            display: inline-flex; align-items: center; gap: 8px; margin-top: 10px;
+            background: rgba(107, 142, 78, 0.1); border: 1px solid rgba(107, 142, 78, 0.3); color: var(--green-accent);
+            padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; font-family: var(--font-sans);
+            animation: slideIn 0.5s ease;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Input Area */
+        .input-area { margin-top: 20px; position: relative; background: var(--bg-surface); border-radius: 8px; padding: 2px; border: 1px solid rgba(255,255,255,0.03); }
+        textarea {
+            width: 100%; background: transparent; border: none; color: var(--text-main);
+            padding: 15px 80px 15px 15px; font-family: var(--font-sans); font-size: 1rem; line-height: 1.5;
+            resize: none; height: 90px; box-sizing: border-box; outline: none;
+        }
+        .send-btn {
+            position: absolute; right: 10px; bottom: 10px; background: rgba(255,255,255,0.1); color: var(--text-main); border: none;
+            padding: 6px 16px; border-radius: 4px; cursor: pointer; font-family: var(--font-sans); font-size: 0.85rem; transition: var(--transition);
+        }
+        .send-btn:hover { background: var(--text-main); color: var(--bg-base); }
+        .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Drawer Tree List */
+        .drawer-list { 
+            flex: 1; overflow-y: auto; padding-right: 10px; padding-bottom: 50px;
+            display: flex; flex-direction: column; gap: 20px;
+            scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+            position: relative; transition: var(--transition);
+        }
+        .drawer-list::before { content: ''; position: absolute; top: 20px; bottom: 0; left: 15px; width: 1px; background: rgba(212, 175, 55, 0.15); z-index: 0; }
+        .empty-state { color: var(--text-muted); font-style: italic; font-size: 0.95rem; opacity: 0.6; padding-left: 30px; transition: var(--transition); }
+        
+        .card {
+            background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 6px; padding: 12px 16px; position: relative; margin-left: 30px;
+            transition: var(--transition); z-index: 1; overflow: hidden;
+        }
+        .card:hover { border-color: rgba(212, 175, 55, 0.2); background: rgba(255,255,255,0.04); }
+        .card::before { content: ''; position: absolute; left: -15px; top: 20px; width: 15px; height: 1px; background: rgba(212, 175, 55, 0.15); }
+        .card::after { content: ''; position: absolute; left: -19px; top: 17px; width: 7px; height: 7px; border-radius: 50%; background: var(--bg-drawer); border: 2px solid var(--gold-muted); }
+
+        .card-title { font-size: 0.95rem; color: var(--gold-accent); margin: 0 0 4px 0; font-family: var(--font-sans); font-weight: 500; transition: var(--transition); }
+        .card-summary { font-size: 0.8rem; color: var(--text-main); margin-bottom: 0; line-height: 1.4; opacity: 0.8; transition: var(--transition); }
+
+        /* --- MINI MODE (Peek 状态：未悬停时的抽屉样式) --- */
+        .right-col:not(:hover) .header h1 { font-size: 0.9rem; opacity: 0.4; }
+        .right-col:not(:hover) .header span { display: none; }
+        .right-col:not(:hover) .drawer-list { gap: 10px; }
+        .right-col:not(:hover) .drawer-list::before { opacity: 0; } /* 隐藏主干 */
+        .right-col:not(:hover) .empty-state { padding-left: 0; font-size: 0.8rem; }
+        
+        .right-col:not(:hover) .card {
+            margin-left: 0; padding: 4px 12px; border-radius: 12px;
+            background: rgba(212, 175, 55, 0.08); border: 1px solid rgba(212, 175, 55, 0.2);
+            width: max-content; max-width: 100px;
+        }
+        .right-col:not(:hover) .card::before, 
+        .right-col:not(:hover) .card::after { display: none; } /* 隐藏树枝连线 */
+        
+        .right-col:not(:hover) .card-title { 
+            font-size: 0.8rem; color: var(--gold-accent); margin: 0;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+            font-weight: normal; text-align: center;
+        }
+        .right-col:not(:hover) .card-summary { display: none; } /* 完全隐藏摘要内容 */
+
+        /* Setup Overlay */
+        #setup-overlay { position: fixed; inset: 0; background: rgba(16, 13, 11, 0.98); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .setup-box { background: var(--bg-surface); padding: 40px; border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.1); text-align: center; width: 350px; }
+        #setup-overlay input { width: 100%; padding: 10px; margin: 20px 0; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: var(--text-main); outline: none; box-sizing: border-box; }
+        .setup-btn { background: var(--gold-muted); color: #000; border: none; padding: 10px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px;}
+
+        /* Loader */
+        .loader { font-size: 0.8rem; color: var(--gold-muted); font-family: var(--font-sans); letter-spacing: 1px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <!-- Setup / Auth -->
+    <div id="setup-overlay">
+        <div class="setup-box">
+            <h1 style="margin-bottom: 10px; font-family: var(--font-sans);">DRAWER</h1>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">输入 SiliconFlow API Key</p>
+            <input type="password" id="api-key-input" placeholder="sk-...">
+            <button class="setup-btn" onclick="saveApiKey()">接入神经网络</button>
+        </div>
+    </div>
+
+    <!-- View: Home (Forest) -->
+    <div id="view-home" class="view active">
+        <div class="home-header">
+            <div>
+                <h1 style="font-family: var(--font-sans);">FOREST</h1>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 5px;">所有生根发芽的思维</div>
+            </div>
+            <button class="btn-ghost" onclick="clearApiKey()">重置 API Key</button>
+        </div>
+        <div class="grid-trees" id="grid-trees">
+            <!-- Trees will be injected here -->
+        </div>
+    </div>
+
+    <!-- View: Workspace (Chat & Drawer) -->
+    <div id="view-workspace" class="view">
+        <!-- 左侧对话区 -->
+        <div class="column left-col">
+            <div class="header">
+                <h1 id="current-tree-title">Dialogue</h1>
+                <button class="btn-ghost" onclick="goHome()">← 返回森林大厅</button>
+            </div>
+            
+            <div class="chat-history" id="chat-history">
+                <!-- Chat injected here -->
+            </div>
+
+            <div class="input-area">
+                <textarea id="user-input" placeholder="输入想法... (Enter 传输)"></textarea>
+                <button class="send-btn" id="send-btn">发送</button>
+            </div>
+        </div>
+
+        <!-- 右侧悬停抽屉区 -->
+        <div class="right-col" id="drawer-container">
+            <div class="drawer-handle">
+                <div class="handle-text">DRAWER (<span id="handle-count">0</span>)</div>
+            </div>
+            <div class="drawer-content">
+                <div class="header" style="border-bottom: none; margin-bottom: 10px;">
+                    <h1 style="font-size: 1rem;">思维之树</h1>
+                    <span style="color: var(--text-muted); font-size: 0.85rem; font-family: var(--font-sans);">节点: <span id="card-count" style="color: var(--gold-accent);">0</span></span>
+                </div>
+                
+                <div class="drawer-list" id="drawer-list">
+                    <div class="empty-state" id="empty-state">
+                        树干空空荡荡。<br>随时聊天，AI将在后台自动捕获高光点。
+                    </div>
+                    <!-- Cards inject here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 核心配置：深度人格与底层结构的融合 ---
+        const SYS_PROMPT_CHAT = `你是一个极端理性、甚至有些挑剔的思维推演伙伴。
+【核心任务（双重职能）】：
+1. 交流职能：不断给用户的想法做"压力测试"，寻找漏洞和更本质的动机。
+2. 底层职能：在后台默默判断是否产生"新节点"，按规定JSON格式输出。
+
+【思维与说话绝对守则（违背将导致系统崩溃）】：
+- 警惕完美构想：当用户长篇大论描绘一个看似完美的想法（比如一个App的设计、一整套逻辑）时，【绝对禁止】顺从地说"这个想法很好"或帮着补充细节。你必须立刻找出其中的伪需求、执行悖论，或者提出一个致命的反面假设。
+- 苏格拉底式发难：如果对方要答案，把问题推向更深层（例："如果你把这个点子完全反过来做呢？"、"你最怕这个设计变成什么样？"）。
+- 极度克制：每次回复必须只有一两句话。绝对不说"好的"、"明白"、"确实如此"等AI废话。
+- 坦诚直言：保留不确定性，遇到分歧直接指出。
+
+【强制输出结构（必须且只能返回合法 JSON，严禁掺杂 markdown 符号）】：
+{
+  "reply": "你极其锐利、带有审视感、绝不盲目顺从的短句回复（30-80字）",
+  "extracted_node": {
+    "concept": "如果发现新迭代，提取极简的【核心词组】(必须是2-4个字，如'心流'、'反向约束')，否则此项填 null",
+    "definition": "一句话定义这个新节点的机制(15-25字)，否则此项填 null"
+  } 
+}`;
+
+        const MODEL_NAME = 'Qwen/Qwen2.5-72B-Instruct-128K';
+
+        // --- 数据模型 ---
+        let apiKey = localStorage.getItem('sf_api_key');
+        let appData = JSON.parse(localStorage.getItem('drawer_app_data')) || { trees: [] };
+        let currentTreeId = null;
+
+        window.onload = () => {
+            if (apiKey) {
+                document.getElementById('setup-overlay').style.display = 'none';
+                renderHome();
+            }
+        };
+
+        function saveApiKey() {
+            const val = document.getElementById('api-key-input').value.trim();
+            if (val) {
+                localStorage.setItem('sf_api_key', val);
+                apiKey = val;
+                document.getElementById('setup-overlay').style.display = 'none';
+                renderHome();
+            }
+        }
+
+        function clearApiKey() {
+            localStorage.removeItem('sf_api_key');
+            location.reload();
+        }
+
+        function saveData() {
+            localStorage.setItem('drawer_app_data', JSON.stringify(appData));
+        }
+
+        // --- 视图路由 ---
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        function goHome() {
+            currentTreeId = null;
+            renderHome();
+            switchView('view-home');
+        }
+
+        // --- 大厅逻辑 ---
+        function renderHome() {
+            const grid = document.getElementById('grid-trees');
+            grid.innerHTML = '';
+
+            // 新建树按钮
+            const newBtn = document.createElement('div');
+            newBtn.className = 'btn-new-tree';
+            newBtn.innerHTML = '+ 栽种新树';
+            newBtn.onclick = createNewTree;
+            grid.appendChild(newBtn);
+
+            // 历史树列表
+            appData.trees.sort((a,b) => b.updatedAt - a.updatedAt).forEach(tree => {
+                const card = document.createElement('div');
+                card.className = 'tree-card';
+                card.onclick = () => openTree(tree.id);
+                
+                const nodeCount = tree.nodes ? tree.nodes.length : 0;
+                const lastMsg = tree.history.length > 1 ? tree.history[tree.history.length-1].content : "尚未生根...";
+                
+                card.innerHTML = `
+                    <div class="tree-title">${tree.title}</div>
+                    <div class="tree-meta">
+                        <span>节点: ${nodeCount}</span>
+                        <span>${new Date(tree.updatedAt).toLocaleDateString()}</span>
+                    </div>
+                    <div class="tree-preview">${lastMsg}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function createNewTree() {
+            const newTree = {
+                id: Date.now(),
+                title: "未命名灵感",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                history: [
+                    { role: 'ai', content: "这是一片新土壤。你脑海中目前最模糊、最原始的那个想法是什么？" }
+                ],
+                nodes: []
+            };
+            appData.trees.push(newTree);
+            saveData();
+            openTree(newTree.id);
+        }
+
+        function openTree(id) {
+            currentTreeId = id;
+            const tree = appData.trees.find(t => t.id === id);
+            
+            document.getElementById('current-tree-title').innerText = tree.title;
+            
+            // 恢复聊天历史
+            const chatHistory = document.getElementById('chat-history');
+            chatHistory.innerHTML = '';
+            tree.history.forEach(msg => {
+                if(msg.role !== 'system') { // 不显示可能的 system 记录
+                    appendMessageToDOM(msg.role, msg.content, msg.hasNode);
+                }
+            });
+            
+            renderDrawer();
+            switchView('view-workspace');
+            setTimeout(scrollToBottom, 100);
+        }
+
+        // --- API 请求逻辑 ---
+        async function callAI(messages) {
+            if (!apiKey) return { error: true, msg: "未配置 API Key" };
+            const cleanKey = apiKey.replace(/[^\x20-\x7E]/g, "");
+            const url = `https://api.siliconflow.cn/v1/chat/completions`;
+            
+            // 组装带有系统设定的消息列表
+            const payloadMessages = [
+                { role: "system", content: SYS_PROMPT_CHAT },
+                ...messages.map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }))
+            ];
+
+            const payload = {
+                model: MODEL_NAME,
+                messages: payloadMessages,
+                temperature: 0.5,
+                stream: false,
+                response_format: { type: "json_object" }
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cleanKey}` },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                if (response.status === 401) throw new Error("Key 鉴权失败，请在主页重置。");
+                if (!response.ok) throw new Error(data.message || `Server Error: ${response.status}`);
+                if (!data.choices || data.choices.length === 0) throw new Error("API 空响应");
+                
+                let content = data.choices[0].message.content;
+                content = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                
+                // 提取强校验 JSON
+                const match = content.match(/\{[\s\S]*\}/);
+                if (match) {
+                    return JSON.parse(match[0]);
+                } else {
+                    throw new Error("模型未返回 JSON");
+                }
+            } catch (error) {
+                console.error("API Error:", error);
+                return { error: true, msg: error.message };
+            }
+        }
+
+        // --- 工作区交互 ---
+        const userInput = document.getElementById('user-input');
+        const chatHistory = document.getElementById('chat-history');
+        const sendBtn = document.getElementById('send-btn');
+
+        async function handleSend() {
+            const text = userInput.value.trim();
+            if (!text || !currentTreeId) return;
+
+            const tree = appData.trees.find(t => t.id === currentTreeId);
+
+            sendBtn.innerText = "推演中...";
+            sendBtn.disabled = true;
+            userInput.disabled = true;
+
+            // 处理 User 消息
+            appendMessageToDOM('user', text);
+            tree.history.push({ role: 'user', content: text });
+            tree.updatedAt = Date.now();
+            userInput.value = '';
+
+            const loadingId = 'loading-' + Date.now();
+            appendLoading(loadingId);
+
+            // 发送请求给 AI (AI现在充当 Chat + Auto-Capture 双重角色)
+            const result = await callAI(tree.history);
+            
+            document.getElementById(loadingId)?.remove();
+            
+            if (result && result.error) {
+                appendMessageToDOM('ai', `[系统中断] ${result.msg}`);
+                tree.history.pop(); // 回退刚才记录的用户消息
+            } else if (result) {
+                const aiReplyText = result.reply || "（思考被静音，但节点已记录）";
+                let hasNewNode = false;
+
+                // 判断 AI 是否自动捕获了新节点
+                if (result.extracted_node && result.extracted_node.concept) {
+                    hasNewNode = true;
+                    const newNode = {
+                        id: Date.now(),
+                        concept: result.extracted_node.concept,
+                        definition: result.extracted_node.definition
+                    };
+                    tree.nodes.push(newNode);
+                    
+                    // 如果这是第一个节点，尝试自动重命名这棵树
+                    if (tree.nodes.length === 1 && tree.title === "未命名灵感") {
+                        tree.title = newNode.concept;
+                        document.getElementById('current-tree-title').innerText = tree.title;
+                    }
+                    
+                    renderDrawer();
+                    // 已移除强制弹开抽屉的扰民操作
+                }
+
+                tree.history.push({ role: 'ai', content: aiReplyText, hasNode: hasNewNode });
+                tree.updatedAt = Date.now();
+                saveData();
+                appendMessageToDOM('ai', aiReplyText, hasNewNode);
+            }
+
+            sendBtn.innerText = "发送";
+            sendBtn.disabled = false;
+            userInput.disabled = false;
+            userInput.focus();
+        }
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+        });
+        sendBtn.addEventListener('click', handleSend);
+
+        function appendMessageToDOM(role, text, hasNode = false) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.innerHTML = text.replace(/\n/g, '<br>');
+
+            if (hasNode && role === 'ai') {
+                const badge = document.createElement('div');
+                badge.className = 'auto-capture-badge';
+                badge.innerHTML = `✦ 后台已自动捕获此迭代点入树`;
+                div.appendChild(badge);
+            }
+
+            chatHistory.appendChild(div);
+            scrollToBottom();
+        }
+
+        function appendLoading(id) {
+            const div = document.createElement('div');
+            div.className = `message ai`; div.id = id;
+            div.innerHTML = `<span class="loader">SYNCING...</span>`;
+            chatHistory.appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function renderDrawer() {
+            const tree = appData.trees.find(t => t.id === currentTreeId);
+            if(!tree) return;
+
+            const list = document.getElementById('drawer-list');
+            const empty = document.getElementById('empty-state');
+            document.getElementById('card-count').innerText = tree.nodes.length;
+            document.getElementById('handle-count').innerText = tree.nodes.length;
+
+            list.querySelectorAll('.card').forEach(c => c.remove());
+
+            if (tree.nodes.length === 0) {
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            tree.nodes.forEach(node => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'card';
+                cardEl.innerHTML = `
+                    <h3 class="card-title">${node.concept}</h3>
+                    <div class="card-summary">${node.definition}</div>
+                `;
+                list.appendChild(cardEl);
+            });
+            list.scrollTop = list.scrollHeight;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>思维快照</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --border: #2a2a2a;
+    --accent: #c8f060;
+    --accent2: #f0a060;
+    --text: #e8e8e0;
+    --muted: #666;
+    --tag-bg: #1e1e1e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* Header */
+  .header {
+    padding: 48px 60px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .header-left h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .header-left .date {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .snapshot-title {
+    font-size: 42px;
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  .snapshot-title span {
+    color: var(--accent);
+  }
+
+  /* Main layout */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 60px 80px;
+  }
+
+  /* Big quote */
+  .big-quote {
+    padding: 64px 0 48px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .big-quote blockquote {
+    font-size: 28px;
+    font-weight: 300;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    max-width: 800px;
+  }
+
+  .big-quote blockquote em {
+    color: var(--accent);
+    font-style: normal;
+  }
+
+  .big-quote .attribution {
+    margin-top: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+  }
+
+  /* Sections */
+  .sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  .section {
+    padding: 48px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section:nth-child(odd) {
+    padding-right: 48px;
+    border-right: 1px solid var(--border);
+  }
+
+  .section:nth-child(even) {
+    padding-left: 48px;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.35em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .section h2 {
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.3;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .section p {
+    font-size: 15px;
+    line-height: 1.8;
+    color: #aaa;
+    font-weight: 300;
+  }
+
+  .section p strong {
+    color: var(--text);
+    font-weight: 400;
+  }
+
+  /* Tags */
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .tag {
+    background: var(--tag-bg);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .tag.highlight {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Identity section - full width */
+  .identity-section {
+    padding: 56px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .identity-section .section-label {
+    margin-bottom: 32px;
+  }
+
+  .identity-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+
+  .identity-item {
+    padding: 28px;
+    border: 1px solid var(--border);
+    position: relative;
+  }
+
+  .identity-item::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .identity-item:hover::before { opacity: 1; }
+
+  .identity-item h3 {
+    font-size: 16px;
+    font-weight: 400;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  .identity-item p {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  /* Capture tool */
+  .capture-section {
+    padding: 56px 0 0;
+  }
+
+  .capture-section .section-label {
+    margin-bottom: 24px;
+  }
+
+  .capture-intro {
+    font-size: 15px;
+    color: var(--muted);
+    margin-bottom: 32px;
+    line-height: 1.7;
+  }
+
+  .thought-input-area {
+    position: relative;
+  }
+
+  .thought-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    font-size: 16px;
+    line-height: 1.7;
+    padding: 28px;
+    resize: none;
+    outline: none;
+    min-height: 120px;
+    transition: border-color 0.3s;
+  }
+
+  .thought-input:focus {
+    border-color: var(--accent);
+  }
+
+  .thought-input::placeholder {
+    color: #333;
+  }
+
+  .capture-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+  }
+
+  .capture-hint {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: #333;
+  }
+
+  .capture-btn {
+    background: var(--accent);
+    color: #0e0e0e;
+    border: none;
+    padding: 12px 28px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: opacity 0.2s;
+  }
+
+  .capture-btn:hover { opacity: 0.8; }
+
+  /* Captured thoughts */
+  .thoughts-list {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .thought-item {
+    padding: 20px 24px;
+    border-left: 2px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .thought-item:hover {
+    border-left-color: var(--accent);
+  }
+
+  .thought-text {
+    font-size: 15px;
+    line-height: 1.7;
+    flex: 1;
+    color: var(--text);
+  }
+
+  .thought-meta {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: #333;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+
+  .thought-delete {
+    background: none;
+    border: none;
+    color: #333;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .thought-delete:hover { color: var(--accent2); }
+
+  /* Footer */
+  .footer {
+    margin-top: 80px;
+    padding: 32px 60px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer p {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: #333;
+    letter-spacing: 0.1em;
+  }
+
+  .footer .motto {
+    color: var(--muted);
+  }
+
+  @media (max-width: 768px) {
+    .header, .container { padding: 32px 24px; }
+    .sections { grid-template-columns: 1fr; }
+    .section:nth-child(odd) { padding-right: 0; border-right: none; }
+    .section:nth-child(even) { padding-left: 0; }
+    .identity-grid { grid-template-columns: 1fr; }
+    .snapshot-title { font-size: 28px; }
+    .big-quote blockquote { font-size: 20px; }
+    .footer { padding: 24px; flex-direction: column; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>思维快照 · Thought Snapshot</h1>
+    <div class="date" id="currentDate"></div>
+  </div>
+  <div class="snapshot-title">
+    视觉<span>哲学家</span><br>的一天
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Big quote -->
+  <div class="big-quote">
+    <blockquote>
+      "我想赚钱，然后对人有用。<em>最好是对大写的人有用。</em>"
+    </blockquote>
+    <div class="attribution">— 今天最核心的一句话</div>
+  </div>
+
+  <!-- Sections grid -->
+  <div class="sections">
+
+    <div class="section">
+      <div class="section-label">洞察 #01</div>
+      <h2>AI安全是一个时间差游戏</h2>
+      <p>Anthropic押注的不是现在，而是<strong>当监管收紧、当AI事故发生的时候</strong>，安全会变成核心竞争力。就像手机从"谁更强"转向"谁更可信"，这个拐点迟早会来。</p>
+      <div class="tags">
+        <span class="tag">Anthropic</span>
+        <span class="tag">AI安全</span>
+        <span class="tag highlight">时间差</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">洞察 #02</div>
+      <h2>价值从来不是客观存在的</h2>
+      <p>石油在工业革命前一文不值。梵高死前卖不出画。<strong>价值是被共识构建的</strong>，是关系性的，是时间延迟的。"需不需要是不需要被判断的"——这句话本身就是一个洞察。</p>
+      <div class="tags">
+        <span class="tag">哲学</span>
+        <span class="tag highlight">价值论</span>
+        <span class="tag">反人性思考</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">洞察 #03</div>
+      <h2>90%失业之后，稀缺的是"被需要感"</h2>
+      <p>工作同时是枷锁和意义来源。失去工作失去的不只是收入，是<strong>"我做了什么，所以我存在"</strong>这个感觉。未来真正稀缺的不是钱，是让人感到自己有用的场景。</p>
+      <div class="tags">
+        <span class="tag">未来工作</span>
+        <span class="tag highlight">存在感</span>
+        <span class="tag">AI替代</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">洞察 #04</div>
+      <h2>摄影出现了，绘画反而变得更纯粹</h2>
+      <p>AI越强，<strong>人类"为什么存在、感受什么、选择什么"</strong>这些问题反而更重要，不是更不重要。独特性不会消失，会被重新定义。这对设计师也是一样的。</p>
+      <div class="tags">
+        <span class="tag">人类独特性</span>
+        <span class="tag highlight">重新定义</span>
+        <span class="tag">设计未来</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Identity section -->
+  <div class="identity-section">
+    <div class="section-label">自我画像 · 今天浮现的轮廓</div>
+    <div class="identity-grid">
+      <div class="identity-item">
+        <h3>🎨 视觉哲学家</h3>
+        <p>不是做图的设计师。是用视觉和叙事帮人理解复杂世界的人。把最难的问题变成普通人能感受到的东西。</p>
+      </div>
+      <div class="identity-item">
+        <h3>🧠 反人性思考者</h3>
+        <p>喜欢戳穿自我欺骗。洞察是对的，只是入口需要顺着人性走进去，在里面再给人一刀。这是产品设计的核心张力。</p>
+      </div>
+      <div class="identity-item">
+        <h3>⚡ 爽感驱动者</h3>
+        <p>想法在脑子里是完整的，爽感过了就不想写了。需要的不是纪律，是一个能在爽感消失之前捕捉它的工具。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Capture tool -->
+  <div class="capture-section">
+    <div class="section-label">继续捕捉 · 今天还有什么没说完</div>
+    <p class="capture-intro">爽感稍纵即逝。在它消失之前，把它钉在这里。</p>
+
+    <div class="thought-input-area">
+      <textarea
+        class="thought-input"
+        id="thoughtInput"
+        placeholder="刚才想到了什么……"
+        rows="4"
+      ></textarea>
+    </div>
+    <div class="capture-actions">
+      <span class="capture-hint">按 Ctrl+Enter 快速保存</span>
+      <button class="capture-btn" onclick="captureThought()">钉住它 →</button>
+    </div>
+
+    <div class="thoughts-list" id="thoughtsList"></div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>思维快照 · 2026.03.07</p>
+  <p class="motto">"想好了再动"是最贵的拖延。</p>
+</div>
+
+<script>
+  // Set date
+  const now = new Date();
+  document.getElementById('currentDate').textContent =
+    now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+  // Thought capture
+  const thoughts = [];
+
+  function captureThought() {
+    const input = document.getElementById('thoughtInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const thought = {
+      text,
+      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      id: Date.now()
+    };
+
+    thoughts.unshift(thought);
+    input.value = '';
+    renderThoughts();
+    input.focus();
+  }
+
+  function deleteThought(id) {
+    const idx = thoughts.findIndex(t => t.id === id);
+    if (idx > -1) thoughts.splice(idx, 1);
+    renderThoughts();
+  }
+
+  function renderThoughts() {
+    const list = document.getElementById('thoughtsList');
+    if (thoughts.length === 0) {
+      list.innerHTML = '';
+      return;
+    }
+
+    list.innerHTML = thoughts.map(t => `
+      <div class="thought-item">
+        <div>
+          <div class="thought-text">${escapeHtml(t.text)}</div>
+          <div class="thought-meta">${t.time}</div>
+        </div>
+        <button class="thought-delete" onclick="deleteThought(${t.id})">×</button>
+      </div>
+    `).join('');
+  }
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\n/g, '<br>');
+  }
+
+  // Keyboard shortcut
+  document.getElementById('thoughtInput').addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') captureThought();
+  });
+</script>
+
+</body>
+</html>

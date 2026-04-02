@@ -131,6 +131,21 @@ function initTextarea() {
 function initQuickCapture() {
   const ta = document.getElementById('quickCaptureInput');
   if (!ta) return;
+
+  // 随机引导语，每次打开都不一样
+  const greetings = [
+    '今天脑子里在转什么？',
+    '有什么想法还没说出口？',
+    '最近让你兴奋的事情是？',
+    '有没有一件事一直在想？',
+    '说点什么，哪怕只是一个词。',
+    '抽屉已打开，请倾倒。'
+  ];
+  const greetingEl = document.getElementById('captureGreeting');
+  if (greetingEl) {
+    greetingEl.textContent = greetings[Math.floor(Math.random() * greetings.length)];
+  }
+
   ta.addEventListener('input', function () {
     this.style.height = 'auto';
     this.style.height = this.scrollHeight + 'px';
