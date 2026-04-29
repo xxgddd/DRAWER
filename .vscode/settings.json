@@ -1,0 +1,4 @@
+{
+    "chatledger.exportDirectory": ".chatledger",
+    "chatledger.enabled": true
+}
