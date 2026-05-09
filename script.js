@@ -364,12 +364,502 @@ function showIdeaView() {
   if (noSel) noSel.style.display = 'none';
   const v = document.getElementById('ideaView');
   if (v) v.style.display = 'flex';
+  const u = document.getElementById('universeView');
+  if (u) u.style.display = 'none';
+  document.getElementById('universeSidebarBtn').classList.remove('active');
 }
 function showNoSel() {
   const noSel = document.getElementById('noSel');
   if (noSel) noSel.style.display = 'flex';
   const v = document.getElementById('ideaView');
   if (v) v.style.display = 'none';
+  const u = document.getElementById('universeView');
+  if (u) u.style.display = 'none';
+  document.getElementById('universeSidebarBtn').classList.remove('active');
+}
+
+// ── Universe View ──
+let universeSim = null;
+
+function showUniverse() {
+  currentId = null;
+  const noSel = document.getElementById('noSel');
+  if (noSel) noSel.style.display = 'none';
+  const v = document.getElementById('ideaView');
+  if (v) v.style.display = 'none';
+  const u = document.getElementById('universeView');
+  if (u) u.style.display = 'flex';
+  
+  // Highlight sidebar button
+  document.getElementById('universeSidebarBtn').classList.add('active');
+  
+  // Deselect ideas in list
+  renderList();
+  
+  // Close sidebar on mobile
+  const panel = document.getElementById('listPanel');
+  if (panel && panel.classList.contains('open')) toggleSidebar();
+  
+  renderUniverse();
+}
+
+function renderUniverse() {
+  const svg = d3.select('#universeSvg');
+  svg.selectAll('*').remove();
+  if (universeSim) { universeSim.stop(); universeSim = null; }
+
+  const emptyEl = document.getElementById('universeEmpty');
+  const svgWrap = document.getElementById('universeSvgWrap');
+  const narration = document.getElementById('universeNarration');
+  const subtitle = document.getElementById('universeSubtitle');
+
+  if (ideas.length < 2) {
+    emptyEl.style.display = 'flex';
+    svgWrap.style.display = 'none';
+    narration.style.display = 'none';
+    return;
+  }
+
+  const ideasWithCards = ideas.filter(i => i.card && i.card.core);
+  subtitle.textContent = `${ideas.length} 个点子 · ${ideasWithCards.length} 颗恒星`;
+
+  emptyEl.style.display = 'none';
+  svgWrap.style.display = 'block';
+
+  const wrap = document.getElementById('universeSvgWrap');
+  const w = wrap.clientWidth || 400;
+  const h = wrap.clientHeight || 500;
+
+  // Build nodes from ALL ideas
+  const nodes = ideas.map((idea, i) => {
+    const hasCard = idea.card && idea.card.core;
+    const chatLen = (idea.chatHistory || []).length;
+    const nodeCount = (idea.nodes || []).length;
+    return {
+      id: idea.id,
+      name: idea.name,
+      hasCard,
+      core: hasCard ? idea.card.core : '',
+      branches: hasCard ? (idea.card.branches || []) : [],
+      tensions: hasCard ? (idea.card.tensions || '') : '',
+      status: idea.status,
+      size: hasCard ? Math.max(10, Math.min(25, 6 + chatLen * 0.8 + nodeCount * 1.2)) : 4,
+      chatLen,
+      nodeCount,
+      index: i
+    };
+  });
+
+  // Build links: only between ideas that BOTH have cards
+  const links = [];
+  const stopWords = new Set('我的了是在有就也都这那和或但如果一个什么会能要不没很更最到把被让用去来说做想看知道觉得感觉因为所以比如其实可以这个那个不是'.split(''));
+  
+  function extractKeyChars(text) {
+    return new Set([...text].filter(c => !stopWords.has(c) && /[\u4e00-\u9fa5]/.test(c)));
+  }
+
+  const cardNodes = nodes.filter(n => n.hasCard);
+  cardNodes.forEach((a, i) => {
+    const aText = a.core + ' ' + a.branches.join(' ') + ' ' + a.tensions;
+    const aChars = extractKeyChars(aText);
+    
+    cardNodes.forEach((b, j) => {
+      if (j <= i) return;
+      const bText = b.core + ' ' + b.branches.join(' ') + ' ' + b.tensions;
+      const bChars = extractKeyChars(bText);
+      const shared = [...aChars].filter(c => bChars.has(c));
+      if (shared.length >= 3) {
+        links.push({ 
+          source: a.id, target: b.id, 
+          strength: Math.min(shared.length / 5, 1),
+          sharedChars: shared.slice(0, 5).join(''),
+          aiReason: null // will be filled on hover
+        });
+      }
+    });
+  });
+
+  // Glow filter
+  const defs = svg.append('defs');
+  const filter = defs.append('filter').attr('id', 'glow');
+  filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur');
+  const merge = filter.append('feMerge');
+  merge.append('feMergeNode').attr('in', 'coloredBlur');
+  merge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  // Stronger glow for link hover
+  const glowStrong = defs.append('filter').attr('id', 'glowStrong');
+  glowStrong.append('feGaussianBlur').attr('stdDeviation', '6').attr('result', 'coloredBlur');
+  const merge2 = glowStrong.append('feMerge');
+  merge2.append('feMergeNode').attr('in', 'coloredBlur');
+  merge2.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  // Star field background
+  const starGroup = svg.append('g').attr('class', 'star-field');
+  for (let i = 0; i < 100; i++) {
+    starGroup.append('circle')
+      .attr('cx', Math.random() * w)
+      .attr('cy', Math.random() * h)
+      .attr('r', Math.random() * 1.2)
+      .attr('fill', '#c8b89a')
+      .attr('opacity', Math.random() * 0.25 + 0.03);
+  }
+
+  // Links - invisible fat hit area behind visible line
+  const linkHitArea = svg.append('g').selectAll('line')
+    .data(links).join('line')
+    .attr('stroke', 'transparent')
+    .attr('stroke-width', 20)
+    .attr('cursor', 'pointer');
+
+  // Links - visible thin line
+  const linkSel = svg.append('g').selectAll('line')
+    .data(links).join('line')
+    .attr('stroke', '#7ec8e3')
+    .attr('stroke-width', d => 0.5 + d.strength * 1.5)
+    .attr('stroke-dasharray', '4,4')
+    .attr('opacity', d => 0.12 + d.strength * 0.25)
+    .attr('filter', 'url(#glow)')
+    .attr('pointer-events', 'none');
+
+  // Node groups
+  const nodeSel = svg.append('g').selectAll('g')
+    .data(nodes).join('g')
+    .attr('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) universeSim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) universeSim.alphaTarget(0); d.fx = null; d.fy = null; }))
+    .on('click', (e, d) => {
+      e.stopPropagation();
+      selectIdea(d.id);
+      const panel = document.getElementById('listPanel');
+      if (panel && panel.classList.contains('open')) toggleSidebar();
+    });
+
+  // Planet / dark matter rendering
+  const statusColors = { seed: '#e8b86d', grow: '#8fba6e', pause: '#5a6a7a' };
+  function getNodeColor(d) {
+    const idea = ideas.find(i => i.id === d.id);
+    if (idea && idea.type === 'supernova') return '#7ec8e3';
+    return statusColors[d.status] || '#e8b86d';
+  }
+  
+  // Outer glow circle (only for card ideas)
+  nodeSel.filter(d => d.hasCard).append('circle')
+    .attr('r', d => d.size)
+    .attr('fill', d => getNodeColor(d) + '22')
+    .attr('stroke', d => getNodeColor(d))
+    .attr('stroke-width', 1.5)
+    .attr('filter', 'url(#glow)');
+
+  // Inner bright core (only for card ideas)
+  nodeSel.filter(d => d.hasCard).append('circle')
+    .attr('r', d => Math.max(2.5, d.size * 0.3))
+    .attr('fill', d => getNodeColor(d))
+    .attr('opacity', 0.9);
+
+  // Dark matter dots (no card)
+  nodeSel.filter(d => !d.hasCard).append('circle')
+    .attr('r', 3)
+    .attr('fill', '#4a3e28')
+    .attr('stroke', '#5a4e38')
+    .attr('stroke-width', 0.5)
+    .attr('opacity', 0.5);
+
+  // Labels
+  nodeSel.append('text')
+    .attr('y', d => (d.hasCard ? d.size : 3) + 14)
+    .attr('text-anchor', 'middle')
+    .attr('font-family', 'Noto Serif SC, serif')
+    .attr('font-size', d => d.hasCard ? '11px' : '9px')
+    .attr('font-weight', '300')
+    .attr('fill', d => d.hasCard ? '#c8b89a' : '#5a4e38')
+    .attr('opacity', d => d.hasCard ? 1 : 0.6)
+    .text(d => d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name);
+
+  // Node tooltip
+  const tip = document.getElementById('nodeTip');
+  nodeSel
+    .on('mouseenter', (e, d) => {
+      if (d.hasCard) {
+        tip.innerHTML = `<div class="node-tip-meta">${d.chatLen}轮对话 · ${d.nodeCount}个节点 · ${{seed:'🌱萌芽',grow:'🌿推进',pause:'❄️搁置'}[d.status]}</div><strong>${d.name}</strong><br>${esc(d.core)}`;
+      } else {
+        tip.innerHTML = `<div class="node-tip-meta">暗物质 · 未展开</div><strong>${d.name}</strong><br><em>聊上几句就能点亮这颗星</em>`;
+      }
+      tip.classList.add('show');
+    })
+    .on('mousemove', e => { tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 8) + 'px'; })
+    .on('mouseleave', () => tip.classList.remove('show'));
+
+  // Link interaction via hit area - hover auto-triggers AI
+  async function fetchLinkReason(d) {
+    if (d.aiReason || d.aiFetching) return;
+    d.aiFetching = true;
+    const srcNode = nodes.find(n => n.id === (d.source.id || d.source));
+    const tgtNode = nodes.find(n => n.id === (d.target.id || d.target));
+    if (!srcNode || !tgtNode) return;
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey) {
+        headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
+      }
+      const res = await fetch('/api/chat', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 60,
+          messages: [
+            { role: 'system', content: '用一句话（15-25字）解释这两个想法之间的隐藏联系。像一句诗一样简洁。不要说"它们都"开头。' },
+            { role: 'user', content: `「${srcNode.name}」: ${srcNode.core}\n「${tgtNode.name}」: ${tgtNode.core}` }
+          ]
+        })
+      });
+      const data = await res.json();
+      d.aiReason = data.choices[0].message.content.trim().replace(/^["「『]|["」』。]$/g, '');
+    } catch(err) {
+      d.aiReason = '共享关键词: ' + d.sharedChars;
+    }
+    d.aiFetching = false;
+  }
+
+  function showLinkTip(e, d) {
+    const srcNode = nodes.find(n => n.id === (d.source.id || d.source));
+    const tgtNode = nodes.find(n => n.id === (d.target.id || d.target));
+    if (!srcNode || !tgtNode) return;
+
+    const names = `<div style="font-size:10px;color:#5a7a8a;margin-bottom:6px;font-family:'Space Mono',monospace;letter-spacing:.05em">${srcNode.name} × ${tgtNode.name}</div>`;
+    
+    if (d.aiReason) {
+      tip.innerHTML = `${names}<div style="color:#7ec8e3;font-size:14px;line-height:1.6;font-style:italic">✦ ${d.aiReason}</div>`;
+    } else {
+      tip.innerHTML = `${names}<div style="color:#5a7a8a;font-size:12px">✦ 正在解读…</div>`;
+    }
+    tip.classList.add('show');
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top = (e.clientY - 8) + 'px';
+  }
+
+  linkHitArea
+    .on('mouseenter', function(e, d) {
+      const idx = links.indexOf(d);
+      d3.select(linkSel.nodes()[idx]).attr('opacity', 0.6).attr('stroke-width', 2.5).attr('filter', 'url(#glowStrong)');
+      showLinkTip(e, d);
+      if (!d.aiReason && !d.aiFetching) {
+        fetchLinkReason(d).then(() => {
+          if (tip.classList.contains('show')) showLinkTip(e, d);
+        });
+      }
+    })
+    .on('mousemove', function(e, d) {
+      tip.style.left = (e.clientX + 12) + 'px';
+      tip.style.top = (e.clientY - 8) + 'px';
+    })
+    .on('mouseleave', function(e, d) {
+      const idx = links.indexOf(d);
+      d3.select(linkSel.nodes()[idx]).attr('opacity', 0.12 + d.strength * 0.25).attr('stroke-width', 0.5 + d.strength * 1.5).attr('filter', 'url(#glow)');
+      tip.classList.remove('show');
+    });
+
+  // Simulation
+  universeSim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(120).strength(d => d.strength * 0.5))
+    .force('charge', d3.forceManyBody().strength(d => d.hasCard ? -200 : -50))
+    .force('center', d3.forceCenter(w / 2, h / 2))
+    .force('x', d3.forceX(w / 2).strength(.04))
+    .force('y', d3.forceY(h / 2).strength(.04))
+    .force('collision', d3.forceCollide(d => (d.hasCard ? d.size : 6) + 15));
+
+  universeSim.on('tick', () => {
+    linkSel
+      .attr('x1', d => Math.max(20, Math.min(w - 20, d.source.x)))
+      .attr('y1', d => Math.max(20, Math.min(h - 20, d.source.y)))
+      .attr('x2', d => Math.max(20, Math.min(w - 20, d.target.x)))
+      .attr('y2', d => Math.max(20, Math.min(h - 20, d.target.y)));
+    linkHitArea
+      .attr('x1', d => Math.max(20, Math.min(w - 20, d.source.x)))
+      .attr('y1', d => Math.max(20, Math.min(h - 20, d.source.y)))
+      .attr('x2', d => Math.max(20, Math.min(w - 20, d.target.x)))
+      .attr('y2', d => Math.max(20, Math.min(h - 20, d.target.y)));
+    nodeSel.attr('transform', d => `translate(${Math.max(20, Math.min(w - 20, d.x))},${Math.max(20, Math.min(h - 20, d.y))})`);
+  });
+
+  // Generate AI narration
+  if (links.length > 0) {
+    generateUniverseNarration(ideasWithCards, links);
+  } else if (ideasWithCards.length >= 2) {
+    narration.style.display = 'block';
+    document.getElementById('narrationText').textContent = `✦ ${ideasWithCards.length} 颗恒星尚未产生联系。继续聊，连线会自己长出来。`;
+  } else {
+    narration.style.display = 'block';
+    document.getElementById('narrationText').textContent = `✦ ${ideas.length} 颗暗物质等待被点亮。和它们聊几句，让它们变成恒星。`;
+  }
+
+  // Auto-discover supernovae (runs in background)
+  autoDiscoverSupernovae(ideasWithCards);
+}
+
+async function generateUniverseNarration(ideasWithCards, links) {
+  const narration = document.getElementById('universeNarration');
+  const narrationText = document.getElementById('narrationText');
+  
+  narration.style.display = 'block';
+  narrationText.textContent = '正在观察你的思维星图…';
+
+  const summary = ideasWithCards.map(i => getIdeaFullContext(i)).join('\n---\n');
+  const connectionSummary = links.slice(0, 5).map(l => {
+    const src = ideasWithCards.find(i => i.id === (l.source.id || l.source));
+    const tgt = ideasWithCards.find(i => i.id === (l.target.id || l.target));
+    return src && tgt ? `${src.name} ↔ ${tgt.name}` : '';
+  }).filter(Boolean).join(', ');
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
+    }
+
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 120,
+        messages: [
+          { role: 'system', content: `你是"抽屉"的思维观察者。用户有多个点子，你发现了它们之间的隐藏联系。
+用一句话（不超过50字）指出最有趣的交叉点。口语，像一个聪明的朋友轻声说的话。不要说"我发现"，直接说。` },
+          { role: 'user', content: `点子：\n${summary}\n\n已发现的关联对：${connectionSummary}` }
+        ]
+      })
+    });
+    const data = await res.json();
+    narrationText.textContent = '✦ ' + data.choices[0].message.content.trim().replace(/^["「『]|["」』]$/g, '');
+  } catch (e) {
+    narrationText.textContent = `✦ ${ideasWithCards.length} 个点子，${links.length} 条隐藏联系。点击星球深入探索。`;
+  }
+}
+
+// ── Rich idea data extraction ──
+function getIdeaFullContext(idea) {
+  let ctx = `「${idea.name}」`;
+  
+  // Card data
+  if (idea.card && idea.card.core) {
+    ctx += `\n核心: ${idea.card.core}`;
+    if (idea.card.branches) ctx += `\n方向: ${idea.card.branches.join(', ')}`;
+    if (idea.card.tensions) ctx += `\n张力: ${idea.card.tensions}`;
+  }
+  
+  // Key nodes (pinned insights)
+  if (idea.nodes && idea.nodes.length > 0) {
+    const insights = idea.nodes.filter(n => n.type === 'ai').slice(-3).map(n => n.text);
+    if (insights.length) ctx += `\nAI提炼: ${insights.join('; ')}`;
+    const todos = idea.nodes.filter(n => n.type === 'todo' && !n.done).map(n => n.text);
+    if (todos.length) ctx += `\n待办: ${todos.join('; ')}`;
+  }
+  
+  // Recent chat (last 4 user messages)
+  if (idea.chatHistory && idea.chatHistory.length > 0) {
+    const userMsgs = idea.chatHistory.filter(m => m.role === 'user').slice(-4).map(m => m.content.slice(0, 80));
+    if (userMsgs.length) ctx += `\n最近想法: ${userMsgs.join(' / ')}`;
+  }
+  
+  return ctx;
+}
+
+// ── Supernova: AI auto-discovers deep synthesis ──
+async function autoDiscoverSupernovae(ideasWithCards) {
+  // Don't discover if fewer than 2 ideas with enough content
+  const richIdeas = ideasWithCards.filter(i => {
+    const chatLen = (i.chatHistory || []).length;
+    return chatLen >= 3 || (i.nodes && i.nodes.length >= 1);
+  });
+  if (richIdeas.length < 2) return;
+  
+  // Don't create if we already have a supernova from today
+  const today = new Date().toDateString();
+  const recentSupernova = ideas.find(i => 
+    i.type === 'supernova' && new Date(i.createdAt).toDateString() === today
+  );
+  if (recentSupernova) return;
+
+  // Exclude pairs that already have supernovae
+  const existingPairs = ideas
+    .filter(i => i.type === 'supernova' && i.parentIds)
+    .map(i => i.parentIds.sort().join(','));
+
+  const narrationEl = document.getElementById('narrationText');
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
+    }
+
+    // Build full context for each idea
+    const fullContexts = richIdeas.map(i => getIdeaFullContext(i)).join('\n---\n');
+    const pairList = richIdeas.map(i => i.name).join(', ');
+
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 400,
+        messages: [
+          { role: 'system', content: `你是"抽屉"的思维合成器。分析用户的多个想法，找出最有深度和潜力的交叉点。
+不是简单的"都提到了X"，而是"A的某个方向 + B的某个张力 = 一个全新的、用户没想到的方向"。
+选择最有爆发力的一对，返回JSON（不要markdown包裹）：
+{"ideaA":"点子A的名字","ideaB":"点子B的名字","name":"新方向的名字（5-10字，有吸引力）","core":"一句话描述这个全新方向（20-40字）","branches":["方向1","方向2","方向3"],"tensions":"这个合成方向最大的未知是什么（一句话）","why":"为什么这两个点子放在一起会产生化学反应（一句话）"}` },
+          { role: 'user', content: fullContexts }
+        ]
+      })
+    });
+
+    const data = await res.json();
+    const raw = data.choices[0].message.content.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(raw);
+
+    // Find the parent ideas
+    const srcIdea = richIdeas.find(i => i.name === parsed.ideaA);
+    const tgtIdea = richIdeas.find(i => i.name === parsed.ideaB);
+    if (!srcIdea || !tgtIdea) return;
+
+    // Check if this pair already exists
+    const pairKey = [srcIdea.id, tgtIdea.id].sort().join(',');
+    if (existingPairs.includes(pairKey)) return;
+
+    // Create the supernova
+    const idea = {
+      id: Date.now(),
+      name: parsed.name || `${srcIdea.name} × ${tgtIdea.name}`,
+      type: 'supernova',
+      status: 'seed',
+      parentIds: [srcIdea.id, tgtIdea.id],
+      nodes: [],
+      chatHistory: [
+        { role: 'assistant', content: `✦ 这颗超新星来自「${srcIdea.name}」和「${tgtIdea.name}」的深层交汇。\n\n**${parsed.core}**\n\n${parsed.why}\n\n可以探索的方向：${parsed.branches.join('、')}\n\n最大的未知：${parsed.tensions}\n\n你觉得这个方向有意思吗？` }
+      ],
+      card: {
+        core: parsed.core,
+        branches: parsed.branches,
+        tensions: parsed.tensions
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    ideas.push(idea); // push to end, not unshift - let it appear naturally
+    saveIdeas();
+
+    // Update narration
+    if (narrationEl) {
+      narrationEl.textContent = `✦ 发现了一颗新星：「${idea.name}」—— ${parsed.why}`;
+    }
+
+    // Re-render universe to show the new star
+    setTimeout(() => renderUniverse(), 800);
+
+  } catch(err) {
+    // Silent fail - supernovae are a bonus, not critical
+    console.log('Supernova discovery failed:', err);
+  }
 }
 
 // ── Render List ──
@@ -413,11 +903,15 @@ function renderList() {
       `;
     }
 
+    const isSupernova = idea.type === 'supernova';
+    const namePrefix = isSupernova ? '<span style="color:#7ec8e3">✦</span> ' : '';
+    const dotClass = isSupernova ? 's-supernova' : `s-${idea.status}`;
+
     return `<div class="idea-item ${idea.id === currentId ? 'active' : ''} ${freshClass}" onclick="selectIdea(${idea.id})">
-  <div class="idea-item-name">${esc(idea.name)}</div>
+  <div class="idea-item-name">${namePrefix}${esc(idea.name)}</div>
   ${snippet}
   <div class="idea-item-meta">
-    <span class="sdot s-${idea.status}"></span>
+    <span class="sdot ${dotClass}"></span>
     <span class="idea-item-info">${dateStr}·${idea.nodes.length}节</span>
   </div>
   ${controls}

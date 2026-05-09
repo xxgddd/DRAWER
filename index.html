@@ -38,6 +38,7 @@
         <h1 class="app-title">抽屉 <span>Drawer</span></h1>
         <div class="app-tagline">在这里，点子不是为了完成，<br>而是为了生长。</div>
         <button class="new-btn" onclick="openModal('newIdeaModal')"><span>+</span> 新的点子</button>
+        <button class="universe-btn" id="universeSidebarBtn" onclick="showUniverse()">✦ 宇宙</button>
       </div>
       <div class="ideas-list" id="ideasList">
         <!-- JS Rendered -->
@@ -66,6 +67,24 @@
             <div class="no-sel-icon">🗄️</div>
             <div class="no-sel-hint">或从左侧侧边栏查看过往点子</div>
           </div>
+        </div>
+      </div>
+
+      <!-- Universe View -->
+      <div class="universe-view" id="universeView" style="display:none;">
+        <div class="universe-header">
+          <div class="universe-title">✦ 你的思维宇宙</div>
+          <div class="universe-subtitle" id="universeSubtitle"></div>
+        </div>
+        <div class="universe-svg-wrap" id="universeSvgWrap">
+          <svg id="universeSvg"></svg>
+        </div>
+        <div class="universe-narration" id="universeNarration" style="display:none;">
+          <div class="narration-text" id="narrationText"></div>
+        </div>
+        <div class="universe-empty" id="universeEmpty" style="display:none;">
+          <div class="universe-empty-icon">✦</div>
+          <div class="universe-empty-text">还没有足够的点子来形成宇宙。<br>至少需要 2 个有内容的点子。</div>
         </div>
       </div>
 
