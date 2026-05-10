@@ -86,6 +86,23 @@
           <div class="universe-empty-icon">✦</div>
           <div class="universe-empty-text">还没有足够的点子来形成宇宙。<br>至少需要 2 个有内容的点子。</div>
         </div>
+
+        <!-- Universe Chatbox -->
+        <div class="uchat" id="uChat">
+          <div class="uchat-header">
+            <div class="uchat-title" id="uChatTitle">✦ 交汇点</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="uchat-adopt" id="uChatAdopt" onclick="adoptSupernova()" style="display:none">🚀 带走</button>
+              <button class="uchat-adopt" id="uChatDiscard" onclick="discardSupernova()" style="display:none; color: var(--muted); border-color: rgba(255,255,255,0.1); background: transparent;">🗑️ 放弃</button>
+              <button class="uchat-close" onclick="closeUChat()">✕</button>
+            </div>
+          </div>
+          <div class="uchat-messages" id="uChatMessages"></div>
+          <div class="uchat-input-wrap">
+            <textarea class="uchat-input" id="uChatInput" placeholder="探索这个交叉点…" rows="1"></textarea>
+          </div>
+        </div>
+        <div id="nodeTip" class="node-tip"></div>
       </div>
 
       <!-- Idea View -->
@@ -172,8 +189,7 @@
     </div>
   </div>
 
-  <!-- Node Tooltip -->
-  <div class="node-tip" id="nodeTip"></div>
+
 
   <!-- MODALS -->
   <div class="overlay hidden" id="apiModal">

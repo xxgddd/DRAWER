@@ -277,6 +277,15 @@ async function selectIdea(id) {
   document.getElementById('ideaBarName').textContent = idea.name;
   document.getElementById('statusSel').value = idea.status;
 
+  // Confetti for first-time supernova viewing
+  if (idea.type === 'supernova' && !idea.hasBeenViewed) {
+    if (typeof confetti === 'function') {
+      confetti({ particleCount: 70, spread: 90, colors: ['#7ec8e3', '#b8d8e8', '#ffffff', '#e8b86d'], origin: { y: 0.5 } });
+    }
+    idea.hasBeenViewed = true;
+    saveIdeas();
+  }
+
   const drawer = document.getElementById('drawerPanel');
   const drawerBtn = document.getElementById('drawerToggleBtn');
   if (chatHistory.length > 0) {
@@ -403,6 +412,230 @@ function showUniverse() {
   renderUniverse();
 }
 
+// ── Universe Chatbox ──
+let uChatContext = null; // { idA, idB, history: [] }
+
+function getUChatKey(idA, idB) {
+  return `uchat_${[idA, idB].sort().join('_')}`;
+}
+
+function openUChat(idA, idB) {
+  const ideaA = getIdea(idA);
+  const ideaB = getIdea(idB);
+  if (!ideaA || !ideaB) return;
+
+  const key = getUChatKey(idA, idB);
+  const saved = localStorage.getItem(key);
+  const history = saved ? JSON.parse(saved) : [];
+
+  uChatContext = { idA, idB, key, history };
+
+  // Set title
+  document.getElementById('uChatTitle').textContent = `✦ ${ideaA.name} × ${ideaB.name}`;
+
+  // Show adopt/discard button if a supernova exists for this pair
+  const adoptBtn = document.getElementById('uChatAdopt');
+  const discardBtn = document.getElementById('uChatDiscard');
+  const pairKey = [idA, idB].sort().join(',');
+  const supernova = ideas.find(i => 
+    i.type === 'supernova' && i.parentIds && 
+    i.parentIds.sort().join(',') === pairKey
+  );
+  if (adoptBtn) adoptBtn.style.display = supernova ? 'inline-block' : 'none';
+  if (discardBtn) discardBtn.style.display = supernova ? 'inline-block' : 'none';
+
+  // Render messages
+  const msgEl = document.getElementById('uChatMessages');
+  msgEl.innerHTML = '';
+
+  if (history.length === 0) {
+    // Generate an opening line
+    const ctxA = getIdeaFullContext(ideaA);
+    const ctxB = getIdeaFullContext(ideaB);
+    const opener = `这是「${ideaA.name}」和「${ideaB.name}」的交汇空间。你可以在这里探索它们之间的可能性。\n\n说点什么，我来帮你挖深。`;
+    appendUMsg('ai', opener);
+    history.push({ role: 'assistant', content: opener });
+    uChatContext.history = history;
+    localStorage.setItem(key, JSON.stringify(history));
+  } else {
+    history.forEach(m => appendUMsg(m.role === 'user' ? 'user' : 'ai', m.content));
+  }
+
+  // Open panel
+  document.getElementById('uChat').classList.add('open');
+
+  // Focus input
+  setTimeout(() => document.getElementById('uChatInput').focus(), 350);
+}
+
+function closeUChat() {
+  document.getElementById('uChat').classList.remove('open');
+  uChatContext = null;
+}
+
+// Graduate a supernova into a normal idea
+function adoptSupernova() {
+  if (!uChatContext) return;
+  const { idA, idB, history } = uChatContext;
+  
+  const pairKey = [idA, idB].sort().join(',');
+  const supernova = ideas.find(i => 
+    i.type === 'supernova' && i.parentIds && 
+    i.parentIds.sort().join(',') === pairKey
+  );
+  if (!supernova) return;
+
+  // Graduate: remove supernova type, keep everything else
+  delete supernova.type;
+  supernova.status = 'seed';
+  supernova.updatedAt = Date.now();
+
+  // Merge uchat history into the idea's chatHistory
+  // Keep existing chatHistory (the AI opener from supernova creation) 
+  // and append uchat exchanges
+  const existingChat = supernova.chatHistory || [];
+  const uChatMsgs = history.filter(m => 
+    // Skip if it's the generic opener we auto-generated
+    !(m.role === 'assistant' && m.content.includes('交汇空间'))
+  );
+  supernova.chatHistory = [...existingChat, ...uChatMsgs];
+
+  saveIdeas();
+
+  // Close uchat, leave universe, select the idea
+  closeUChat();
+  
+  // Confetti celebration
+  if (typeof confetti === 'function') {
+    confetti({ particleCount: 50, spread: 70, colors: ['#e8b86d', '#f0d090', '#ffffff'], origin: { y: 0.5 } });
+  }
+
+  selectIdea(supernova.id);
+  renderList();
+}
+
+// Discard a supernova entirely
+function discardSupernova() {
+  if (!uChatContext) return;
+  const { idA, idB, key } = uChatContext;
+  
+  const pairKey = [idA, idB].sort().join(',');
+  const supernovaIndex = ideas.findIndex(i => 
+    i.type === 'supernova' && i.parentIds && 
+    i.parentIds.sort().join(',') === pairKey
+  );
+  if (supernovaIndex === -1) return;
+
+  // Remove the supernova
+  ideas.splice(supernovaIndex, 1);
+  saveIdeas();
+  
+  // Clear chat history for this pair
+  localStorage.removeItem(key);
+
+  closeUChat();
+  renderUniverse();
+}
+
+function appendUMsg(type, text) {
+  const msgEl = document.getElementById('uChatMessages');
+  const div = document.createElement('div');
+  div.className = `uchat-msg ${type}`;
+  const label = type === 'ai' ? '✦ 思维合成' : '你';
+  
+  // Parse bold markdown and newlines
+  let parsedText = esc(text)
+    .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text);font-weight:600">$1</strong>')
+    .replace(/\n/g, '<br>');
+    
+  div.innerHTML = `<div class="uchat-label">${label}</div><div class="uchat-bubble">${parsedText}</div>`;
+  msgEl.appendChild(div);
+  msgEl.scrollTop = msgEl.scrollHeight;
+  return div;
+}
+
+async function sendUChatMsg() {
+  if (!uChatContext) return;
+  const input = document.getElementById('uChatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  // Add user message
+  appendUMsg('user', text);
+  uChatContext.history.push({ role: 'user', content: text });
+
+  // Typing indicator
+  const typing = appendUMsg('ai', '⋯');
+
+  const ideaA = getIdea(uChatContext.idA);
+  const ideaB = getIdea(uChatContext.idB);
+  const ctxA = getIdeaFullContext(ideaA);
+  const ctxB = getIdeaFullContext(ideaB);
+
+  const systemPrompt = `你是"抽屉"的思维交叉探索器。用户正在探索两个想法的交叉空间。
+
+想法A的完整上下文：
+${ctxA}
+
+想法B的完整上下文：
+${ctxB}
+
+你的任务：
+- 基于用户的提问，深入分析两个想法交叉后能产生什么
+- 不要重复用户已知的内容，要挖出新的角度或指出矛盾
+- 极度口语化，像一个聪明的合伙人
+- 【排版要求】：不要输出一整块密密麻麻的文字。使用分段、短句，重要观点用加粗（**文字**），适当使用换行让层次清晰。每次回答控制在150字以内。`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...uChatContext.history.slice(-8) // keep last 8 messages for context
+  ];
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
+    }
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 200,
+        messages
+      })
+    });
+    const data = await res.json();
+    const reply = data.choices[0].message.content.trim();
+    typing.remove();
+    appendUMsg('ai', reply);
+    uChatContext.history.push({ role: 'assistant', content: reply });
+  } catch(err) {
+    typing.remove();
+    appendUMsg('ai', '连接出了点问题，再试一次？');
+  }
+
+  localStorage.setItem(uChatContext.key, JSON.stringify(uChatContext.history));
+}
+
+// Wire up input
+document.addEventListener('DOMContentLoaded', () => {
+  const uInput = document.getElementById('uChatInput');
+  if (uInput) {
+    uInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendUChatMsg();
+      }
+    });
+    uInput.addEventListener('input', () => {
+      uInput.style.height = 'auto';
+      uInput.style.height = Math.min(uInput.scrollHeight, 100) + 'px';
+    });
+  }
+});
+
 function renderUniverse() {
   const svg = d3.select('#universeSvg');
   svg.selectAll('*').remove();
@@ -453,27 +686,73 @@ function renderUniverse() {
   // Build links: only between ideas that BOTH have cards
   const links = [];
   const stopWords = new Set('我的了是在有就也都这那和或但如果一个什么会能要不没很更最到把被让用去来说做想看知道觉得感觉因为所以比如其实可以这个那个不是'.split(''));
-  
-  function extractKeyChars(text) {
-    return new Set([...text].filter(c => !stopWords.has(c) && /[\u4e00-\u9fa5]/.test(c)));
+  const stopBigrams = new Set(['用户','问题','自己','可以','可能','产生','发现','提供','方式','出现','需要','一种','成为','没有','很多','非常','比较','而且','这样','为了']);
+
+  function extractBigrams(text) {
+    const bigrams = new Set();
+    // Split text by punctuation or spaces to prevent cross-boundary bigrams
+    const chunks = text.split(/[^\u4e00-\u9fa5]+/);
+    for (const chunk of chunks) {
+      if (chunk.length < 2) continue;
+      for (let i = 0; i < chunk.length - 1; i++) {
+        if (!stopWords.has(chunk[i]) && !stopWords.has(chunk[i+1])) {
+          const bg = chunk[i] + chunk[i+1];
+          if (!stopBigrams.has(bg)) {
+            bigrams.add(bg);
+          }
+        }
+      }
+    }
+    return bigrams;
   }
 
   const cardNodes = nodes.filter(n => n.hasCard);
   cardNodes.forEach((a, i) => {
-    const aText = a.core + ' ' + a.branches.join(' ') + ' ' + a.tensions;
-    const aChars = extractKeyChars(aText);
+    const aIdea = ideas.find(idea => idea.id === a.id);
+    const aText = a.name + ' ' + a.core + ' ' + a.branches.join(' ') + ' ' + a.tensions;
+    const aGrams = extractBigrams(aText);
     
     cardNodes.forEach((b, j) => {
       if (j <= i) return;
-      const bText = b.core + ' ' + b.branches.join(' ') + ' ' + b.tensions;
-      const bChars = extractKeyChars(bText);
-      const shared = [...aChars].filter(c => bChars.has(c));
-      if (shared.length >= 3) {
+      const bIdea = ideas.find(idea => idea.id === b.id);
+      
+      // Check if one is a direct parent of the other (Supernova relationship)
+      const isParent = (aIdea.parentIds && aIdea.parentIds.includes(b.id)) || 
+                       (bIdea.parentIds && bIdea.parentIds.includes(a.id));
+                       
+      if (isParent) {
+        // If one is an active supernova, line is Blue (strength: 1)
+        // If both are normal ideas (adopted supernova), line cools down to Yellow (strength: 0.5)
+        const isActiveSupernova = aIdea.type === 'supernova' || bIdea.type === 'supernova';
+        links.push({
+          source: a.id, target: b.id,
+          strength: isActiveSupernova ? 1.0 : 0.5, 
+          sharedChars: '星系纽带',
+          aiReason: '这是经过深度思维交叉产生的必然联系'
+        });
+        return;
+      }
+
+      // Skip text matching if either is an active supernova.
+      if (aIdea.type === 'supernova' || bIdea.type === 'supernova') {
+        return;
+      }
+
+      // Check text matching (use name + core)
+      const aTextMatch = a.name + ' ' + a.core;
+      const bTextMatch = b.name + ' ' + b.core;
+      const aGramsMatch = extractBigrams(aTextMatch);
+      const bGramsMatch = extractBigrams(bTextMatch);
+      const shared = [...aGramsMatch].filter(g => bGramsMatch.has(g));
+      
+      // 1 shared bigram = yellow line (0.4)
+      // 2+ shared bigrams = blue line (1.0)
+      if (shared.length >= 1) {
         links.push({ 
           source: a.id, target: b.id, 
-          strength: Math.min(shared.length / 5, 1),
-          sharedChars: shared.slice(0, 5).join(''),
-          aiReason: null // will be filled on hover
+          strength: Math.min(0.4 + (shared.length - 1) * 0.6, 1.0),
+          sharedChars: shared.slice(0, 3).join('、'),
+          aiReason: null 
         });
       }
     });
@@ -515,7 +794,7 @@ function renderUniverse() {
   // Links - visible thin line
   const linkSel = svg.append('g').selectAll('line')
     .data(links).join('line')
-    .attr('stroke', '#7ec8e3')
+    .attr('stroke', d => d.strength < 0.8 ? '#e8b86d' : '#7ec8e3')
     .attr('stroke-width', d => 0.5 + d.strength * 1.5)
     .attr('stroke-dasharray', '4,4')
     .attr('opacity', d => 0.12 + d.strength * 0.25)
@@ -532,9 +811,15 @@ function renderUniverse() {
       .on('end', (e, d) => { if (!e.active) universeSim.alphaTarget(0); d.fx = null; d.fy = null; }))
     .on('click', (e, d) => {
       e.stopPropagation();
-      selectIdea(d.id);
-      const panel = document.getElementById('listPanel');
-      if (panel && panel.classList.contains('open')) toggleSidebar();
+      const idea = ideas.find(i => i.id === d.id);
+      if (idea && idea.type === 'supernova' && idea.parentIds) {
+        // Supernova: open chatbox with parent ideas
+        openUChat(idea.parentIds[0], idea.parentIds[1]);
+      } else {
+        selectIdea(d.id);
+        const panel = document.getElementById('listPanel');
+        if (panel && panel.classList.contains('open')) toggleSidebar();
+      }
     });
 
   // Planet / dark matter rendering
@@ -561,11 +846,13 @@ function renderUniverse() {
 
   // Dark matter dots (no card)
   nodeSel.filter(d => !d.hasCard).append('circle')
-    .attr('r', 3)
-    .attr('fill', '#4a3e28')
-    .attr('stroke', '#5a4e38')
-    .attr('stroke-width', 0.5)
-    .attr('opacity', 0.5);
+    .attr('r', 4)
+    .attr('fill', '#1a1610')
+    .attr('stroke', '#a8987b')
+    .attr('stroke-width', 1)
+    .attr('stroke-dasharray', '2,2')
+    .attr('opacity', 0.8)
+    .attr('filter', 'url(#glow)');
 
   // Labels
   nodeSel.append('text')
@@ -630,7 +917,7 @@ function renderUniverse() {
     const names = `<div style="font-size:10px;color:#5a7a8a;margin-bottom:6px;font-family:'Space Mono',monospace;letter-spacing:.05em">${srcNode.name} × ${tgtNode.name}</div>`;
     
     if (d.aiReason) {
-      tip.innerHTML = `${names}<div style="color:#7ec8e3;font-size:14px;line-height:1.6;font-style:italic">✦ ${d.aiReason}</div>`;
+      tip.innerHTML = `${names}<div style="color:#7ec8e3;font-size:14px;line-height:1.6;font-style:italic">✦ ${d.aiReason}</div><div style="margin-top:6px;font-size:9px;color:#5a7a8a;font-family:'Space Mono',monospace;letter-spacing:.05em">CLICK TO EXPLORE ↗</div>`;
     } else {
       tip.innerHTML = `${names}<div style="color:#5a7a8a;font-size:12px">✦ 正在解读…</div>`;
     }
@@ -658,12 +945,19 @@ function renderUniverse() {
       const idx = links.indexOf(d);
       d3.select(linkSel.nodes()[idx]).attr('opacity', 0.12 + d.strength * 0.25).attr('stroke-width', 0.5 + d.strength * 1.5).attr('filter', 'url(#glow)');
       tip.classList.remove('show');
+    })
+    .on('click', function(e, d) {
+      e.stopPropagation();
+      tip.classList.remove('show');
+      const srcId = d.source.id || d.source;
+      const tgtId = d.target.id || d.target;
+      openUChat(srcId, tgtId);
     });
 
   // Simulation
   universeSim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(120).strength(d => d.strength * 0.5))
-    .force('charge', d3.forceManyBody().strength(d => d.hasCard ? -200 : -50))
+    .force('link', d3.forceLink(links).id(d => d.id).distance(160).strength(d => d.strength * 0.15))
+    .force('charge', d3.forceManyBody().strength(d => d.hasCard ? -500 : -100))
     .force('center', d3.forceCenter(w / 2, h / 2))
     .force('x', d3.forceX(w / 2).strength(.04))
     .force('y', d3.forceY(h / 2).strength(.04))
@@ -767,26 +1061,31 @@ function getIdeaFullContext(idea) {
 
 // ── Supernova: AI auto-discovers deep synthesis ──
 async function autoDiscoverSupernovae(ideasWithCards) {
-  // Don't discover if fewer than 2 ideas with enough content
+  // Don't discover if fewer than 2 ideas
   const richIdeas = ideasWithCards.filter(i => {
     const chatLen = (i.chatHistory || []).length;
-    return chatLen >= 3 || (i.nodes && i.nodes.length >= 1);
+    return chatLen >= 1 || (i.nodes && i.nodes.length >= 0); // currently taking all ideas with cards
   });
-  if (richIdeas.length < 2) return;
-  
-  // Don't create if we already have a supernova from today
-  const today = new Date().toDateString();
-  const recentSupernova = ideas.find(i => 
-    i.type === 'supernova' && new Date(i.createdAt).toDateString() === today
-  );
-  if (recentSupernova) return;
+  if (richIdeas.length < 2) {
+    console.log('Not enough rich ideas for supernova.', richIdeas.length);
+    return;
+  }
 
-  // Exclude pairs that already have supernovae
+  // Limit: Up to 3 active supernovae at a time
+  const activeSupernovae = ideas.filter(i => i.type === 'supernova');
+  if (activeSupernovae.length >= 3) {
+    console.log(`Already ${activeSupernovae.length} active supernovae. Waiting for user resolution.`);
+    return;
+  }
+  
+  // Exclude pairs that already have supernovae (even if they were adopted into normal ideas)
   const existingPairs = ideas
-    .filter(i => i.type === 'supernova' && i.parentIds)
+    .filter(i => i.parentIds)
     .map(i => i.parentIds.sort().join(','));
 
   const narrationEl = document.getElementById('narrationText');
+
+  console.log('Starting auto-discovery for supernovae... Rich ideas count:', richIdeas.length);
 
   try {
     const headers = { 'Content-Type': 'application/json' };
@@ -796,7 +1095,10 @@ async function autoDiscoverSupernovae(ideasWithCards) {
 
     // Build full context for each idea
     const fullContexts = richIdeas.map(i => getIdeaFullContext(i)).join('\n---\n');
-    const pairList = richIdeas.map(i => i.name).join(', ');
+    
+    // Collect existing supernova names to avoid duplicates
+    const existingSupernovaNames = ideas.filter(i => i.parentIds).map(i => i.name).join('，');
+    const duplicatePrompt = existingSupernovaNames ? `\n注意：绝对不能生成与以下已存在的点子名字或概念高度重复的内容：${existingSupernovaNames}` : '';
 
     const res = await fetch('/api/chat', {
       method: 'POST', headers,
@@ -804,17 +1106,26 @@ async function autoDiscoverSupernovae(ideasWithCards) {
         model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 400,
         messages: [
           { role: 'system', content: `你是"抽屉"的思维合成器。分析用户的多个想法，找出最有深度和潜力的交叉点。
-不是简单的"都提到了X"，而是"A的某个方向 + B的某个张力 = 一个全新的、用户没想到的方向"。
+不是简单的"都提到了X"，而是"A的某个方向 + B的某个张力 = 一个全新的、用户没想到的方向"。${duplicatePrompt}
 选择最有爆发力的一对，返回JSON（不要markdown包裹）：
-{"ideaA":"点子A的名字","ideaB":"点子B的名字","name":"新方向的名字（5-10字，有吸引力）","core":"一句话描述这个全新方向（20-40字）","branches":["方向1","方向2","方向3"],"tensions":"这个合成方向最大的未知是什么（一句话）","why":"为什么这两个点子放在一起会产生化学反应（一句话）"}` },
+{"ideaA":"点子A的名字","ideaB":"点子B的名字","name":"新方向的名字（5-10字，必须有新意）","core":"一句话描述这个全新方向（20-40字）","branches":["方向1","方向2","方向3"],"tensions":"这个合成方向最大的未知是什么（一句话）","why":"为什么这两个点子放在一起会产生化学反应（一句话）"}` },
           { role: 'user', content: fullContexts }
         ]
       })
     });
 
     const data = await res.json();
-    const raw = data.choices[0].message.content.replace(/```json|```/g, '').trim();
+    let raw = data.choices[0].message.content;
+    
+    // Robust JSON extraction
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      raw = raw.slice(firstBrace, lastBrace + 1);
+    }
+    
     const parsed = JSON.parse(raw);
+    console.log('Parsed supernova:', parsed);
 
     // Find the parent ideas
     const srcIdea = richIdeas.find(i => i.name === parsed.ideaA);

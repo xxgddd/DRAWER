@@ -1480,10 +1480,7 @@ body::before {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #0d0b08;
-  background-image: url('universe-bg.png');
-  background-size: cover;
-  background-position: center;
+  background: radial-gradient(ellipse at 50% 40%, #171b20 0%, #0d0b08 70%);
   position: relative;
   overflow: hidden;
 }
@@ -1572,4 +1569,176 @@ body::before {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* ── Universe Chatbox ── */
+.uchat {
+  position: absolute;
+  right: -400px;
+  top: 0;
+  bottom: 0;
+  width: 380px;
+  max-width: 90vw;
+  background: rgba(16, 13, 10, 0.88);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border-left: 1px solid rgba(200, 184, 154, 0.1);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  transition: right .35s cubic-bezier(.4, 0, .2, 1);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.uchat.open {
+  right: 0;
+}
+
+.uchat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(200, 184, 154, 0.08);
+}
+
+.uchat-title {
+  font-family: 'Crimson Pro', serif;
+  font-size: 16px;
+  font-weight: 300;
+  color: #7ec8e3;
+  letter-spacing: .02em;
+}
+
+.uchat-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all .2s;
+}
+
+.uchat-close:hover {
+  background: rgba(200, 184, 154, 0.1);
+  color: var(--text);
+}
+
+.uchat-adopt {
+  background: rgba(126, 200, 227, 0.12);
+  border: 1px solid rgba(126, 200, 227, 0.25);
+  color: #7ec8e3;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 11px;
+  font-weight: 400;
+  padding: 5px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all .25s;
+  white-space: nowrap;
+}
+
+.uchat-adopt:hover {
+  background: rgba(126, 200, 227, 0.22);
+  border-color: rgba(126, 200, 227, 0.45);
+  transform: scale(1.03);
+}
+
+.uchat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 184, 154, 0.15) transparent;
+}
+
+.uchat-msg {
+  max-width: 92%;
+  animation: uchatFadeIn .3s ease;
+}
+
+.uchat-msg.ai {
+  align-self: flex-start;
+}
+
+.uchat-msg.user {
+  align-self: flex-end;
+}
+
+.uchat-msg .uchat-bubble {
+  padding: 11px 15px;
+  font-size: 13px;
+  line-height: 1.7;
+  font-weight: 300;
+  border-radius: 14px;
+}
+
+.uchat-msg.ai .uchat-bubble {
+  background: rgba(126, 200, 227, 0.08);
+  border: 1px solid rgba(126, 200, 227, 0.15);
+  border-radius: 14px 14px 14px 4px;
+  color: var(--text);
+}
+
+.uchat-msg.user .uchat-bubble {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 14px 14px 4px 14px;
+  color: var(--text2);
+}
+
+.uchat-msg .uchat-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .1em;
+  margin-bottom: 4px;
+  padding: 0 4px;
+}
+
+.uchat-msg.ai .uchat-label {
+  color: #7ec8e3;
+}
+
+.uchat-msg.user .uchat-label {
+  color: var(--muted);
+  text-align: right;
+}
+
+.uchat-input-wrap {
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(200, 184, 154, 0.08);
+}
+
+.uchat-input {
+  width: 100%;
+  background: rgba(200, 184, 154, 0.06);
+  border: 1px solid rgba(200, 184, 154, 0.12);
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--text);
+  resize: none;
+  outline: none;
+  transition: border-color .2s;
+  max-height: 100px;
+}
+
+.uchat-input:focus {
+  border-color: rgba(126, 200, 227, 0.35);
+}
+
+.uchat-input::placeholder {
+  color: var(--muted);
+}
+
+@keyframes uchatFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }

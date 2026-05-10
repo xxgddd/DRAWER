@@ -10,9 +10,16 @@ export default async function handler(req) {
     });
   }
 
-  const apiKey = process.env.SILICONFLOW_API_KEY;
+  // Allow client to pass API key via Authorization header, fallback to env var
+  const authHeader = req.headers.get('Authorization');
+  let apiKey = process.env.SILICONFLOW_API_KEY;
+  
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    apiKey = authHeader.split(' ')[1];
+  }
+
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'API Key not configured on server' }), {
+    return new Response(JSON.stringify({ error: 'API Key not configured on server and not provided by client' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
