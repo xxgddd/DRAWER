@@ -103,6 +103,19 @@
           </div>
         </div>
         <div id="nodeTip" class="node-tip"></div>
+
+        <!-- First-visit guide -->
+        <div class="universe-guide" id="universeGuide" style="display:none;">
+          <div class="universe-guide-item">
+            <span class="guide-icon">◉</span> 点击星球 → 深入了解
+          </div>
+          <div class="universe-guide-item">
+            <span class="guide-line" style="border-color:#e8b86d;"></span> 悬停连线 → 发现关联
+          </div>
+          <div class="universe-guide-item">
+            <span class="guide-icon" style="color:#7ec8e3;">✦</span> 蓝色新星 → 思维交汇
+          </div>
+        </div>
       </div>
 
       <!-- Idea View -->
@@ -159,6 +172,9 @@
               <button class="card-copy-btn" onclick="copyCard()">复制卡片</button>
               <button class="card-regen-btn" onclick="generateIdeaCard(false)">重新整理</button>
             </div>
+            
+            <!-- Growth Timeline -->
+            <div class="card-timeline" id="cardTimeline" style="display:none;"></div>
           </div>
         </div>
 

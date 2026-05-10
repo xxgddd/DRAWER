@@ -1714,6 +1714,81 @@ body::before {
   border-top: 1px solid rgba(200, 184, 154, 0.08);
 }
 
+.card-copy-btn:hover { background: rgba(200, 184, 154, 0.2); }
+.card-regen-btn:hover { background: rgba(200, 184, 154, 0.1); }
+
+/* ── Timeline ── */
+.card-timeline {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px dashed rgba(200, 184, 154, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.timeline-item {
+  position: relative;
+  padding-left: 20px;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.timeline-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 16px;
+  bottom: -12px;
+  width: 1px;
+  border-left: 1px dashed rgba(200, 184, 154, 0.2);
+}
+
+.timeline-item.supernova::before { background: #7ec8e3; box-shadow: 0 0 6px rgba(126,200,227,0.5); }
+.timeline-item.evolution::before { background: #e8b86d; box-shadow: 0 0 6px rgba(232,184,109,0.5); }
+.timeline-item.seed::before { background: #8fba6e; }
+
+.timeline-time {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  letter-spacing: .02em;
+}
+
+.timeline-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #c8b89a;
+  font-weight: 300;
+}
+
+.timeline-text strong {
+  color: #e8b86d;
+  font-weight: 400;
+}
+
+/* ── Glow animations ── */
+@keyframes cardEvolveGlow {
+  0% { box-shadow: 0 0 0 rgba(232, 184, 109, 0); border-color: rgba(200, 184, 154, 0.15); }
+  50% { box-shadow: 0 0 30px rgba(232, 184, 109, 0.3); border-color: rgba(232, 184, 109, 0.6); }
+  100% { box-shadow: 0 0 0 rgba(232, 184, 109, 0); border-color: rgba(200, 184, 154, 0.15); }
+}
+
+.card-evolving {
+  animation: cardEvolveGlow 1.5s ease-out;
+}
+
 .uchat-input {
   width: 100%;
   background: rgba(200, 184, 154, 0.06);
@@ -1741,4 +1816,92 @@ body::before {
 @keyframes uchatFadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Universe First-Visit Guide ── */
+.universe-guide {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 150;
+  display: flex;
+  gap: 24px;
+  padding: 14px 28px;
+  background: rgba(16, 13, 10, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(200, 184, 154, 0.1);
+  border-radius: 16px;
+  animation: guideFloat 1s ease-out;
+  transition: opacity .6s ease;
+  white-space: nowrap;
+}
+
+.universe-guide.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.universe-guide-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 12px;
+  font-weight: 300;
+  color: #c8b89a;
+  opacity: 0.8;
+}
+
+.universe-guide-item .guide-icon {
+  font-size: 16px;
+  opacity: 0.6;
+}
+
+.universe-guide-item .guide-line {
+  width: 20px;
+  height: 2px;
+  border-top: 2px dashed;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@keyframes guideFloat {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Supernova Birth Flash ── */
+.supernova-birth-flash {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(126, 200, 227, 0.6) 0%, rgba(126, 200, 227, 0) 70%);
+  pointer-events: none;
+  z-index: 100;
+  animation: birthFlash 1.6s ease-out forwards;
+}
+
+@keyframes birthFlash {
+  0%   { transform: translate(-50%, -50%) scale(0.1); opacity: 1; }
+  40%  { transform: translate(-50%, -50%) scale(1.8); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+}
+
+.supernova-birth-line {
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #7ec8e3 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 99;
+  animation: birthLine 1.2s ease-out forwards;
+  transform-origin: left center;
+}
+
+@keyframes birthLine {
+  0%   { opacity: 0; clip-path: inset(0 100% 0 0); }
+  30%  { opacity: 1; clip-path: inset(0 0 0 0); }
+  100% { opacity: 0; clip-path: inset(0 0 0 0); }
 }

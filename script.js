@@ -26,9 +26,25 @@ function incrementMessageCount() {
 
 // ── Init ──
 window.addEventListener('load', () => {
-  // 小范围测试期间暂时停用 Key 门槛
-  // if (!apiKey) openModal('apiModal');
-  // else closeModal('apiModal');
+  // --- Simulating White Dwarf for the oldest ideas ---
+  if (ideas.length > 0) {
+    let modified = false;
+    const oldestIdea = ideas[ideas.length - 1];
+    if (oldestIdea && Date.now() - oldestIdea.updatedAt < 7 * 24 * 60 * 60 * 1000) {
+      oldestIdea.updatedAt = Date.now() - 10 * 24 * 60 * 60 * 1000; // 10 days ago
+      modified = true;
+    }
+    if (ideas.length > 1) {
+      const secondOldest = ideas[ideas.length - 2];
+      if (secondOldest && Date.now() - secondOldest.updatedAt < 7 * 24 * 60 * 60 * 1000) {
+        secondOldest.updatedAt = Date.now() - 8 * 24 * 60 * 60 * 1000; // 8 days ago
+        modified = true;
+      }
+    }
+    if (modified) saveIdeas();
+  }
+  // ----------------------------------------------------
+
   applyFontSize(fontSize);
   renderList();
   initTextarea();
@@ -502,16 +518,20 @@ function adoptSupernova() {
 
   saveIdeas();
 
-  // Close uchat, leave universe, select the idea
+  // Close uchat first
   closeUChat();
   
-  // Confetti celebration
+  // Confetti celebration — gold theme for graduation
   if (typeof confetti === 'function') {
-    confetti({ particleCount: 50, spread: 70, colors: ['#e8b86d', '#f0d090', '#ffffff'], origin: { y: 0.5 } });
+    confetti({ particleCount: 60, spread: 80, colors: ['#e8b86d', '#f0d090', '#ffffff', '#c8a84d'], origin: { y: 0.45 } });
   }
 
-  selectIdea(supernova.id);
-  renderList();
+  // Brief pause to let user absorb the transition, then navigate
+  const sId = supernova.id;
+  setTimeout(() => {
+    selectIdea(sId);
+    renderList();
+  }, 800);
 }
 
 // Discard a supernova entirely
@@ -664,10 +684,16 @@ function renderUniverse() {
   const h = wrap.clientHeight || 500;
 
   // Build nodes from ALL ideas
+  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
   const nodes = ideas.map((idea, i) => {
     const hasCard = idea.card && idea.card.core;
     const chatLen = (idea.chatHistory || []).length;
     const nodeCount = (idea.nodes || []).length;
+    const isDwarf = (Date.now() - idea.updatedAt) > SEVEN_DAYS;
+    
+    let baseSize = hasCard ? Math.max(10, Math.min(25, 6 + chatLen * 0.8 + nodeCount * 1.2)) : 4;
+    if (isDwarf && hasCard) baseSize = Math.max(8, baseSize * 0.6); // Shrink white dwarfs
+
     return {
       id: idea.id,
       name: idea.name,
@@ -676,7 +702,8 @@ function renderUniverse() {
       branches: hasCard ? (idea.card.branches || []) : [],
       tensions: hasCard ? (idea.card.tensions || '') : '',
       status: idea.status,
-      size: hasCard ? Math.max(10, Math.min(25, 6 + chatLen * 0.8 + nodeCount * 1.2)) : 4,
+      size: baseSize,
+      isDwarf,
       chatLen,
       nodeCount,
       index: i
@@ -724,11 +751,12 @@ function renderUniverse() {
         // If one is an active supernova, line is Blue (strength: 1)
         // If both are normal ideas (adopted supernova), line cools down to Yellow (strength: 0.5)
         const isActiveSupernova = aIdea.type === 'supernova' || bIdea.type === 'supernova';
+        const childName = aIdea.parentIds && aIdea.parentIds.includes(b.id) ? aIdea.name : bIdea.name;
         links.push({
           source: a.id, target: b.id,
           strength: isActiveSupernova ? 1.0 : 0.5, 
           sharedChars: '星系纽带',
-          aiReason: '这是经过深度思维交叉产生的必然联系'
+          aiReason: `血脉相连：「${childName}」的灵感源泉`
         });
         return;
       }
@@ -825,6 +853,7 @@ function renderUniverse() {
   // Planet / dark matter rendering
   const statusColors = { seed: '#e8b86d', grow: '#8fba6e', pause: '#5a6a7a' };
   function getNodeColor(d) {
+    if (d.isDwarf && d.hasCard) return '#5e6d78'; // White dwarf color
     const idea = ideas.find(i => i.id === d.id);
     if (idea && idea.type === 'supernova') return '#7ec8e3';
     return statusColors[d.status] || '#e8b86d';
@@ -833,16 +862,16 @@ function renderUniverse() {
   // Outer glow circle (only for card ideas)
   nodeSel.filter(d => d.hasCard).append('circle')
     .attr('r', d => d.size)
-    .attr('fill', d => getNodeColor(d) + '22')
+    .attr('fill', d => getNodeColor(d) + (d.isDwarf ? '11' : '22'))
     .attr('stroke', d => getNodeColor(d))
-    .attr('stroke-width', 1.5)
-    .attr('filter', 'url(#glow)');
+    .attr('stroke-width', d => d.isDwarf ? 1 : 1.5)
+    .attr('filter', d => d.isDwarf ? null : 'url(#glow)');
 
   // Inner bright core (only for card ideas)
   nodeSel.filter(d => d.hasCard).append('circle')
     .attr('r', d => Math.max(2.5, d.size * 0.3))
     .attr('fill', d => getNodeColor(d))
-    .attr('opacity', 0.9);
+    .attr('opacity', d => d.isDwarf ? 0.6 : 0.9);
 
   // Dark matter dots (no card)
   nodeSel.filter(d => !d.hasCard).append('circle')
@@ -861,8 +890,16 @@ function renderUniverse() {
     .attr('font-family', 'Noto Serif SC, serif')
     .attr('font-size', d => d.hasCard ? '11px' : '9px')
     .attr('font-weight', '300')
-    .attr('fill', d => d.hasCard ? '#c8b89a' : '#5a4e38')
-    .attr('opacity', d => d.hasCard ? 1 : 0.6)
+    .attr('fill', d => {
+      if (!d.hasCard) return '#5a4e38';
+      if (d.isDwarf) return '#5e6d78';
+      return '#c8b89a';
+    })
+    .attr('opacity', d => {
+      if (!d.hasCard) return 0.6;
+      if (d.isDwarf) return 0.5;
+      return 1;
+    })
     .text(d => d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name);
 
   // Node tooltip
@@ -915,9 +952,10 @@ function renderUniverse() {
     if (!srcNode || !tgtNode) return;
 
     const names = `<div style="font-size:10px;color:#5a7a8a;margin-bottom:6px;font-family:'Space Mono',monospace;letter-spacing:.05em">${srcNode.name} × ${tgtNode.name}</div>`;
+    const tipColor = d.strength >= 1.0 ? '#7ec8e3' : '#e8b86d';
     
     if (d.aiReason) {
-      tip.innerHTML = `${names}<div style="color:#7ec8e3;font-size:14px;line-height:1.6;font-style:italic">✦ ${d.aiReason}</div><div style="margin-top:6px;font-size:9px;color:#5a7a8a;font-family:'Space Mono',monospace;letter-spacing:.05em">CLICK TO EXPLORE ↗</div>`;
+      tip.innerHTML = `${names}<div style="color:${tipColor};font-size:14px;line-height:1.6;font-style:italic">✦ ${d.aiReason}</div><div style="margin-top:6px;font-size:9px;color:#5a7a8a;font-family:'Space Mono',monospace;letter-spacing:.05em">CLICK TO EXPLORE ↗</div>`;
     } else {
       tip.innerHTML = `${names}<div style="color:#5a7a8a;font-size:12px">✦ 正在解读…</div>`;
     }
@@ -929,7 +967,16 @@ function renderUniverse() {
   linkHitArea
     .on('mouseenter', function(e, d) {
       const idx = links.indexOf(d);
-      d3.select(linkSel.nodes()[idx]).attr('opacity', 0.6).attr('stroke-width', 2.5).attr('filter', 'url(#glowStrong)');
+      // Brighten the line
+      d3.select(linkSel.nodes()[idx]).attr('opacity', 0.7).attr('stroke-width', 3).attr('filter', 'url(#glowStrong)');
+      // Pulse connected nodes
+      const srcId = d.source.id || d.source;
+      const tgtId = d.target.id || d.target;
+      nodeSel.filter(nd => nd.id === srcId || nd.id === tgtId)
+        .selectAll('circle')
+        .transition().duration(300)
+        .attr('stroke-width', 3)
+        .attr('filter', 'url(#glowStrong)');
       showLinkTip(e, d);
       if (!d.aiReason && !d.aiFetching) {
         fetchLinkReason(d).then(() => {
@@ -944,6 +991,14 @@ function renderUniverse() {
     .on('mouseleave', function(e, d) {
       const idx = links.indexOf(d);
       d3.select(linkSel.nodes()[idx]).attr('opacity', 0.12 + d.strength * 0.25).attr('stroke-width', 0.5 + d.strength * 1.5).attr('filter', 'url(#glow)');
+      // Reset nodes
+      const srcId = d.source.id || d.source;
+      const tgtId = d.target.id || d.target;
+      nodeSel.filter(nd => nd.id === srcId || nd.id === tgtId)
+        .selectAll('circle')
+        .transition().duration(300)
+        .attr('stroke-width', 1.5)
+        .attr('filter', 'url(#glow)');
       tip.classList.remove('show');
     })
     .on('click', function(e, d) {
@@ -990,6 +1045,23 @@ function renderUniverse() {
 
   // Auto-discover supernovae (runs in background)
   autoDiscoverSupernovae(ideasWithCards);
+
+  // First-visit guide
+  const guideEl = document.getElementById('universeGuide');
+  if (guideEl && links.length > 0) {
+    const hasVisited = localStorage.getItem('drawer_universe_visited');
+    if (!hasVisited) {
+      guideEl.style.display = 'flex';
+      localStorage.setItem('drawer_universe_visited', '1');
+      // Fade out after 8 seconds or on first interaction
+      const fadeGuide = () => {
+        guideEl.classList.add('fade-out');
+        setTimeout(() => { guideEl.style.display = 'none'; }, 600);
+      };
+      setTimeout(fadeGuide, 8000);
+      svg.on('click.guide', fadeGuide);
+    }
+  }
 }
 
 async function generateUniverseNarration(ideasWithCards, links) {
@@ -1060,7 +1132,12 @@ function getIdeaFullContext(idea) {
 }
 
 // ── Supernova: AI auto-discovers deep synthesis ──
+let _isDiscoveringSupernova = false;
+
 async function autoDiscoverSupernovae(ideasWithCards) {
+  if (_isDiscoveringSupernova) return;
+  _isDiscoveringSupernova = true;
+
   // Don't discover if fewer than 2 ideas
   const richIdeas = ideasWithCards.filter(i => {
     const chatLen = (i.chatHistory || []).length;
@@ -1164,12 +1241,40 @@ async function autoDiscoverSupernovae(ideasWithCards) {
       narrationEl.textContent = `✦ 发现了一颗新星：「${idea.name}」—— ${parsed.why}`;
     }
 
+    // Birth flash animation
+    const svgWrap = document.getElementById('universeSvgWrap');
+    if (svgWrap) {
+      const rect = svgWrap.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      
+      // Central flash
+      const flash = document.createElement('div');
+      flash.className = 'supernova-birth-flash';
+      flash.style.left = cx + 'px';
+      flash.style.top = cy + 'px';
+      svgWrap.appendChild(flash);
+      setTimeout(() => flash.remove(), 1800);
+      
+      // Blue confetti burst
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 35, spread: 90, startVelocity: 20,
+          colors: ['#7ec8e3', '#5aa8c3', '#aedff5', '#ffffff'],
+          origin: { x: 0.5, y: 0.4 },
+          gravity: 0.4, ticks: 80
+        });
+      }
+    }
+
     // Re-render universe to show the new star
     setTimeout(() => renderUniverse(), 800);
 
   } catch(err) {
     // Silent fail - supernovae are a bonus, not critical
     console.log('Supernova discovery failed:', err);
+  } finally {
+    _isDiscoveringSupernova = false;
   }
 }
 
@@ -1389,11 +1494,126 @@ function renderCard() {
       (idea.card.branches || []).map(b => `<span class="card-chip">${esc(b)}</span>`).join('');
     document.getElementById('cardTensions').textContent = idea.card.tensions || '';
     document.getElementById('cardNext').textContent = idea.card.next || '';
+    renderTimeline(idea);
   } else {
     cardEmpty.style.display = 'flex';
     cardContent.style.display = 'none';
     const chatLen = (idea.chatHistory || []).length;
     if (cardGenBtn) cardGenBtn.style.display = chatLen >= 4 ? 'block' : 'none';
+  }
+}
+
+function renderTimeline(idea) {
+  const tl = document.getElementById('cardTimeline');
+  if (!tl) return;
+  
+  let events = [];
+  
+  // 1. Seed
+  events.push({ time: idea.createdAt, type: 'seed', text: '种子种下：最早的念头碎片' });
+  
+  // 2. Supernova (if any)
+  if (idea.parentIds && idea.parentIds.length === 2) {
+    const p1 = getIdea(idea.parentIds[0]);
+    const p2 = getIdea(idea.parentIds[1]);
+    const n1 = p1 ? p1.name : '未知';
+    const n2 = p2 ? p2.name : '未知';
+    events.push({ time: idea.createdAt + 10, type: 'supernova', text: `星系交汇：从「${n1}」与「${n2}」中碰撞孕育` });
+  }
+  
+  // 3. AI Insights / Todos (Pinned nodes)
+  (idea.nodes || []).forEach(n => {
+    const text = n.type === 'todo' ? `决定了一步小行动：${n.text}` : `思维突破：${n.text}`;
+    events.push({ time: n.id, type: 'insight', text });
+  });
+  
+  // 4. Evolutions
+  (idea.evolutions || []).forEach(e => {
+    events.push({ time: e.time, type: 'evolution', text: `核心进化：概念升级为了 "<strong>${e.newCore}</strong>"` });
+  });
+  
+  // Sort chronologically
+  events.sort((a, b) => a.time - b.time);
+  
+  if (events.length <= 1) {
+    tl.style.display = 'none';
+    return;
+  }
+  
+  tl.style.display = 'flex';
+  tl.innerHTML = '<div class="card-section-label">生长轨迹</div>' + events.map(e => {
+    const dateStr = new Date(e.time).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `<div class="timeline-item ${e.type}">
+      <div class="timeline-time">${dateStr}</div>
+      <div class="timeline-text">${e.text}</div>
+    </div>`;
+  }).join('');
+}
+
+async function triggerCardEvolution(ideaId) {
+  const idea = getIdea(ideaId);
+  if (!idea || !idea.card || !idea.chatHistory) return;
+  
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
+    }
+    
+    // We ask AI to read the chat history and evolve the card
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 400,
+        messages: [
+          { role: 'system', content: `你是"抽屉"的想法雕刻师。用户的想法随着聊天已经变深了。
+请重新提炼这个想法的最新状态。返回JSON（不要markdown包裹）：
+{"core":"一句话描述最新核心概念（必须跟以前不同，更深一点）","branches":["新方向1","新方向2"],"tensions":"目前最大的未知或矛盾点是什么","next":"下一步最小行动"}` },
+          ...idea.chatHistory
+        ]
+      })
+    });
+    
+    const data = await res.json();
+    let raw = data.choices[0].message.content;
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      raw = raw.slice(firstBrace, lastBrace + 1);
+    }
+    const parsed = JSON.parse(raw);
+    
+    // Record evolution milestone
+    if (!idea.evolutions) idea.evolutions = [];
+    idea.evolutions.push({
+      time: Date.now(),
+      oldCore: idea.card.core,
+      newCore: parsed.core
+    });
+    
+    // Update card
+    idea.card = {
+      core: parsed.core,
+      branches: parsed.branches || idea.card.branches,
+      tensions: parsed.tensions || idea.card.tensions,
+      next: parsed.next || idea.card.next
+    };
+    
+    idea.updatedAt = Date.now();
+    saveIdeas();
+    
+    // Visual update if still on this idea
+    if (currentId === ideaId) {
+      renderCard();
+      const cardEl = document.getElementById('cardContent');
+      if (cardEl) {
+        cardEl.classList.remove('card-evolving');
+        void cardEl.offsetWidth; // trigger reflow
+        cardEl.classList.add('card-evolving');
+      }
+    }
+  } catch (err) {
+    console.log('Evolution failed silently', err);
   }
 }
 
@@ -1660,10 +1880,17 @@ ${ctx}
     chatHistory.push({ role: 'assistant', content: aiText });
     if (idea) { idea.chatHistory = chatHistory; saveIdeas(); }
 
-    if (idea && !idea.card && chatHistory.length >= 8) {
+    if (idea && !idea.card && chatHistory.length >= 4) {
       setTimeout(() => generateIdeaCard(true), 800);
     } else {
       renderCard();
+      // Evolution check: every 4 user messages (approx. 8 total messages) after card exists
+      if (idea && idea.card) {
+        const userMsgs = chatHistory.filter(m => m.role === 'user').length;
+        if (userMsgs > 0 && userMsgs % 4 === 0) {
+          setTimeout(() => triggerCardEvolution(idea.id), 800);
+        }
+      }
     }
 
     if (chatHistory.length >= 3) {
@@ -1735,7 +1962,7 @@ async function pinToTimeline(btn, isTodo, msgIdx) {
       done: false, time: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     });
     idea.updatedAt = Date.now();
-    saveIdeas(); renderList(); renderGraph();
+    saveIdeas(); renderList(); renderGraph(); renderCard();
 
     btn.textContent = '✓ 已钉入';
     btn.style.borderColor = 'var(--accent3)';
