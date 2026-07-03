@@ -135,6 +135,7 @@ function expandDrawerIfNot() {
 function initTextarea() {
   const ta = document.getElementById('chatInput');
   if (!ta) return;
+  ta.addEventListener('focus', expandDrawerIfNot);
   ta.addEventListener('input', function () {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 160) + 'px';
@@ -200,7 +201,7 @@ async function handleQuickCapture() {
   ta.value = '';
   
   // 3. Switch to the view
-  await selectIdea(idea.id);
+  await selectIdea(idea.id, { expandChat: true });
   
   // 4. Send the text as the first message
   const chatInput = document.getElementById('chatInput');
@@ -224,7 +225,7 @@ function createIdea() {
   document.getElementById('newIdeaInput').value = '';
   closeModal('newIdeaModal');
   renderList();
-  selectIdea(idea.id);
+  selectIdea(idea.id, { expandChat: true });
   // Close sidebar on mobile after creation
   const panel = document.getElementById('listPanel');
   if (panel && panel.classList.contains('open')) toggleSidebar();
@@ -284,7 +285,7 @@ function addNode(text, type, keyword) {
 }
 
 // ── Select Idea ──
-async function selectIdea(id) {
+async function selectIdea(id, options = {}) {
   currentId = id;
   const idea = getIdea(id);
   chatHistory = idea.chatHistory || [];
@@ -296,7 +297,7 @@ async function selectIdea(id) {
   // Confetti for first-time supernova viewing
   if (idea.type === 'supernova' && !idea.hasBeenViewed) {
     if (typeof confetti === 'function') {
-      confetti({ particleCount: 70, spread: 90, colors: ['#7ec8e3', '#b8d8e8', '#ffffff', '#e8b86d'], origin: { y: 0.5 } });
+      confetti({ particleCount: 70, spread: 90, colors: ['#7ec8e3', '#b8d8e8', '#eee7da', '#d7a454'], origin: { y: 0.5 } });
     }
     idea.hasBeenViewed = true;
     saveIdeas();
@@ -304,7 +305,7 @@ async function selectIdea(id) {
 
   const drawer = document.getElementById('drawerPanel');
   const drawerBtn = document.getElementById('drawerToggleBtn');
-  if (chatHistory.length > 0) {
+  if (options.expandChat) {
     drawer.classList.add('open');
     drawer.classList.remove('closed');
     if (drawerBtn) drawerBtn.innerHTML = '↓ 收起对话';
@@ -405,8 +406,12 @@ function showNoSel() {
 
 // ── Universe View ──
 let universeSim = null;
+let universeFocusId = null;
+let inspectedUniverseIdeaId = null;
+let activeUniverseLinks = [];
 
 function showUniverse() {
+  universeFocusId = currentId || universeFocusId || ideas.find(i => i.card && i.card.core)?.id || ideas[0]?.id || null;
   currentId = null;
   const noSel = document.getElementById('noSel');
   if (noSel) noSel.style.display = 'none';
@@ -424,7 +429,63 @@ function showUniverse() {
   // Close sidebar on mobile
   const panel = document.getElementById('listPanel');
   if (panel && panel.classList.contains('open')) toggleSidebar();
-  
+  closeUniverseInspector();
+  renderUniverse();
+}
+
+function openUniverseInspector(id) {
+  const idea = getIdea(id);
+  const panel = document.getElementById('universeInspector');
+  if (!idea || !panel) return;
+  inspectedUniverseIdeaId = id;
+  const isFocus = id === universeFocusId;
+  document.getElementById('universeInspectorKicker').textContent = isFocus ? '当前中心' : '进入视野';
+  document.getElementById('universeInspectorTitle').textContent = idea.name;
+  document.getElementById('universeInspectorCore').textContent = idea.card?.core || '这个点子还没有被展开。打开它，聊几句，让轮廓慢慢出现。';
+  const relation = activeUniverseLinks.find(link => {
+    const sourceId = link.source?.id || link.source;
+    const targetId = link.target?.id || link.target;
+    return (sourceId === universeFocusId && targetId === id) || (targetId === universeFocusId && sourceId === id);
+  });
+  const reasonEl = document.getElementById('universeInspectorReason');
+  if (id === universeFocusId) {
+    reasonEl.textContent = '这是当前的引力中心。周围的点子由它牵引进入视野。';
+  } else if (relation) {
+    const label = relation.relation === 'collision' ? '碰撞' : '回声';
+    reasonEl.textContent = `${label} · ${relation.aiReason || `共同触及「${relation.sharedChars}」`}`;
+  } else {
+    reasonEl.textContent = '它暂时没有与中心形成足够清晰的联系。';
+  }
+  const nextEl = document.getElementById('universeInspectorNext');
+  nextEl.textContent = idea.card?.next ? `可以继续：${idea.card.next}` : '';
+  nextEl.style.display = idea.card?.next ? 'block' : 'none';
+  const nodeCount = (idea.nodes || []).length;
+  const chatCount = (idea.chatHistory || []).filter(m => m.role === 'user').length;
+  document.getElementById('universeInspectorMeta').textContent = `${chatCount} 轮对话 · ${nodeCount} 个生长节点 · ${{seed:'萌芽',grow:'推进中',pause:'搁置'}[idea.status] || '萌芽'}`;
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden', 'false');
+}
+
+function closeUniverseInspector() {
+  const panel = document.getElementById('universeInspector');
+  if (panel) {
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+  }
+  inspectedUniverseIdeaId = null;
+}
+
+function openInspectedIdea() {
+  if (!inspectedUniverseIdeaId) return;
+  const id = inspectedUniverseIdeaId;
+  closeUniverseInspector();
+  selectIdea(id);
+}
+
+function focusInspectedIdea() {
+  if (!inspectedUniverseIdeaId) return;
+  universeFocusId = inspectedUniverseIdeaId;
+  closeUniverseInspector();
   renderUniverse();
 }
 
@@ -439,6 +500,7 @@ function openUChat(idA, idB) {
   const ideaA = getIdea(idA);
   const ideaB = getIdea(idB);
   if (!ideaA || !ideaB) return;
+  closeUniverseInspector();
 
   const key = getUChatKey(idA, idB);
   const saved = localStorage.getItem(key);
@@ -523,7 +585,7 @@ function adoptSupernova() {
   
   // Confetti celebration — gold theme for graduation
   if (typeof confetti === 'function') {
-    confetti({ particleCount: 60, spread: 80, colors: ['#e8b86d', '#f0d090', '#ffffff', '#c8a84d'], origin: { y: 0.45 } });
+    confetti({ particleCount: 60, spread: 80, colors: ['#d7a454', '#e8c987', '#eee7da', '#a96d3b'], origin: { y: 0.45 } });
   }
 
   // Brief pause to let user absorb the transition, then navigate
@@ -706,6 +768,7 @@ function renderUniverse() {
       isDwarf,
       chatLen,
       nodeCount,
+      isFocus: idea.id === universeFocusId,
       index: i
     };
   });
@@ -755,6 +818,7 @@ function renderUniverse() {
         links.push({
           source: a.id, target: b.id,
           strength: isActiveSupernova ? 1.0 : 0.5, 
+          relation: 'collision',
           sharedChars: '星系纽带',
           aiReason: `血脉相连：「${childName}」的灵感源泉`
         });
@@ -775,16 +839,18 @@ function renderUniverse() {
       
       // 1 shared bigram = yellow line (0.4)
       // 2+ shared bigrams = blue line (1.0)
-      if (shared.length >= 1) {
+      if (shared.length >= 2) {
         links.push({ 
           source: a.id, target: b.id, 
           strength: Math.min(0.4 + (shared.length - 1) * 0.6, 1.0),
+          relation: 'echo',
           sharedChars: shared.slice(0, 3).join('、'),
           aiReason: null 
         });
       }
     });
   });
+  activeUniverseLinks = links;
 
   // Glow filter
   const defs = svg.append('defs');
@@ -803,13 +869,26 @@ function renderUniverse() {
 
   // Star field background
   const starGroup = svg.append('g').attr('class', 'star-field');
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 160; i++) {
     starGroup.append('circle')
       .attr('cx', Math.random() * w)
       .attr('cy', Math.random() * h)
       .attr('r', Math.random() * 1.2)
       .attr('fill', '#c8b89a')
-      .attr('opacity', Math.random() * 0.25 + 0.03);
+      .attr('opacity', Math.random() * 0.28 + 0.04);
+  }
+
+  const focusBackdrop = nodes.find(d => d.isFocus);
+  if (focusBackdrop) {
+    const orbitGroup = svg.append('g').attr('class', 'focus-orbits').attr('pointer-events', 'none');
+    [62, 108, 168].forEach((radius, index) => {
+      orbitGroup.append('circle')
+        .attr('cx', w / 2).attr('cy', h / 2).attr('r', radius)
+        .attr('fill', 'none').attr('stroke', '#d7a454')
+        .attr('stroke-width', index === 0 ? 0.8 : 0.5)
+        .attr('stroke-dasharray', index === 0 ? '2,6' : '1,10')
+        .attr('opacity', 0.13 - index * 0.025);
+    });
   }
 
   // Links - invisible fat hit area behind visible line
@@ -822,7 +901,7 @@ function renderUniverse() {
   // Links - visible thin line
   const linkSel = svg.append('g').selectAll('line')
     .data(links).join('line')
-    .attr('stroke', d => d.strength < 0.8 ? '#e8b86d' : '#7ec8e3')
+    .attr('stroke', d => d.relation === 'collision' ? '#7ec8e3' : '#d7a454')
     .attr('stroke-width', d => 0.5 + d.strength * 1.5)
     .attr('stroke-dasharray', '4,4')
     .attr('opacity', d => 0.12 + d.strength * 0.25)
@@ -839,37 +918,30 @@ function renderUniverse() {
       .on('end', (e, d) => { if (!e.active) universeSim.alphaTarget(0); d.fx = null; d.fy = null; }))
     .on('click', (e, d) => {
       e.stopPropagation();
-      const idea = ideas.find(i => i.id === d.id);
-      if (idea && idea.type === 'supernova' && idea.parentIds) {
-        // Supernova: open chatbox with parent ideas
-        openUChat(idea.parentIds[0], idea.parentIds[1]);
-      } else {
-        selectIdea(d.id);
-        const panel = document.getElementById('listPanel');
-        if (panel && panel.classList.contains('open')) toggleSidebar();
-      }
+      openUniverseInspector(d.id);
     });
 
   // Planet / dark matter rendering
-  const statusColors = { seed: '#e8b86d', grow: '#8fba6e', pause: '#5a6a7a' };
+  const statusColors = { seed: '#d7a454', grow: '#789365', pause: '#5a6a7a' };
   function getNodeColor(d) {
+    if (d.isFocus) return '#e0ad60';
     if (d.isDwarf && d.hasCard) return '#5e6d78'; // White dwarf color
     const idea = ideas.find(i => i.id === d.id);
     if (idea && idea.type === 'supernova') return '#7ec8e3';
-    return statusColors[d.status] || '#e8b86d';
+    return statusColors[d.status] || '#d7a454';
   }
   
   // Outer glow circle (only for card ideas)
   nodeSel.filter(d => d.hasCard).append('circle')
-    .attr('r', d => d.size)
+    .attr('r', d => d.size + (d.isFocus ? 8 : 0))
     .attr('fill', d => getNodeColor(d) + (d.isDwarf ? '11' : '22'))
     .attr('stroke', d => getNodeColor(d))
-    .attr('stroke-width', d => d.isDwarf ? 1 : 1.5)
+    .attr('stroke-width', d => d.isFocus ? 2.5 : (d.isDwarf ? 1 : 1.5))
     .attr('filter', d => d.isDwarf ? null : 'url(#glow)');
 
   // Inner bright core (only for card ideas)
   nodeSel.filter(d => d.hasCard).append('circle')
-    .attr('r', d => Math.max(2.5, d.size * 0.3))
+    .attr('r', d => Math.max(2.5, (d.size + (d.isFocus ? 8 : 0)) * 0.3))
     .attr('fill', d => getNodeColor(d))
     .attr('opacity', d => d.isDwarf ? 0.6 : 0.9);
 
@@ -885,7 +957,7 @@ function renderUniverse() {
 
   // Labels
   nodeSel.append('text')
-    .attr('y', d => (d.hasCard ? d.size : 3) + 14)
+    .attr('y', d => (d.hasCard ? d.size + (d.isFocus ? 8 : 0) : 3) + 16)
     .attr('text-anchor', 'middle')
     .attr('font-family', 'Noto Serif SC, serif')
     .attr('font-size', d => d.hasCard ? '11px' : '9px')
@@ -896,16 +968,18 @@ function renderUniverse() {
       return '#c8b89a';
     })
     .attr('opacity', d => {
-      if (!d.hasCard) return 0.6;
-      if (d.isDwarf) return 0.5;
-      return 1;
+      if (d.isFocus) return 1;
+      if (!d.hasCard) return 0.22;
+      if (d.isDwarf) return 0.42;
+      return d.size >= 16 ? 0.82 : 0.58;
     })
     .text(d => d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name);
 
   // Node tooltip
   const tip = document.getElementById('nodeTip');
   nodeSel
-    .on('mouseenter', (e, d) => {
+    .on('mouseenter', function(e, d) {
+      d3.select(this).select('text').attr('opacity', 1);
       if (d.hasCard) {
         tip.innerHTML = `<div class="node-tip-meta">${d.chatLen}轮对话 · ${d.nodeCount}个节点 · ${{seed:'🌱萌芽',grow:'🌿推进',pause:'❄️搁置'}[d.status]}</div><strong>${d.name}</strong><br>${esc(d.core)}`;
       } else {
@@ -914,7 +988,11 @@ function renderUniverse() {
       tip.classList.add('show');
     })
     .on('mousemove', e => { tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 8) + 'px'; })
-    .on('mouseleave', () => tip.classList.remove('show'));
+    .on('mouseleave', function(e, d) {
+      tip.classList.remove('show');
+      const baseOpacity = d.isFocus ? 1 : (!d.hasCard ? 0.22 : (d.isDwarf ? 0.42 : (d.size >= 16 ? 0.82 : 0.58)));
+      d3.select(this).select('text').attr('opacity', baseOpacity);
+    });
 
   // Link interaction via hit area - hover auto-triggers AI
   async function fetchLinkReason(d) {
@@ -941,7 +1019,7 @@ function renderUniverse() {
       const data = await res.json();
       d.aiReason = data.choices[0].message.content.trim().replace(/^["「『]|["」』。]$/g, '');
     } catch(err) {
-      d.aiReason = '共享关键词: ' + d.sharedChars;
+      d.aiReason = '文字回声：' + d.sharedChars;
     }
     d.aiFetching = false;
   }
@@ -951,8 +1029,9 @@ function renderUniverse() {
     const tgtNode = nodes.find(n => n.id === (d.target.id || d.target));
     if (!srcNode || !tgtNode) return;
 
-    const names = `<div style="font-size:10px;color:#5a7a8a;margin-bottom:6px;font-family:'Space Mono',monospace;letter-spacing:.05em">${srcNode.name} × ${tgtNode.name}</div>`;
-    const tipColor = d.strength >= 1.0 ? '#7ec8e3' : '#e8b86d';
+    const relationLabel = d.relation === 'collision' ? '碰撞' : '回声';
+    const names = `<div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-family:'Space Mono',monospace;letter-spacing:.05em">${relationLabel} · ${srcNode.name} × ${tgtNode.name}</div>`;
+    const tipColor = d.relation === 'collision' ? '#7ec8e3' : '#d7a454';
     
     if (d.aiReason) {
       tip.innerHTML = `${names}<div style="color:${tipColor};font-size:14px;line-height:1.6;font-style:italic">✦ ${d.aiReason}</div><div style="margin-top:6px;font-size:9px;color:#5a7a8a;font-family:'Space Mono',monospace;letter-spacing:.05em">CLICK TO EXPLORE ↗</div>`;
@@ -1017,6 +1096,12 @@ function renderUniverse() {
     .force('x', d3.forceX(w / 2).strength(.04))
     .force('y', d3.forceY(h / 2).strength(.04))
     .force('collision', d3.forceCollide(d => (d.hasCard ? d.size : 6) + 15));
+
+  const focusNode = nodes.find(d => d.isFocus);
+  if (focusNode) {
+    focusNode.fx = w / 2;
+    focusNode.fy = h / 2;
+  }
 
   universeSim.on('tick', () => {
     linkSel
@@ -1322,12 +1407,22 @@ function renderList() {
     const isSupernova = idea.type === 'supernova';
     const namePrefix = isSupernova ? '<span style="color:#7ec8e3">✦</span> ' : '';
     const dotClass = isSupernova ? 's-supernova' : `s-${idea.status}`;
+    const statusLabel = isSupernova
+      ? '碰撞生成'
+      : ({ seed: '萌芽', grow: '推进', pause: '搁置' }[idea.status] || '萌芽');
+    const statusHint = isSupernova
+      ? '由两个点子碰撞产生的新方向'
+      : ({
+          seed: '刚刚捕捉、还在形成中的点子',
+          grow: '正在持续思考和发展的点子',
+          pause: '暂时放下，之后可以再回来'
+        }[idea.status] || '刚刚捕捉、还在形成中的点子');
 
     return `<div class="idea-item ${idea.id === currentId ? 'active' : ''} ${freshClass}" onclick="selectIdea(${idea.id})">
   <div class="idea-item-name">${namePrefix}${esc(idea.name)}</div>
   ${snippet}
   <div class="idea-item-meta">
-    <span class="sdot ${dotClass}"></span>
+    <span class="idea-status-badge ${dotClass}" title="${statusHint}"><span class="sdot"></span>${statusLabel}</span>
     <span class="idea-item-info">${dateStr}·${idea.nodes.length}节</span>
   </div>
   ${controls}
@@ -1381,11 +1476,11 @@ function renderGraph() {
     .attr('id', 'arr').attr('viewBox', '0 -3 6 6')
     .attr('refX', 16).attr('refY', 0)
     .attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
-    .append('path').attr('d', 'M0,-3L6,0L0,3').attr('fill', '#4a3e28');
+    .append('path').attr('d', 'M0,-3L6,0L0,3').attr('fill', '#3b3428');
 
   const linkSel = svg.append('g').selectAll('line')
     .data(validLinks).join('line')
-    .attr('stroke', d => d.seq ? '#4a3e28' : '#3a3020')
+    .attr('stroke', d => d.seq ? '#3b3428' : '#2b271f')
     .attr('stroke-width', d => d.seq ? 1.5 : 1)
     .attr('stroke-dasharray', d => d.seq ? null : '3,3')
     .attr('marker-end', d => d.seq ? 'url(#arr)' : null)
@@ -1406,8 +1501,8 @@ function renderGraph() {
       const g = el.append('g').attr('transform', 'translate(-6, -6)');
       g.append('rect')
         .attr('width', 12).attr('height', 12).attr('rx', 2)
-        .attr('fill', d.done ? '#8fba6e' : 'transparent')
-        .attr('stroke', '#8fba6e').attr('stroke-width', 1.5)
+        .attr('fill', d.done ? '#789365' : 'transparent')
+        .attr('stroke', '#789365').attr('stroke-width', 1.5)
         .attr('cursor', 'pointer')
         .on('click', (e, d) => {
           e.stopPropagation();
@@ -1416,12 +1511,12 @@ function renderGraph() {
       if (d.done) {
         g.append('path')
           .attr('d', 'M3,6 L5,8 L9,3')
-          .attr('fill', 'none').attr('stroke', '#221c14').attr('stroke-width', 1.5);
+          .attr('fill', 'none').attr('stroke', '#161410').attr('stroke-width', 1.5);
       }
     } else {
       el.append('circle')
         .attr('r', 5)
-        .attr('fill', d.type === 'ai' ? '#8fba6e' : '#e8b86d')
+        .attr('fill', d.type === 'ai' ? '#789365' : '#d7a454')
         .attr('stroke', d.type === 'ai' ? '#5a9a4e' : '#b89040')
         .attr('stroke-width', 1.5);
     }
@@ -1488,12 +1583,25 @@ function renderCard() {
 
   if (idea.card) {
     cardEmpty.style.display = 'none';
-    cardContent.style.display = 'flex';
+    cardContent.style.removeProperty('display');
     document.getElementById('cardCore').textContent = idea.card.core || '';
+    const originBlock = document.getElementById('cardOriginBlock');
+    const turnBlock = document.getElementById('cardTurnBlock');
+    const origin = idea.card.origin || '';
+    const turningPoint = idea.card.turningPoint || '';
+    originBlock.style.display = origin ? 'flex' : 'none';
+    turnBlock.style.display = turningPoint ? 'flex' : 'none';
+    document.getElementById('cardOrigin').textContent = origin;
+    document.getElementById('cardTurningPoint').textContent = turningPoint;
+    const branches = idea.card.branches || [];
+    const tensions = idea.card.tensions || '';
+    document.getElementById('cardBranchesBlock').style.display = branches.length ? '' : 'none';
+    document.getElementById('cardTensionBlock').style.display = tensions ? '' : 'none';
     document.getElementById('cardBranches').innerHTML =
-      (idea.card.branches || []).map(b => `<span class="card-chip">${esc(b)}</span>`).join('');
-    document.getElementById('cardTensions').textContent = idea.card.tensions || '';
+      branches.map(b => `<span class="card-chip">${esc(b)}</span>`).join('');
+    document.getElementById('cardTensions').textContent = tensions;
     document.getElementById('cardNext').textContent = idea.card.next || '';
+    document.getElementById('cardNextAction').style.display = idea.card.next ? 'flex' : 'none';
     renderTimeline(idea);
   } else {
     cardEmpty.style.display = 'flex';
@@ -1568,7 +1676,7 @@ async function triggerCardEvolution(ideaId) {
         messages: [
           { role: 'system', content: `你是"抽屉"的想法雕刻师。用户的想法随着聊天已经变深了。
 请重新提炼这个想法的最新状态。返回JSON（不要markdown包裹）：
-{"core":"一句话描述最新核心概念（必须跟以前不同，更深一点）","branches":["新方向1","新方向2"],"tensions":"目前最大的未知或矛盾点是什么","next":"下一步最小行动"}` },
+{"core":"一句话描述最新核心概念（必须跟以前不同，更深一点）","origin":"最能唤回最初念头的一句用户原话","turningPoint":"这轮思考发生的关键转变，一句话","branches":["新方向1","新方向2"],"tensions":"目前最大的未知或矛盾点是什么","next":"下一步可继续创作的具体动作"}` },
           ...idea.chatHistory
         ]
       })
@@ -1594,6 +1702,8 @@ async function triggerCardEvolution(ideaId) {
     // Update card
     idea.card = {
       core: parsed.core,
+      origin: parsed.origin || idea.card.origin,
+      turningPoint: parsed.turningPoint || idea.card.turningPoint,
       branches: parsed.branches || idea.card.branches,
       tensions: parsed.tensions || idea.card.tensions,
       next: parsed.next || idea.card.next
@@ -1656,7 +1766,7 @@ async function generateIdeaCard(auto) {
           {
             role: 'system',
             content: `从以下对话中提炼一张点子卡，返回JSON，不要任何markdown包裹，branches数组包含3到5个方向（根据对话丰富程度决定）：
-{"core":"核心想法，1-2句，第一人称，像日记里的发现","branches":["方向1，10字内","方向2，10字内","方向3，10字内"],"tensions":"最大的矛盾或未解决问题，1句话","next":"最小的一步行动，10字内，具体可执行"}`
+{"core":"核心想法，1-2句，第一人称，像日记里的发现","origin":"最能唤回最初念头的一句用户原话，保持原口吻，20字内","turningPoint":"对话里认知发生变化的关键转折，1句话；没有明显转折则为空字符串","branches":["方向1，10字内","方向2，10字内","方向3，10字内"],"tensions":"最大的矛盾或未解决问题，1句话","next":"下一步可继续创作的具体动作，15字内"}`
           },
           { role: 'user', content: `点子名：${idea.name}\n\n对话：\n${conversation}` }
         ]
@@ -1684,13 +1794,40 @@ function copyCard() {
   const idea = currentId ? getIdea(currentId) : null;
   if (!idea || !idea.card) return;
   const c = idea.card;
-  const text = `# ${idea.name}\n\n**核心想法**\n${c.core}\n\n**关键方向**\n${(c.branches || []).map(b => '· ' + b).join('\n')}\n\n**未解决的张力**\n${c.tensions}\n\n**最小一步**\n${c.next}`;
+  const origin = c.origin ? `\n\n**从这里长出来**\n${c.origin}` : '';
+  const turn = c.turningPoint ? `\n\n**这次转弯**\n${c.turningPoint}` : '';
+  const text = `# ${idea.name}\n\n**核心想法**\n${c.core}${origin}${turn}\n\n**关键方向**\n${(c.branches || []).map(b => '· ' + b).join('\n')}\n\n**未解决的张力**\n${c.tensions}\n\n**接下来可以长成**\n${c.next}`;
   navigator.clipboard.writeText(text)
     .then(() => {
       const btn = document.querySelector('.card-copy-btn');
       if (btn) { btn.textContent = '✓ 已复制'; setTimeout(() => btn.textContent = '复制卡片', 2000); }
     })
     .catch(() => alert('复制失败，请手动复制'));
+}
+
+function growIdea(mode) {
+  const idea = currentId ? getIdea(currentId) : null;
+  if (!idea) return;
+  if (mode === 'rest') {
+    updateStatus('pause');
+    document.getElementById('statusSel').value = 'pause';
+    const dock = document.querySelector('.growth-dock');
+    if (dock) {
+      dock.classList.add('resting');
+      setTimeout(() => dock.classList.remove('resting'), 1200);
+    }
+    return;
+  }
+
+  const prompts = {
+    deeper: `别总结。抓住「${idea.card?.tensions || idea.name}」里最别扭的地方，再往深处问我一个问题。`,
+    outline: `把这个点子往一个可创作的作品推进。先问我它最想变成文章、视频、产品还是别的形式，不要直接替我写完。`,
+    echo: `看看我已有的其他点子里，哪个最可能和「${idea.name}」产生回声。不要只找相同关键词，要解释它能打开什么新方向。`
+  };
+  const input = document.getElementById('chatInput');
+  input.value = prompts[mode];
+  expandDrawerIfNot();
+  input.focus();
 }
 
 // ── Node & Todo Methods ──
@@ -1710,7 +1847,7 @@ function toggleTodoNode(nodeId) {
       particleCount: 60,
       spread: 70,
       origin: { y: 0.6 },
-      colors: ['#e8b86d', '#8fba6e', '#c47a3a']
+      colors: ['#d7a454', '#789365', '#a96d3b']
     });
   }
 

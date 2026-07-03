@@ -7,7 +7,7 @@
   <title>抽屉 Drawer - 捕捉你的灵感</title>
 
   <!-- PWA Meta Tags -->
-  <meta name="theme-color" content="#1a1510">
+  <meta name="theme-color" content="#11100e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -87,6 +87,20 @@
           <div class="universe-empty-text">还没有足够的点子来形成宇宙。<br>至少需要 2 个有内容的点子。</div>
         </div>
 
+        <div class="universe-inspector" id="universeInspector" aria-hidden="true">
+          <button class="universe-inspector-close" onclick="closeUniverseInspector()" aria-label="关闭">✕</button>
+          <div class="universe-inspector-kicker" id="universeInspectorKicker">当前星体</div>
+          <div class="universe-inspector-title" id="universeInspectorTitle"></div>
+          <div class="universe-inspector-core" id="universeInspectorCore"></div>
+          <div class="universe-inspector-reason" id="universeInspectorReason"></div>
+          <div class="universe-inspector-next" id="universeInspectorNext"></div>
+          <div class="universe-inspector-meta" id="universeInspectorMeta"></div>
+          <div class="universe-inspector-actions">
+            <button class="inspector-primary" onclick="openInspectedIdea()">打开点子</button>
+            <button onclick="focusInspectedIdea()">以它为中心</button>
+          </div>
+        </div>
+
         <!-- Universe Chatbox -->
         <div class="uchat" id="uChat">
           <div class="uchat-header">
@@ -110,16 +124,16 @@
             <span class="guide-icon">◉</span> 点击星球 → 深入了解
           </div>
           <div class="universe-guide-item">
-            <span class="guide-line" style="border-color:#e8b86d;"></span> 悬停连线 → 发现关联
+            <span class="guide-line" style="border-color:#e8b86d;"></span> 金色回声 → 找回旧念头
           </div>
           <div class="universe-guide-item">
-            <span class="guide-icon" style="color:#7ec8e3;">✦</span> 蓝色新星 → 思维交汇
+            <span class="guide-icon" style="color:#7ec8e3;">✦</span> 蓝色碰撞 → 长出新方向
           </div>
         </div>
       </div>
 
       <!-- Idea View -->
-      <div class="main-panel" id="ideaView" style="display: none;">
+      <div class="idea-view" id="ideaView" style="display: none;">
         <div class="idea-bar">
           <div class="idea-bar-name" id="ideaBarName" onclick="startRename()" title="点击重命名">点子载入中...</div>
           <div class="idea-bar-controls">
@@ -148,33 +162,65 @@
           </div>
 
           <div class="card-content" id="cardContent" style="display:none;">
-            <div class="card-core-text" id="cardCore"></div>
-
-            <div class="card-branches-wrap">
-              <div class="card-section-label">关键方向</div>
-              <div class="card-chips" id="cardBranches"></div>
-            </div>
-
-            <div class="card-tension-block">
-              <div class="card-section-label">未解决的张力</div>
-              <div class="card-tension-content" id="cardTensions"></div>
-            </div>
-
-            <div class="card-next-block">
-              <div class="card-section-label">最小一步</div>
-              <div class="card-next-action">
-                <span class="card-next-arrow">→</span>
-                <span id="cardNext"></span>
+            <section class="idea-card core-card">
+              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">✦</span>核心观点</div>
+              <div class="card-core-text" id="cardCore"></div>
+              <div class="card-actions">
+                <button class="card-copy-btn" onclick="copyCard()" aria-label="复制卡片" title="复制卡片"><span aria-hidden="true">▣</span></button>
+                <button class="card-regen-btn" onclick="generateIdeaCard(false)" aria-label="重新整理" title="重新整理"><span aria-hidden="true">↻</span></button>
               </div>
-            </div>
+            </section>
 
-            <div class="card-actions">
-              <button class="card-copy-btn" onclick="copyCard()">复制卡片</button>
-              <button class="card-regen-btn" onclick="generateIdeaCard(false)">重新整理</button>
-            </div>
+            <section class="idea-card card-origin-block" id="cardOriginBlock" style="display:none;">
+              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">◒</span>最初的触发</div>
+              <div class="card-origin-content" id="cardOrigin"></div>
+            </section>
+
+            <section class="idea-card card-turn-block" id="cardTurnBlock" style="display:none;">
+              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">↗</span>思路发生了变化</div>
+              <div class="card-turn-content" id="cardTurningPoint"></div>
+            </section>
+
+            <section class="idea-card card-tension-block" id="cardTensionBlock">
+              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">?</span>还没想清楚的问题</div>
+              <div class="card-tension-content" id="cardTensions"></div>
+            </section>
+
+            <section class="idea-card growth-dock" id="cardGrowthBlock">
+              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">⌁</span>可以怎么继续</div>
+              <div class="growth-directions" id="cardBranchesBlock">
+                <div class="card-chips" id="cardBranches"></div>
+              </div>
+              <div class="growth-seed">
+                <svg class="sprout-illustration" viewBox="0 0 116 76" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="sproutStem" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0" stop-color="#5f7553"/>
+                      <stop offset="1" stop-color="#a8ba7e"/>
+                    </linearGradient>
+                  </defs>
+                  <path class="sprout-soil" d="M16 65 C38 57 77 57 101 65"/>
+                  <path class="sprout-root" d="M57 57 C51 63 49 68 47 73 M58 57 C63 64 66 68 69 73"/>
+                  <path class="sprout-stem" d="M58 60 C58 46 57 34 60 20"/>
+                  <path class="sprout-leaf sprout-leaf-left" d="M58 41 C44 40 36 33 37 24 C50 24 57 30 58 41Z"/>
+                  <path class="sprout-leaf sprout-leaf-right" d="M59 31 C63 19 73 13 83 16 C81 27 73 33 59 31Z"/>
+                  <circle class="sprout-glow" cx="60" cy="20" r="18"/>
+                </svg>
+                <div class="card-next-action" id="cardNextAction">
+                  <span class="card-next-arrow">→</span>
+                  <span id="cardNext"></span>
+                </div>
+              </div>
+              <div class="growth-actions">
+                <button onclick="growIdea('deeper')">再挖深一点</button>
+                <button onclick="growIdea('outline')">变成创作提纲</button>
+                <button onclick="growIdea('echo')">寻找旧点子的回声</button>
+                <button onclick="growIdea('rest')">先放在这里</button>
+              </div>
+            </section>
             
             <!-- Growth Timeline -->
-            <div class="card-timeline" id="cardTimeline" style="display:none;"></div>
+            <section class="idea-card card-timeline" id="cardTimeline" style="display:none;"></section>
           </div>
         </div>
 

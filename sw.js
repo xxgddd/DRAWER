@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v1';
+const CACHE_NAME = 'drawer-v11-mobile-density';
 const ASSETS = [
   '/',
   '/index.html',
