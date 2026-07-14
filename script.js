@@ -7,6 +7,8 @@ let chatHistory = [];
 let loading = false;
 let graphCollapsed = false;
 let sim = null;
+let graphFilter = 'all';
+let graphQuery = '';
 let cardGenerating = false;
 let currentLanguage = localStorage.getItem('drawer_language') || 'zh';
 
@@ -120,6 +122,19 @@ const UI_COPY = {
   ,'点击选择 · 双击设为中心': 'Click to select · Double-click to focus'
   ,'⌁ 钉入时间线': '⌁ Pin to timeline'
   ,'✓ 钉为待办': '✓ Pin as action'
+  ,'点亮一个新想法': 'LIGHT A NEW THOUGHT'
+  ,'说点什么，它会成为一颗新的星…': 'Say something—it will become a new star…'
+  ,'回车即时捕捉 · 无需整理，先接住再说': 'Press Enter to capture · No need to organize it yet'
+  ,'开始说 = 点亮一颗新星': 'Start talking = light a new star'
+  ,'点一颗旧星 = 回到那个想法': 'Choose an old star = return to that idea'
+  ,'检索节点或关系…': 'Search nodes or relations…'
+  ,'全部': 'All'
+  ,'洞察': 'Insights'
+  ,'待办': 'Actions'
+  ,'推断关系': 'Inferred'
+  ,'思考 / 洞察': 'Thought / insight'
+  ,'明确关联': 'Explicit link'
+  ,'系统推断': 'System inference'
 };
 const UI_COPY_REVERSE = Object.fromEntries(Object.entries(UI_COPY).map(([zh, en]) => [en, zh]));
 
@@ -192,30 +207,49 @@ function translateSubtree(root) {
   visit(root);
 }
 
-function refreshCaptureGreeting() {
-  const greetings = currentLanguage === 'en' ? [
+let captureQuestionTimer = null;
+let captureQuestionIndex = 0;
+function getCaptureQuestions() {
+  return currentLanguage === 'en' ? [
     'What has been circling your mind today?',
     'What idea have you not said out loud yet?',
     'What has been quietly exciting you lately?',
     'Is there something you keep returning to?',
-    'Say anything—even a single word.',
-    'The drawer is open. Empty your mind.'
+    'What flashed through your mind just now?'
   ] : [
     '今天脑子里在转什么？', '有什么想法还没说出口？', '最近让你兴奋的事情是？',
-    '有没有一件事一直在想？', '说点什么，哪怕只是一个词。', '抽屉已打开，请倾倒。'
+    '有没有一件事一直在想？', '刚刚，有什么一闪而过？'
   ];
+}
+function refreshCaptureGreeting() {
+  const greetings = getCaptureQuestions();
   const greeting = document.getElementById('captureGreeting');
-  if (greeting) greeting.textContent = greetings[Math.floor(Math.random() * greetings.length)];
+  captureQuestionIndex = Math.floor(Math.random() * greetings.length);
+  if (greeting) greeting.textContent = greetings[captureQuestionIndex];
+}
+function startCaptureQuestionRotation() {
+  if (captureQuestionTimer) return;
+  captureQuestionTimer = setInterval(() => {
+    const greeting = document.getElementById('captureGreeting');
+    if (!greeting) return;
+    greeting.classList.add('is-changing');
+    setTimeout(() => {
+      const greetings = getCaptureQuestions();
+      captureQuestionIndex = (captureQuestionIndex + 1) % greetings.length;
+      greeting.textContent = greetings[captureQuestionIndex];
+      greeting.classList.remove('is-changing');
+    }, 380);
+  }, 4400);
 }
 
 function applyLanguage() {
   document.documentElement.lang = currentLanguage === 'en' ? 'en' : 'zh-CN';
   document.body?.classList.toggle('language-en', currentLanguage === 'en');
-  document.title = t('抽屉 Drawer - 捕捉你的灵感', 'Idea Drawer — Capture what is forming');
+  document.title = t('抽屉 Drawer - 捕捉你的灵感', 'Drawer — Capture what is forming');
   const appTitle = document.querySelector('.app-title');
   if (appTitle) appTitle.innerHTML = currentLanguage === 'en' ? 'Idea <span>Drawer</span>' : '抽屉 <span>Drawer</span>';
   const mobileTitle = document.querySelector('.mobile-hdr-title');
-  if (mobileTitle) mobileTitle.textContent = currentLanguage === 'en' ? 'Idea Drawer' : '抽屉 Drawer';
+  if (mobileTitle) mobileTitle.textContent = currentLanguage === 'en' ? 'Drawer' : '抽屉 Drawer';
   const apiDesc = document.querySelector('#apiModal .modal-desc');
   if (apiDesc) apiDesc.innerHTML = currentLanguage === 'en'
     ? 'Enter the <b>access code</b> provided by the site owner, or use your own <b>SiliconFlow API Key</b>. Your data stays on this device.'
@@ -235,6 +269,7 @@ function applyLanguage() {
   if (switcher) switcher.setAttribute('aria-label', t('切换中英文', 'Switch Chinese / English'));
   translateSubtree(document.body);
   refreshCaptureGreeting();
+  startCaptureQuestionRotation();
 }
 
 function toggleLanguage() {
@@ -703,7 +738,8 @@ function showIdeaView() {
 }
 function showNoSel() {
   const noSel = document.getElementById('noSel');
-  if (noSel) noSel.style.display = 'flex';
+  if (noSel) noSel.style.display = 'block';
+  renderHomePlanets();
   const v = document.getElementById('ideaView');
   if (v) v.style.display = 'none';
   const u = document.getElementById('universeView');
@@ -1734,11 +1770,32 @@ async function autoDiscoverSupernovae(ideasWithCards) {
 }
 
 // ── Render List ──
+function renderHomePlanets() {
+  const host = document.getElementById('homePlanets');
+  if (!host) return;
+  const positions = [
+    { left:18, top:25, size:'large' }, { left:76, top:18, size:'medium' },
+    { left:88, top:51, size:'small' }, { left:79, top:80, size:'medium' },
+    { left:22, top:81, size:'small' }, { left:9, top:53, size:'medium' }
+  ];
+  host.innerHTML = ideas.slice(0, positions.length).map((idea, index) => {
+    const position = positions[index];
+    const status = ['seed','grow','pause'].includes(idea.status) ? idea.status : 'seed';
+    const returnText = t('回到这颗 →', 'Return to this →');
+    return `<button class="home-planet-node status-${status} size-${position.size}" style="left:${position.left}%;top:${position.top}%" onclick="selectIdea(${idea.id})" aria-label="${esc(returnText + ' ' + idea.name)}">
+      <span class="home-planet-enter">${returnText}</span>
+      <span class="home-planet-visual" aria-hidden="true"><i class="home-planet-ring r2"></i><i class="home-planet-ring r1"></i><i class="home-planet-core"></i></span>
+      <span class="home-planet-label">${esc(idea.name)}</span>
+    </button>`;
+  }).join('');
+}
+
 function renderList() {
   const el = document.getElementById('ideasList');
   if (!el) return;
   const countEl = document.getElementById('ideaCount');
   if (countEl) countEl.textContent = ideas.length;
+  renderHomePlanets();
   if (!ideas.length) { el.innerHTML = '<div class="list-empty">还没有点子。<br>想到什么就加进来。</div>'; return; }
   const now = Date.now();
   const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -1803,6 +1860,39 @@ function renderList() {
 }
 
 // ── Graph ──
+function relationTokens(text = '') {
+  const stop = new Set('我的了是在有就也都这那和或但如果一个什么会能要不没很更最到把被让用去来说做想看知道觉得感觉因为所以比如其实已经还有可能问题事情东西时候这样'.split(''));
+  const zh = [...String(text)].filter(c => /[\u4e00-\u9fa5]/.test(c) && !stop.has(c));
+  const en = String(text).toLowerCase().match(/[a-z0-9]{3,}/g) || [];
+  return new Set([...zh, ...en]);
+}
+
+function inferRelation(a, b) {
+  const aTokens = relationTokens(a.fullText);
+  const bTokens = relationTokens(b.fullText);
+  const shared = [...aTokens].filter(token => bTokens.has(token));
+  if (shared.length < 2) return null;
+  const combined = `${a.fullText} ${b.fullText}`;
+  let label = shared.length >= 4 ? '相互印证' : '主题回声';
+  if (/(对比|相比|相反|而是|但是|却)/.test(combined)) label = '形成对比';
+  if (/(因为|所以|导致|源于|因此)/.test(combined)) label = '因果线索';
+  if (a.type === 'todo' || b.type === 'todo') label = '引出待办';
+  return { label, shared: shared.slice(0, 4) };
+}
+
+function setIdeaGraphFilter(filter) {
+  graphFilter = filter;
+  document.querySelectorAll('.graph-filter').forEach(button => {
+    button.classList.toggle('is-active', button.dataset.filter === filter);
+  });
+  renderGraph();
+}
+
+function filterIdeaGraph(value) {
+  graphQuery = String(value || '').trim().toLowerCase();
+  renderGraph();
+}
+
 function renderGraph() {
   const svg = d3.select('#graphSvg');
   if (svg.empty()) return;
@@ -1820,23 +1910,43 @@ function renderGraph() {
   const w = wrap.clientWidth || 280;
   const h = wrap.clientHeight || 400;
 
-  const nodes = idea.nodes.map((n, i) => ({
+  const coreId = `core-${idea.id}`;
+  const core = {
+    id: coreId, fullText: idea.name, keyword: idea.name,
+    type: 'core', time: '', index: -1, done: false,
+    fx: w / 2, fy: h / 2
+  };
+  const nodes = [core, ...idea.nodes.map((n, i) => ({
     id: n.id, fullText: n.text, keyword: n.keyword || n.text.slice(0, 6),
     type: n.type, time: n.time, index: i, done: n.done
-  }));
+  }))];
+  const contentNodes = nodes.slice(1);
+  const orbit = Math.max(118, Math.min(w, h) * .29);
+  contentNodes.forEach((node, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2 / Math.max(contentNodes.length, 1));
+    node.x = w / 2 + Math.cos(angle) * orbit;
+    node.y = h / 2 + Math.sin(angle) * orbit;
+  });
+  core.x = w / 2;
+  core.y = h / 2;
 
   const links = [];
-  nodes.forEach((n, i) => {
-    if (i > 0) links.push({ source: nodes[i - 1].id, target: n.id, seq: true });
+  contentNodes.forEach((n, i) => {
+    links.push({
+      source: i === 0 ? coreId : contentNodes[i - 1].id,
+      target: n.id,
+      explicit: true,
+      label: i === 0 ? '从核心生长' : '继续生长'
+    });
   });
-  const stop = new Set('我的了是在有就也都这那和或但如果一个什么会能要不没很更最到把被让用去来说做想看知道觉得感觉因为所以比如其实'.split(''));
-  nodes.forEach((a, i) => {
-    nodes.forEach((b, j) => {
+  contentNodes.forEach((a, i) => {
+    contentNodes.forEach((b, j) => {
       if (j <= i + 1) return;
-      const wa = new Set([...a.fullText].filter(c => !stop.has(c) && /[\u4e00-\u9fa5]/.test(c)));
-      const wb = new Set([...b.fullText].filter(c => !stop.has(c) && /[\u4e00-\u9fa5]/.test(c)));
-      const shared = [...wa].filter(c => wb.has(c)).length;
-      if (shared >= 2) links.push({ source: a.id, target: b.id, seq: false });
+      const inferred = inferRelation(a, b);
+      if (inferred) links.push({
+        source: a.id, target: b.id, explicit: false,
+        label: inferred.label, shared: inferred.shared
+      });
     });
   });
 
@@ -1844,37 +1954,55 @@ function renderGraph() {
   nodes.forEach(n => nodeMap[n.id] = n);
   const validLinks = links.filter(l => nodeMap[l.source] && nodeMap[l.target]);
 
-  svg.append('defs').append('marker')
-    .attr('id', 'arr').attr('viewBox', '0 -3 6 6')
-    .attr('refX', 16).attr('refY', 0)
-    .attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
-    .append('path').attr('d', 'M0,-3L6,0L0,3').attr('fill', '#3b3428');
+  const defs = svg.append('defs');
+  [['insight', '#e9a137'], ['todo', '#54aab8']].forEach(([name, color]) => {
+    defs.append('marker').attr('id', `arr-${name}`).attr('viewBox', '0 -3 6 6')
+      .attr('refX', 18).attr('refY', 0).attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
+      .append('path').attr('d', 'M0,-3L6,0L0,3').attr('fill', color).attr('opacity', .8);
+  });
+
+  validLinks.forEach(link => {
+    const source = nodeMap[typeof link.source === 'object' ? link.source.id : link.source];
+    const target = nodeMap[typeof link.target === 'object' ? link.target.id : link.target];
+    link.kind = source?.type === 'todo' || target?.type === 'todo' ? 'todo' : 'insight';
+  });
 
   const linkSel = svg.append('g').selectAll('line')
     .data(validLinks).join('line')
-    .attr('stroke', d => d.seq ? '#3b3428' : '#2b271f')
-    .attr('stroke-width', d => d.seq ? 1.5 : 1)
-    .attr('stroke-dasharray', d => d.seq ? null : '3,3')
-    .attr('marker-end', d => d.seq ? 'url(#arr)' : null)
-    .attr('opacity', .8);
+    .attr('class', d => `graph-link is-${d.kind} ${d.explicit ? 'is-explicit' : 'is-inferred'}`)
+    .attr('stroke', d => d.kind === 'todo' ? '#54aab8' : '#e9a137')
+    .attr('stroke-width', d => d.explicit ? 1.7 : 1.25)
+    .attr('stroke-dasharray', d => d.explicit ? null : '5,6')
+    .attr('marker-end', d => d.explicit ? `url(#arr-${d.kind})` : null)
+    .attr('opacity', d => d.explicit ? .72 : .42);
+
+  const hitSel = svg.append('g').selectAll('line')
+    .data(validLinks).join('line')
+    .attr('stroke', 'transparent').attr('stroke-width', 14)
+    .attr('pointer-events', 'stroke').attr('cursor', 'help');
 
   const nodeSel = svg.append('g').selectAll('g')
     .data(nodes).join('g')
+    .attr('class', d => `graph-node is-${d.type}`)
     .attr('cursor', 'pointer')
     .call(d3.drag()
-      .on('start', (e, d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('start', (e, d) => { if (sim && !e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
       .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
-      .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }))
+      .on('end', (e, d) => { if (sim && !e.active) sim.alphaTarget(0); if (d.type !== 'core') { d.fx = null; d.fy = null; } }))
     .on('click', (e, d) => { e.stopPropagation(); });
 
   nodeSel.each(function (d) {
     const el = d3.select(this);
-    if (d.type === 'todo') {
+    if (d.type === 'core') {
+      el.append('circle').attr('r', 28).attr('fill', 'rgba(236,158,47,.08)');
+      el.append('circle').attr('r', 15).attr('fill', '#161719').attr('stroke', '#e9a137').attr('stroke-width', 2);
+      el.append('circle').attr('r', 4).attr('fill', '#ffb43d');
+    } else if (d.type === 'todo') {
       const g = el.append('g').attr('transform', 'translate(-6, -6)');
       g.append('rect')
         .attr('width', 12).attr('height', 12).attr('rx', 2)
-        .attr('fill', d.done ? '#789365' : 'transparent')
-        .attr('stroke', '#789365').attr('stroke-width', 1.5)
+        .attr('fill', d.done ? '#54aab8' : '#171a1e')
+        .attr('stroke', '#54aab8').attr('stroke-width', 1.6)
         .attr('cursor', 'pointer')
         .on('click', (e, d) => {
           e.stopPropagation();
@@ -1883,48 +2011,97 @@ function renderGraph() {
       if (d.done) {
         g.append('path')
           .attr('d', 'M3,6 L5,8 L9,3')
-          .attr('fill', 'none').attr('stroke', '#161410').attr('stroke-width', 1.5);
+          .attr('fill', 'none').attr('stroke', '#0b1114').attr('stroke-width', 1.5);
       }
     } else {
       el.append('circle')
-        .attr('r', 5)
-        .attr('fill', d.type === 'ai' ? '#789365' : '#d7a454')
-        .attr('stroke', d.type === 'ai' ? '#5a9a4e' : '#b89040')
-        .attr('stroke-width', 1.5);
+        .attr('r', 6).attr('fill', '#181716')
+        .attr('stroke', '#e9a137').attr('stroke-width', 1.8);
+      el.append('circle').attr('r', 2.2).attr('fill', '#ffb43d');
     }
   });
 
   nodeSel.append('text')
-    .attr('x', 9).attr('y', 4)
+    .attr('x', d => d.type === 'core' ? 0 : 12).attr('y', d => d.type === 'core' ? 43 : 4)
+    .attr('text-anchor', d => d.type === 'core' ? 'middle' : 'start')
     .attr('font-family', 'Noto Serif SC, serif')
-    .attr('font-size', '11px')
-    .attr('font-weight', '300')
-    .attr('fill', '#c8b89a')
-    .text(d => d.keyword);
+    .attr('font-size', d => d.type === 'core' ? '14px' : '12px')
+    .attr('font-weight', d => d.type === 'core' ? '700' : '600')
+    .attr('fill', d => d.type === 'todo' ? '#a9d7dd' : '#e7e2d9')
+    .text(d => d.keyword.length > 14 ? `${d.keyword.slice(0, 14)}…` : d.keyword);
 
   const tip = document.getElementById('nodeTip');
   nodeSel
     .on('mouseenter', (e, d) => {
-      tip.innerHTML = `<div class="node-tip-meta">${d.time} · ${d.type === 'ai' ? '提炼' : '你说的'}</div>${esc(d.fullText)}`;
+      const typeLabel = d.type === 'core' ? t('核心点子', 'CORE IDEA') : d.type === 'todo' ? t('待办', 'ACTION') : t('洞察', 'INSIGHT');
+      tip.innerHTML = `<div class="node-tip-meta">${esc(d.time || '')} · ${typeLabel}</div>${esc(d.fullText)}`;
       tip.classList.add('show');
     })
     .on('mousemove', e => { tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 8) + 'px'; })
     .on('mouseleave', () => tip.classList.remove('show'));
 
-  sim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(validLinks).id(d => d.id).distance(70).strength(d => d.seq ? .7 : .25))
-    .force('charge', d3.forceManyBody().strength(-140))
-    .force('center', d3.forceCenter(w / 2, h / 2))
-    .force('x', d3.forceX(w / 2).strength(.05))
-    .force('y', d3.forceY(h / 2).strength(.07))
-    .force('collision', d3.forceCollide(24));
+  hitSel
+    .on('mouseenter', (e, d) => {
+      const certainty = d.explicit ? t('明确关联', 'EXPLICIT LINK') : t('系统推断', 'SYSTEM INFERENCE');
+      const clue = d.shared?.length ? `<br><em>${t('共同线索', 'Shared clues')}：${d.shared.join(' · ')}</em>` : '';
+      tip.innerHTML = `<div class="node-tip-meta">${certainty}</div><strong>${esc(d.label)}</strong>${clue}`;
+      tip.classList.add('show');
+    })
+    .on('mousemove', e => { tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 8) + 'px'; })
+    .on('mouseleave', () => tip.classList.remove('show'));
 
-  sim.on('tick', () => {
-    linkSel
-      .attr('x1', d => cx(d.source.x, w)).attr('y1', d => cy(d.source.y, h))
-      .attr('x2', d => cx(d.target.x, w)).attr('y2', d => cy(d.target.y, h));
-    nodeSel.attr('transform', d => `translate(${cx(d.x, w)},${cy(d.y, h)})`);
+  const matchesNode = node => !graphQuery || `${node.keyword} ${node.fullText}`.toLowerCase().includes(graphQuery);
+  const matchesLink = link => !graphQuery || `${link.label} ${(link.shared || []).join(' ')}`.toLowerCase().includes(graphQuery);
+  const visibleNode = node => graphFilter === 'all' || node.type === 'core' ||
+    (graphFilter === 'insight' && node.type !== 'todo') ||
+    (graphFilter === 'todo' && node.type === 'todo') ||
+    (graphFilter === 'inferred' && validLinks.some(link => !link.explicit &&
+      [link.source.id || link.source, link.target.id || link.target].includes(node.id)));
+  const relatedIds = new Set();
+  validLinks.forEach(link => {
+    const sourceId = link.source.id || link.source;
+    const targetId = link.target.id || link.target;
+    if (matchesLink(link) || matchesNode(nodeMap[sourceId]) || matchesNode(nodeMap[targetId])) {
+      relatedIds.add(sourceId); relatedIds.add(targetId);
+    }
   });
+  nodeSel.classed('is-dimmed', d => !visibleNode(d) || (graphQuery && !relatedIds.has(d.id) && !matchesNode(d)))
+    .classed('is-match', d => graphQuery && matchesNode(d));
+  linkSel.classed('is-dimmed', d => {
+    const source = nodeMap[d.source.id || d.source];
+    const target = nodeMap[d.target.id || d.target];
+    const filtered = graphFilter === 'inferred' ? d.explicit : !visibleNode(source) || !visibleNode(target);
+    return filtered || (graphQuery && !matchesLink(d) && !matchesNode(source) && !matchesNode(target));
+  });
+
+  const paintGraphLayout = () => {
+    linkSel
+      .attr('x1', d => cx((typeof d.source === 'object' ? d.source : nodeMap[d.source]).x, w))
+      .attr('y1', d => cy((typeof d.source === 'object' ? d.source : nodeMap[d.source]).y, h))
+      .attr('x2', d => cx((typeof d.target === 'object' ? d.target : nodeMap[d.target]).x, w))
+      .attr('y2', d => cy((typeof d.target === 'object' ? d.target : nodeMap[d.target]).y, h));
+    hitSel
+      .attr('x1', d => cx((typeof d.source === 'object' ? d.source : nodeMap[d.source]).x, w))
+      .attr('y1', d => cy((typeof d.source === 'object' ? d.source : nodeMap[d.source]).y, h))
+      .attr('x2', d => cx((typeof d.target === 'object' ? d.target : nodeMap[d.target]).x, w))
+      .attr('y2', d => cy((typeof d.target === 'object' ? d.target : nodeMap[d.target]).y, h));
+    nodeSel.attr('transform', d => `translate(${cx(d.x, w)},${cy(d.y, h)})`);
+  };
+  paintGraphLayout();
+
+  try {
+    sim = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(validLinks).id(d => d.id).distance(d => d.explicit ? 112 : 150).strength(d => d.explicit ? .58 : .12))
+      .force('charge', d3.forceManyBody().strength(d => d.type === 'core' ? -420 : -230))
+      .force('center', d3.forceCenter(w / 2, h / 2))
+      .force('x', d3.forceX(w / 2).strength(.05))
+      .force('y', d3.forceY(h / 2).strength(.07))
+      .force('collision', d3.forceCollide(30))
+      .on('tick', paintGraphLayout);
+  } catch (error) {
+    console.warn('Graph simulation fell back to radial layout:', error);
+    sim = null;
+  }
 }
 
 const cx = (v, w) => Math.max(12, Math.min(w - 12, v));

@@ -1,0 +1,132 @@
+.graph-svg-wrap {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(241, 162, 47, .07), transparent 29%),
+    radial-gradient(circle at 82% 20%, rgba(77, 155, 170, .035), transparent 24%),
+    #0c0d0f;
+  isolation: isolate;
+}
+
+.graph-svg-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .16;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255,255,255,.45) .55px, transparent .75px);
+  background-size: 31px 31px;
+  mask-image: linear-gradient(to bottom, transparent, #000 15%, #000 85%, transparent);
+}
+
+.idea-graph-tools {
+  position: absolute;
+  top: 22px;
+  left: 28px;
+  right: 28px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  pointer-events: none;
+}
+
+.idea-graph-search,
+.idea-graph-filters { pointer-events: auto; }
+
+.idea-graph-search {
+  width: min(240px, 28vw);
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  border-radius: 12px;
+  background: rgba(27, 29, 33, .94);
+  box-shadow: 0 14px 42px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.035);
+  color: #7d838c;
+  transition: box-shadow .22s ease, background .22s ease;
+}
+
+.idea-graph-search:focus-within {
+  background: #202125;
+  box-shadow: 0 16px 48px rgba(0,0,0,.38), 0 0 28px rgba(242,169,59,.08), inset 0 1px rgba(255,255,255,.05);
+}
+
+.idea-graph-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #e8e6e1;
+  font: 500 13px/1.4 'Space Grotesk', sans-serif;
+}
+
+.idea-graph-search input::placeholder { color: #70747b; }
+.idea-graph-search kbd {
+  font: 400 10px/1 'Space Mono', monospace;
+  color: #666b73;
+  background: #151619;
+  border-radius: 5px;
+  padding: 5px 7px;
+}
+
+.idea-graph-filters {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 12px;
+  background: rgba(22, 23, 26, .88);
+  box-shadow: 0 12px 34px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.03);
+}
+
+.graph-filter {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 11px;
+  background: transparent;
+  color: #767b84;
+  font: 500 11px/1 'Space Grotesk', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .18s ease, background .18s ease;
+}
+
+.graph-filter:hover { color: #d8d6d0; background: rgba(255,255,255,.035); }
+.graph-filter.is-active { color: #f2aa3c; background: rgba(242,169,59,.1); }
+
+#graphSvg { overflow: visible; }
+.graph-link { transition: opacity .2s ease, stroke-width .2s ease; }
+.graph-node { transition: opacity .2s ease; }
+.graph-node text { paint-order: stroke; stroke: rgba(12,13,15,.82); stroke-width: 3px; stroke-linejoin: round; }
+.graph-node.is-dimmed, .graph-link.is-dimmed { opacity: .1 !important; }
+.graph-node.is-match text { fill: #fff !important; }
+
+.idea-graph-legend {
+  position: absolute;
+  left: 28px;
+  bottom: 138px;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  max-width: 430px;
+  color: #6f747c;
+  font: 400 10px/1.2 'Space Grotesk', sans-serif;
+  pointer-events: none;
+}
+
+.idea-graph-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend-line { width: 22px; height: 0; border-top: 2px solid #f1a533; }
+.legend-line.todo { border-color: #54aab8; }
+.legend-line.solid { border-color: #858a92; }
+.legend-line.dashed { border-color: #858a92; border-top-style: dashed; }
+
+@media (max-width: 760px) {
+  .idea-graph-tools { top: 14px; left: 14px; right: 14px; align-items: stretch; flex-direction: column; gap: 8px; }
+  .idea-graph-search { width: 100%; }
+  .idea-graph-filters { overflow-x: auto; justify-content: flex-start; }
+  .graph-filter { white-space: nowrap; }
+  .idea-graph-legend { left: 16px; right: 16px; bottom: 16px; gap: 9px 14px; }
+}

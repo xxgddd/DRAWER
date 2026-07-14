@@ -135,7 +135,15 @@
 .settings-link:hover { color:var(--card-text); background:#151618; }
 
 @media (max-width:768px) {
-  body .list-panel { width:min(88vw,320px); background:#0e0f10; }
+  body .list-panel {
+    position:fixed;
+    left:0;
+    top:0;
+    bottom:0;
+    z-index:220;
+    width:min(88vw,320px);
+    background:#0e0f10;
+  }
   body .list-hdr { padding:24px 20px 8px; }
   body .app-title { font-size:27px; }
   body .ideas-list { padding-left:10px; padding-right:10px; }

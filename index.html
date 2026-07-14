@@ -31,6 +31,8 @@
   <link rel="stylesheet" href="design-tokens.css">
   <link rel="stylesheet" href="capture-modal.css">
   <link rel="stylesheet" href="localization.css">
+  <link rel="stylesheet" href="home-universe.css">
+  <link rel="stylesheet" href="idea-graph.css?v=33">
 </head>
 
 <body>
@@ -42,7 +44,7 @@
     <!-- COL 1: Idea list -->
     <div class="list-panel" id="listPanel">
       <div class="list-hdr">
-        <div class="app-label">Idea Archive</div>
+        <div class="app-label">Drawer</div>
         <h1 class="app-title">抽屉 <span>Drawer</span></h1>
         <div class="app-tagline">在这里，点子不是为了完成，<br>而是为了生长。</div>
         <button class="new-btn" onclick="openModal('newIdeaModal')"><span class="sidebar-plus">+</span><span>新的点子</span></button>
@@ -71,14 +73,35 @@
 
       <!-- No Selection State (Quick Capture) -->
       <div class="no-sel" id="noSel">
+        <svg class="home-wires" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M210,220 Q410,315 590,238"></path>
+          <path class="active" d="M210,220 Q330,475 190,610"></path>
+          <path d="M1010,190 Q1170,340 1210,520"></path>
+          <path d="M590,238 Q835,188 1010,190"></path>
+          <path d="M1210,520 Q1060,690 980,760"></path>
+        </svg>
+        <div class="home-stars" aria-hidden="true">
+          <i style="left:10%;top:15%"></i><i class="bright" style="left:63%;top:11%"></i>
+          <i style="left:39%;top:88%"></i><i style="left:91%;top:69%"></i>
+          <i style="left:31%;top:19%"></i><i class="bright" style="left:86%;top:39%"></i>
+          <i style="left:7%;top:66%"></i><i style="left:55%;top:83%"></i><i style="left:73%;top:91%"></i>
+        </div>
+        <div class="home-planets" id="homePlanets"></div>
+
         <div class="quick-capture-container">
+          <div class="home-dawn" aria-hidden="true"></div>
+          <div class="home-kicker">点亮一个新想法</div>
           <div class="quick-capture-greeting" id="captureGreeting"></div>
-          <textarea id="quickCaptureInput" class="quick-capture-input" placeholder="想到了什么？" rows="1"></textarea>
-          <div class="quick-capture-hint">回车即刻捕捉灵感</div>
-          
-          <div style="margin-top: 40px; opacity: 0.3;">
-            <div class="no-sel-icon">🗄️</div>
-            <div class="no-sel-hint">或从左侧侧边栏查看过往点子</div>
+          <div class="home-capture-box">
+            <span class="home-spark" aria-hidden="true"></span>
+            <textarea id="quickCaptureInput" class="quick-capture-input" placeholder="说点什么，它会成为一颗新的星…" rows="1"></textarea>
+            <span class="home-return" aria-hidden="true">↵</span>
+          </div>
+          <div class="quick-capture-hint">回车即时捕捉 · 无需整理，先接住再说</div>
+          <div class="home-choices">
+            <span><i class="new"></i>开始说 = 点亮一颗新星</span>
+            <b></b>
+            <span><i></i>点一颗旧星 = 回到那个想法</span>
           </div>
         </div>
       </div>
@@ -249,7 +272,27 @@
 
         <!-- Graph View -->
         <div class="graph-svg-wrap" id="graphSvgWrap" style="display:none;">
+          <div class="idea-graph-tools">
+            <label class="idea-graph-search" aria-label="检索图谱">
+              <span aria-hidden="true">⌕</span>
+              <input id="graphSearchInput" type="search" placeholder="检索节点或关系…" autocomplete="off"
+                oninput="filterIdeaGraph(this.value)">
+              <kbd>/</kbd>
+            </label>
+            <div class="idea-graph-filters" aria-label="图谱筛选">
+              <button class="graph-filter is-active" type="button" data-filter="all" onclick="setIdeaGraphFilter('all')">全部</button>
+              <button class="graph-filter" type="button" data-filter="insight" onclick="setIdeaGraphFilter('insight')">洞察</button>
+              <button class="graph-filter" type="button" data-filter="todo" onclick="setIdeaGraphFilter('todo')">待办</button>
+              <button class="graph-filter" type="button" data-filter="inferred" onclick="setIdeaGraphFilter('inferred')">推断关系</button>
+            </div>
+          </div>
           <svg id="graphSvg"></svg>
+          <div class="idea-graph-legend" aria-label="图谱图例">
+            <span><i class="legend-line insight"></i>思考 / 洞察</span>
+            <span><i class="legend-line todo"></i>待办</span>
+            <span><i class="legend-line solid"></i>明确关联</span>
+            <span><i class="legend-line dashed"></i>系统推断</span>
+          </div>
           <div class="graph-empty" id="graphEmpty">
             <div class="graph-empty-icon">🕸</div>
             <div class="graph-empty-text">在这里钉入你的思维节点，<br>连成线，织成网。</div>
@@ -330,7 +373,7 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=34"></script>
   <script>
     // Service Worker Registration
     if ('serviceWorker' in navigator) {

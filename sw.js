@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v27-chat-depth';
+const CACHE_NAME = 'drawer-v34-brand';
 const ASSETS = [
   '/',
   '/index.html',
@@ -11,6 +11,8 @@ const ASSETS = [
   '/design-tokens.css',
   '/capture-modal.css',
   '/localization.css',
+  '/home-universe.css',
+  '/idea-graph.css',
   '/script.js',
   '/manifest.json',
   'https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;700&family=Space+Mono&display=swap',
