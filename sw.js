@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v38-workspace-depth';
+const CACHE_NAME = 'drawer-v42-universe-labels';
 const ASSETS = [
   '/',
   '/index.html',
@@ -13,6 +13,7 @@ const ASSETS = [
   '/localization.css',
   '/home-universe.css',
   '/idea-graph.css',
+  '/card-density.css',
   '/script.js',
   '/manifest.json',
   'https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;700&family=Space+Mono&display=swap',

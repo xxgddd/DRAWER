@@ -136,6 +136,9 @@ const UI_COPY = {
   ,'思考 / 洞察': 'Thought / insight'
   ,'明确关联': 'Explicit link'
   ,'系统推断': 'System inference'
+  ,'点子摘要': 'Card summary'
+  ,'起点与转变': 'Context'
+  ,'重新整理整张卡片': 'Regenerate full card'
 };
 const UI_COPY_REVERSE = Object.fromEntries(Object.entries(UI_COPY).map(([zh, en]) => [en, zh]));
 
@@ -1112,6 +1115,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+function compactUniverseLabel(idea) {
+  const name = String(idea?.name || '').trim();
+  if (!name) return t('未命名', 'Untitled');
+
+  const english = name.match(/[A-Za-z][A-Za-z'-]*/g);
+  if (english?.length) {
+    const stop = new Set(['a', 'an', 'the', 'of', 'for', 'to', 'and', 'or', 'with', 'about', 'my']);
+    const words = english.filter(word => !stop.has(word.toLowerCase())).slice(0, 3);
+    if (words.length) return words.join(' ');
+  }
+
+  const segments = name.split(/[，。！？、：:；;—–·|/]+/)
+    .map(part => part.replace(/^(一个|一种|关于|如何|怎么|为什么|我觉得|我想|希望|可能)/, '')
+      .replace(/[的是了和与及也在有把让]/g, '').trim())
+    .filter(Boolean);
+  const source = segments.at(-1) || name;
+  const chars = [...source].filter(char => /[\u4e00-\u9fa5A-Za-z0-9]/.test(char));
+  return chars.slice(-Math.min(4, chars.length)).join('') || name.slice(0, 8);
+}
+
 function renderUniverse() {
   const svg = d3.select('#universeSvg');
   svg.selectAll('*').remove();
@@ -1157,7 +1180,7 @@ function renderUniverse() {
       id: idea.id,
       name: idea.name,
       displayName: currentLanguage === 'en'
-        ? (idea.universeLabelEn || `Idea ${String(i + 1).padStart(2, '0')}`)
+        ? (idea.universeLabelEn || compactUniverseLabel(idea))
         : idea.name,
       hasCard,
       core: hasCard ? idea.card.core : '',
@@ -2196,11 +2219,14 @@ function renderCard() {
     document.getElementById('cardCore').textContent = idea.card.core || '';
     const originBlock = document.getElementById('cardOriginBlock');
     const turnBlock = document.getElementById('cardTurnBlock');
+    const contextDetails = document.getElementById('cardContextDetails');
     const origin = idea.card.origin || '';
     const turningPoint = idea.card.turningPoint || '';
     const hasContext = Boolean(origin || turningPoint);
     cardContent.classList.toggle('has-context', hasContext);
     cardContent.classList.toggle('no-context', !hasContext);
+    contextDetails.style.display = hasContext ? '' : 'none';
+    contextDetails.open = false;
     originBlock.style.display = origin ? 'flex' : 'none';
     turnBlock.style.display = turningPoint ? 'flex' : 'none';
     document.getElementById('cardOrigin').textContent = origin;
@@ -2219,6 +2245,11 @@ function renderCard() {
     document.getElementById('cardActionOutline').textContent = actions.outline || t('变成创作提纲', 'Turn into an outline');
     document.getElementById('cardActionEcho').textContent = actions.echo || t('寻找旧点子的回声', 'Find an echo');
     document.getElementById('cardActionRest').textContent = actions.rest || t('先放在这里', 'Leave it here');
+    const moreActions = document.getElementById('cardMoreActions');
+    const moreToggle = document.getElementById('cardMoreToggle');
+    moreActions.hidden = true;
+    moreToggle.textContent = t('+ 另外 3 条', '+ 3 more');
+    moreToggle.setAttribute('aria-expanded', 'false');
     renderTimeline(idea);
   } else {
     cardEmpty.style.display = 'flex';
@@ -2226,6 +2257,15 @@ function renderCard() {
     const chatLen = (idea.chatHistory || []).length;
     if (cardGenBtn) cardGenBtn.style.display = chatLen >= 4 ? 'block' : 'none';
   }
+}
+
+function toggleCardMore() {
+  const more = document.getElementById('cardMoreActions');
+  const toggle = document.getElementById('cardMoreToggle');
+  if (!more || !toggle) return;
+  more.hidden = !more.hidden;
+  toggle.setAttribute('aria-expanded', String(!more.hidden));
+  toggle.textContent = more.hidden ? t('+ 另外 3 条', '+ 3 more') : t('收起', 'Show less');
 }
 
 function renderTimeline(idea) {
@@ -2251,7 +2291,7 @@ function renderTimeline(idea) {
     const text = n.type === 'todo'
       ? (currentLanguage === 'en' ? `Action chosen: ${n.text}` : `决定了一步小行动：${n.text}`)
       : (currentLanguage === 'en' ? `Breakthrough: ${n.text}` : `思维突破：${n.text}`);
-    events.push({ time: n.id, type: 'insight', text });
+    events.push({ time: n.id, type: n.type === 'todo' ? 'todo' : 'insight', text });
   });
   
   // 4. Evolutions
@@ -2259,8 +2299,7 @@ function renderTimeline(idea) {
     events.push({ time: e.time, type: 'evolution', text: currentLanguage === 'en' ? `Core evolved into “<strong>${e.newCore}</strong>”` : `核心进化：概念升级为了 “<strong>${e.newCore}</strong>”` });
   });
   
-  // Sort chronologically
-  events.sort((a, b) => a.time - b.time);
+  // Keep the narrative order stable: seed → pinned memories → later evolutions.
   
   if (events.length <= 1) {
     tl.style.display = 'none';
@@ -2269,11 +2308,14 @@ function renderTimeline(idea) {
   
   tl.style.display = 'flex';
   tl.innerHTML = `<div class="card-section-label"><span class="card-label-icon" aria-hidden="true">⌁</span>${t('演变过程', 'Evolution')}</div>` + events.map((e, index) => {
-    const dateStr = new Date(e.time).toLocaleString(currentLanguage === 'en' ? 'en-US' : 'zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const dateStr = new Date(e.time).toLocaleTimeString(currentLanguage === 'en' ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
     const progressClass = index === events.length - 1 ? 'active' : 'done';
-    return `<div class="timeline-item ${e.type} ${progressClass}">
-      <div class="timeline-time">${dateStr}</div>
-      <div class="timeline-text">${e.text}</div>
+    const eventLabels = currentLanguage === 'en'
+      ? { seed: 'First seed', insight: 'Breakthrough', todo: 'Action chosen', evolution: 'Direction found', supernova: 'Ideas merged' }
+      : { seed: '最初种子', insight: '想通一点', todo: '决定行动', evolution: '找到方向', supernova: '想法交汇' };
+    return `<div class="timeline-item ${e.type} ${progressClass}" title="${esc(e.text)}">
+      <div class="timeline-time">${dateStr}</div><span class="timeline-sep">—</span>
+      <div class="timeline-text">${eventLabels[e.type] || eventLabels.insight}</div>
     </div>`;
   }).join('');
 }
@@ -2299,8 +2341,9 @@ async function triggerCardEvolution(ideaId) {
 写作原则：
 - 不要总结、说教或替用户拔高意义。写得简短、有温度，像用户终于把模糊感觉说清楚。
 - core 写一个有张力的发现、反差或追问；优先使用对话里的具体对象，不使用“探索……的意义/可能性”这类论文腔。
-- branches 是 2-3 条属于这个点子的具体观察方向，每条必须带对象、场景或可观察行为，不能是泛用主题词。
+- branches 是 2 条属于这个点子的具体观察方向，每条必须带对象、场景或可观察行为，不能是泛用主题词。
 - next 是现在就能执行的一步，包含动作、对象，能带时间/地点更好。
+- next 与 actions 都是卡片标签：英文最多 5 个词，中文最多 10 个字。删掉解释，只留下动作本身。
 - actions 的四句话必须脱离这个点子就不成立；禁止使用“深入探索 / Dig deeper”“寻找回声 / Find an echo”这类通用菜单。
 - seed 从最早对话提炼一个带场景的起点，像“第一次种子：站在书店外，感觉自己像在越界”。
 
@@ -2401,13 +2444,14 @@ async function generateIdeaCard(auto) {
 语气与质量标准：
 1. 简短、有温度、有画面，不总结人生，不教育用户，不使用咨询报告或论文语气。
 2. core 应该像一个突然变清楚的发现、反差或追问。直接写事物本身，不要以“我想探索 / 本项目旨在 / 关于……的思考”开头。
-3. branches 只写 2-3 条具体方向。每条包含明确对象、场景或可观察行为；换到别的点子里仍然成立的句子必须重写。
-4. next 是最值得先做的一步，必须可以执行，包含动作和对象；如果对话提供了时间、地点或数量，就把它写进去。
+3. branches 只写 2 条具体方向。每条包含明确对象、场景或可观察行为；换到别的点子里仍然成立的句子必须重写。
+4. next 是最值得先做的一步，必须可以执行，包含动作和对象；如果对话提供了时间、地点或数量，就把它写进去。它是卡片标签，不是解释句。
 5. actions 是四条次级动作标签，每条 4-12 个词或相当长度：
    - deeper：回到这个点子最具体的现场，再多看一步。
    - outline：把这个点子推进成某种可创作的东西，但不要空泛地写“做提纲”。
    - echo：指出应该去找哪类前人作品、旧记录或相似表达。
    - rest：允许暂时放下，同时写出什么信号出现时值得回来。
+   next 与四条 actions：英文每条最多 5 个词，中文每条最多 10 个字。禁止完整解释句。
    禁止生成“深入探索 / Dig deeper”“变成提纲 / Turn into an outline”“寻找回声 / Find an echo”“先放在这里 / Leave it here”等通用菜单。
 6. seed 从最早的用户表达中提炼一条带具体场景、动作或感受的起点，不虚构对话中没有发生的事实。
 7. origin 尽量保留用户原话；turningPoint 只记录对话中真实发生的认知转向，没有就留空。

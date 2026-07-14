@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="localization.css">
   <link rel="stylesheet" href="home-universe.css?v=37">
   <link rel="stylesheet" href="idea-graph.css?v=37">
+  <link rel="stylesheet" href="card-density.css?v=40">
 </head>
 
 <body>
@@ -210,14 +211,17 @@
           </div>
 
           <div class="card-content" id="cardContent" style="display:none;">
+            <div class="card-toolbar">
+              <span class="card-toolbar-label">点子摘要</span>
+              <div class="card-toolbar-actions">
+                <button class="card-copy-btn" onclick="copyCard()" aria-label="复制卡片" title="复制卡片"><span aria-hidden="true">▣</span></button>
+                <button class="card-regen-btn" onclick="generateIdeaCard(false)" aria-label="重新整理整张卡片" title="重新整理整张卡片"><span aria-hidden="true">↻</span></button>
+              </div>
+            </div>
             <div class="card-column card-column-primary">
               <section class="idea-card core-card">
               <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">✦</span>核心观点</div>
               <div class="card-core-text" id="cardCore"></div>
-              <div class="card-actions">
-                <button class="card-copy-btn" onclick="copyCard()" aria-label="复制卡片" title="复制卡片"><span aria-hidden="true">▣</span></button>
-                <button class="card-regen-btn" onclick="generateIdeaCard(false)" aria-label="重新整理" title="重新整理"><span aria-hidden="true">↻</span></button>
-              </div>
               </section>
 
               <!-- Growth Timeline -->
@@ -238,9 +242,12 @@
                 </div>
                 <div class="growth-actions">
                   <button onclick="growIdea('deeper')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionDeeper">再挖深一点</span></button>
-                  <button onclick="growIdea('outline')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionOutline">变成创作提纲</span></button>
-                  <button onclick="growIdea('echo')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionEcho">寻找旧点子的回声</span></button>
-                  <button onclick="growIdea('rest')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionRest">先放在这里</span></button>
+                  <div class="growth-more" id="cardMoreActions" hidden>
+                    <button onclick="growIdea('outline')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionOutline">变成创作提纲</span></button>
+                    <button onclick="growIdea('echo')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionEcho">寻找旧点子的回声</span></button>
+                    <button onclick="growIdea('rest')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionRest">先放在这里</span></button>
+                  </div>
+                  <button class="growth-more-toggle" id="cardMoreToggle" type="button" onclick="toggleCardMore()">+ 另外 3 条</button>
                 </div>
               </section>
 
@@ -253,19 +260,23 @@
             </div>
 
             <div class="card-column card-column-context">
-              <section class="idea-card card-origin-block" id="cardOriginBlock" style="display:none;">
-              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">◒</span>最初的触发</div>
-              <div class="origin-quote-mark" aria-hidden="true">“</div>
-              <div class="card-origin-content" id="cardOrigin"></div>
-              </section>
-
-              <section class="idea-card card-turn-block" id="cardTurnBlock" style="display:none;">
-              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">↗</span>思路发生了变化</div>
-              <div class="turn-route" aria-hidden="true">
-                <span>最初关注</span><i></i><b>现在关注</b>
-              </div>
-              <div class="card-turn-content" id="cardTurningPoint"></div>
-              </section>
+              <details class="idea-card card-context-details" id="cardContextDetails">
+                <summary><span><span class="card-label-icon" aria-hidden="true">◒</span>起点与转变</span><i aria-hidden="true">⌄</i></summary>
+                <div class="card-context-body">
+                  <div class="card-origin-block" id="cardOriginBlock" style="display:none;">
+                    <div class="card-section-label">最初的触发</div>
+                    <div class="origin-quote-mark" aria-hidden="true">“</div>
+                    <div class="card-origin-content" id="cardOrigin"></div>
+                  </div>
+                  <div class="card-turn-block" id="cardTurnBlock" style="display:none;">
+                    <div class="card-section-label">思路发生了变化</div>
+                    <div class="turn-route" aria-hidden="true">
+                      <span>最初关注</span><i></i><b>现在关注</b>
+                    </div>
+                    <div class="card-turn-content" id="cardTurningPoint"></div>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
         </div>
@@ -373,7 +384,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=38"></script>
+  <script src="script.js?v=42"></script>
   <script>
     // Service Worker Registration
     if ('serviceWorker' in navigator) {
