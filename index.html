@@ -26,13 +26,13 @@
   <link rel="stylesheet" href="card-redesign.css">
   <link rel="stylesheet" href="card-reference.css">
   <link rel="stylesheet" href="chat-calm.css">
-  <link rel="stylesheet" href="sidebar-calm.css">
+  <link rel="stylesheet" href="sidebar-calm.css?v=37">
   <link rel="stylesheet" href="universe-interactions.css">
   <link rel="stylesheet" href="design-tokens.css">
   <link rel="stylesheet" href="capture-modal.css">
   <link rel="stylesheet" href="localization.css">
-  <link rel="stylesheet" href="home-universe.css">
-  <link rel="stylesheet" href="idea-graph.css?v=33">
+  <link rel="stylesheet" href="home-universe.css?v=37">
+  <link rel="stylesheet" href="idea-graph.css?v=37">
 </head>
 
 <body>
@@ -237,10 +237,10 @@
                   </div>
                 </div>
                 <div class="growth-actions">
-                  <button onclick="growIdea('deeper')"><span class="task-checkbox" aria-hidden="true"></span><span>再挖深一点</span></button>
-                  <button onclick="growIdea('outline')"><span class="task-checkbox" aria-hidden="true"></span><span>变成创作提纲</span></button>
-                  <button onclick="growIdea('echo')"><span class="task-checkbox" aria-hidden="true"></span><span>寻找旧点子的回声</span></button>
-                  <button onclick="growIdea('rest')"><span class="task-checkbox" aria-hidden="true"></span><span>先放在这里</span></button>
+                  <button onclick="growIdea('deeper')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionDeeper">再挖深一点</span></button>
+                  <button onclick="growIdea('outline')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionOutline">变成创作提纲</span></button>
+                  <button onclick="growIdea('echo')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionEcho">寻找旧点子的回声</span></button>
+                  <button onclick="growIdea('rest')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionRest">先放在这里</span></button>
                 </div>
               </section>
 
@@ -373,7 +373,7 @@
     </div>
   </div>
 
-  <script src="script.js?v=34"></script>
+  <script src="script.js?v=38"></script>
   <script>
     // Service Worker Registration
     if ('serviceWorker' in navigator) {

@@ -10,7 +10,7 @@
   background:
     radial-gradient(620px 430px at 50% 55%,rgba(242,169,59,.115),transparent 64%),
     radial-gradient(480px 380px at 79% 23%,rgba(87,174,177,.035),transparent 65%),
-    #0b0c0e;
+    #0b0b0c;
 }
 #noSel::before {
   content:'';

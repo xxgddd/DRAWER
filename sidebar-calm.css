@@ -1,17 +1,30 @@
 /* Sidebar adapted from sidebar.html, using Drawer typography. */
+:root {
+  --workspace-sidebar: #16161a;
+  --workspace-canvas: #0b0b0c;
+}
+
+.main-panel,
+.idea-view,
+.card-panel { background-color: var(--workspace-canvas); }
+
+.universe-view {
+  background: radial-gradient(ellipse at 50% 40%, #111418 0%, var(--workspace-canvas) 70%);
+}
+
 .list-panel {
   width:320px;
   position:relative;
   border:0;
   background:
-    radial-gradient(600px 310px at 28% -10%,rgba(242,169,59,.075),transparent 61%),
-    #0e0f10;
-  box-shadow:14px 0 44px rgba(0,0,0,.24);
+    radial-gradient(600px 310px at 28% -10%,rgba(242,169,59,.055),transparent 61%),
+    var(--workspace-sidebar);
+  box-shadow:12px 0 36px rgba(0,0,0,.18);
   overflow:hidden;
 }
 .list-panel::after {
   content:''; position:absolute; top:0; right:0; width:1px; height:100%;
-  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025));
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));
   pointer-events:none;
 }
 .list-hdr { padding:26px 22px 8px; border:0; }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v34-brand';
+const CACHE_NAME = 'drawer-v38-workspace-depth';
 const ASSETS = [
   '/',
   '/index.html',

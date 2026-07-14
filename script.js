@@ -9,6 +9,7 @@ let graphCollapsed = false;
 let sim = null;
 let graphFilter = 'all';
 let graphQuery = '';
+let universeLabelFetchPending = false;
 let cardGenerating = false;
 let currentLanguage = localStorage.getItem('drawer_language') || 'zh';
 
@@ -247,7 +248,7 @@ function applyLanguage() {
   document.body?.classList.toggle('language-en', currentLanguage === 'en');
   document.title = t('抽屉 Drawer - 捕捉你的灵感', 'Drawer — Capture what is forming');
   const appTitle = document.querySelector('.app-title');
-  if (appTitle) appTitle.innerHTML = currentLanguage === 'en' ? 'Idea <span>Drawer</span>' : '抽屉 <span>Drawer</span>';
+  if (appTitle) appTitle.innerHTML = currentLanguage === 'en' ? 'Drawer' : '抽屉 <span>Drawer</span>';
   const mobileTitle = document.querySelector('.mobile-hdr-title');
   if (mobileTitle) mobileTitle.textContent = currentLanguage === 'en' ? 'Drawer' : '抽屉 Drawer';
   const apiDesc = document.querySelector('#apiModal .modal-desc');
@@ -1155,6 +1156,9 @@ function renderUniverse() {
     return {
       id: idea.id,
       name: idea.name,
+      displayName: currentLanguage === 'en'
+        ? (idea.universeLabelEn || `Idea ${String(i + 1).padStart(2, '0')}`)
+        : idea.name,
       hasCard,
       core: hasCard ? idea.card.core : '',
       branches: hasCard ? (idea.card.branches || []) : [],
@@ -1173,9 +1177,10 @@ function renderUniverse() {
   const links = [];
   const stopWords = new Set('我的了是在有就也都这那和或但如果一个什么会能要不没很更最到把被让用去来说做想看知道觉得感觉因为所以比如其实可以这个那个不是'.split(''));
   const stopBigrams = new Set(['用户','问题','自己','可以','可能','产生','发现','提供','方式','出现','需要','一种','成为','没有','很多','非常','比较','而且','这样','为了']);
+  const stopEnglish = new Set(['the','and','that','this','with','from','into','about','what','when','where','which','your','have','has','had','will','would','could','should','not','but','for','are','was','were','been','being','its','our','their','idea','ideas','thing','things','more','very']);
 
-  function extractBigrams(text) {
-    const bigrams = new Set();
+  function extractConcepts(text) {
+    const concepts = new Set();
     // Split text by punctuation or spaces to prevent cross-boundary bigrams
     const chunks = text.split(/[^\u4e00-\u9fa5]+/);
     for (const chunk of chunks) {
@@ -1184,19 +1189,24 @@ function renderUniverse() {
         if (!stopWords.has(chunk[i]) && !stopWords.has(chunk[i+1])) {
           const bg = chunk[i] + chunk[i+1];
           if (!stopBigrams.has(bg)) {
-            bigrams.add(bg);
+            concepts.add(bg);
           }
         }
       }
     }
-    return bigrams;
+    const englishWords = String(text).toLowerCase().match(/[a-z][a-z'-]{2,}/g) || [];
+    englishWords.forEach(word => {
+      const normalized = word.replace(/'s$/, '');
+      if (!stopEnglish.has(normalized)) concepts.add(normalized);
+    });
+    return concepts;
   }
 
   const cardNodes = nodes.filter(n => n.hasCard);
   cardNodes.forEach((a, i) => {
     const aIdea = ideas.find(idea => idea.id === a.id);
-    const aText = a.name + ' ' + a.core + ' ' + a.branches.join(' ') + ' ' + a.tensions;
-    const aGrams = extractBigrams(aText);
+    const aText = [a.name, a.core, ...a.branches, a.tensions, ...(aIdea.nodes || []).map(n => n.text)].join(' ');
+    const aConcepts = extractConcepts(aText);
     
     cardNodes.forEach((b, j) => {
       if (j <= i) return;
@@ -1226,19 +1236,16 @@ function renderUniverse() {
         return;
       }
 
-      // Check text matching (use name + core)
-      const aTextMatch = a.name + ' ' + a.core;
-      const bTextMatch = b.name + ' ' + b.core;
-      const aGramsMatch = extractBigrams(aTextMatch);
-      const bGramsMatch = extractBigrams(bTextMatch);
-      const shared = [...aGramsMatch].filter(g => bGramsMatch.has(g));
+      // Match against the full card and pinned nodes, in both Chinese and English.
+      const bText = [b.name, b.core, ...b.branches, b.tensions, ...(bIdea.nodes || []).map(n => n.text)].join(' ');
+      const bConcepts = extractConcepts(bText);
+      const shared = [...aConcepts].filter(concept => bConcepts.has(concept));
       
-      // 1 shared bigram = yellow line (0.4)
-      // 2+ shared bigrams = blue line (1.0)
-      if (shared.length >= 2) {
+      // One meaningful shared concept creates a faint echo; more evidence strengthens it.
+      if (shared.length >= 1) {
         links.push({ 
           source: a.id, target: b.id, 
-          strength: Math.min(0.4 + (shared.length - 1) * 0.6, 1.0),
+          strength: Math.min(0.34 + (shared.length - 1) * 0.22, 1.0),
           relation: 'echo',
           sharedChars: shared.slice(0, 3).join('、'),
           aiReason: null 
@@ -1378,7 +1385,9 @@ function renderUniverse() {
       if (d.isDwarf) return 0.42;
       return d.size >= 16 ? 0.82 : 0.58;
     })
-    .text(d => d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name);
+    .text(d => currentLanguage === 'en'
+      ? d.displayName
+      : (d.displayName.length > 8 ? d.displayName.slice(0, 8) + '…' : d.displayName));
 
   // Node hover preview. Link hints continue using nodeTip below.
   const tip = document.getElementById('nodeTip');
@@ -1551,6 +1560,8 @@ function renderUniverse() {
       svg.on('click.guide', fadeGuide);
     }
   }
+
+  if (currentLanguage === 'en') ensureUniverseEnglishLabels();
 }
 
 async function generateUniverseNarration(ideasWithCards, links) {
@@ -1671,7 +1682,7 @@ async function autoDiscoverSupernovae(ideasWithCards) {
     const res = await fetch('/api/chat', {
       method: 'POST', headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 400,
+        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 650,
         messages: [
           { role: 'system', content: `你是"抽屉"的思维合成器。分析用户的多个想法，找出最有深度和潜力的交叉点。
 不是简单的"都提到了X"，而是"A的某个方向 + B的某个张力 = 一个全新的、用户没想到的方向"。${duplicatePrompt}
@@ -2102,6 +2113,55 @@ function renderGraph() {
     console.warn('Graph simulation fell back to radial layout:', error);
     sim = null;
   }
+
+}
+
+async function ensureUniverseEnglishLabels() {
+  if (universeLabelFetchPending) return;
+  const pending = ideas.filter(idea => !idea.universeLabelEn).slice(0, 12);
+  if (!pending.length) return;
+  universeLabelFetchPending = true;
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) {
+      headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
+    }
+    const source = pending.map(idea => ({
+      id: String(idea.id),
+      title: idea.name,
+      core: idea.card?.core || ''
+    }));
+    const response = await fetch('/api/chat', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 220,
+        messages: [
+          { role: 'system', content: 'Return only a JSON object. Each supplied id must map to a concise English noun phrase of 1-3 words, Title Case, maximum 20 characters. Capture the idea rather than translating word-for-word. No markdown.' },
+          { role: 'user', content: JSON.stringify(source) }
+        ]
+      })
+    });
+    if (!response.ok) throw new Error(`Label request failed: ${response.status}`);
+    const data = await response.json();
+    const raw = data.choices?.[0]?.message?.content?.replace(/```json|```/g, '').trim();
+    const labels = JSON.parse(raw || '{}');
+    let changed = false;
+    pending.forEach(idea => {
+      const label = String(labels[String(idea.id)] || '').trim().replace(/[.!?]+$/, '');
+      if (label && label.length <= 24) {
+        idea.universeLabelEn = label;
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveIdeas();
+      if (currentLanguage === 'en' && document.getElementById('universeView')?.style.display !== 'none') renderUniverse();
+    }
+  } catch (error) {
+    console.warn('Universe labels are using compact fallbacks:', error);
+  } finally {
+    universeLabelFetchPending = false;
+  }
 }
 
 const cx = (v, w) => Math.max(12, Math.min(w - 12, v));
@@ -2154,6 +2214,11 @@ function renderCard() {
     document.getElementById('cardTensions').textContent = tensions;
     document.getElementById('cardNext').textContent = idea.card.next || '';
     document.getElementById('cardNextAction').style.display = idea.card.next ? 'flex' : 'none';
+    const actions = idea.card.actions || {};
+    document.getElementById('cardActionDeeper').textContent = actions.deeper || t('再挖深一点', 'Dig deeper');
+    document.getElementById('cardActionOutline').textContent = actions.outline || t('变成创作提纲', 'Turn into an outline');
+    document.getElementById('cardActionEcho').textContent = actions.echo || t('寻找旧点子的回声', 'Find an echo');
+    document.getElementById('cardActionRest').textContent = actions.rest || t('先放在这里', 'Leave it here');
     renderTimeline(idea);
   } else {
     cardEmpty.style.display = 'flex';
@@ -2170,7 +2235,7 @@ function renderTimeline(idea) {
   let events = [];
   
   // 1. Seed
-  events.push({ time: idea.createdAt, type: 'seed', text: t('种子种下：最早的念头碎片', 'Seed planted: the earliest fragment of the thought') });
+  events.push({ time: idea.createdAt, type: 'seed', text: idea.card?.seed || t('种子种下：最早的念头碎片', 'Seed planted: the earliest fragment of the thought') });
   
   // 2. Supernova (if any)
   if (idea.parentIds && idea.parentIds.length === 2) {
@@ -2227,11 +2292,20 @@ async function triggerCardEvolution(ideaId) {
     const res = await fetch('/api/chat', {
       method: 'POST', headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 400,
+        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 650,
         messages: [
-          { role: 'system', content: `你是"抽屉"的想法雕刻师。用户的想法随着聊天已经变深了。
-请重新提炼这个想法的最新状态。返回JSON（不要markdown包裹）：
-{"core":"一句话描述最新核心概念（必须跟以前不同，更深一点）","origin":"最能唤回最初念头的一句用户原话","turningPoint":"这轮思考发生的关键转变，一句话","branches":["新方向1","新方向2"],"tensions":"目前最大的未知或矛盾点是什么","next":"下一步可继续创作的具体动作"}` },
+          { role: 'system', content: `你是“抽屉”的想法编辑。用户的想法随着聊天变深了，请重写卡片的最新状态。
+
+写作原则：
+- 不要总结、说教或替用户拔高意义。写得简短、有温度，像用户终于把模糊感觉说清楚。
+- core 写一个有张力的发现、反差或追问；优先使用对话里的具体对象，不使用“探索……的意义/可能性”这类论文腔。
+- branches 是 2-3 条属于这个点子的具体观察方向，每条必须带对象、场景或可观察行为，不能是泛用主题词。
+- next 是现在就能执行的一步，包含动作、对象，能带时间/地点更好。
+- actions 的四句话必须脱离这个点子就不成立；禁止使用“深入探索 / Dig deeper”“寻找回声 / Find an echo”这类通用菜单。
+- seed 从最早对话提炼一个带场景的起点，像“第一次种子：站在书店外，感觉自己像在越界”。
+
+返回 JSON，不要 markdown，不要增加字段：
+{"core":"最新核心句","origin":"最能唤回最初念头的一句用户原话","turningPoint":"这轮思考发生的关键转变；没有则为空字符串","branches":["具体方向1","具体方向2"],"tensions":"仍然悬着的一个真实问题","next":"最值得先做的具体动作","actions":{"deeper":"回到现场继续观察的动作","outline":"把它推进为作品的动作","echo":"寻找前人作品或旧想法的动作","rest":"暂时放下但保留触发条件的动作"},"seed":"带具体场景的最初种子"}` },
           ...idea.chatHistory
         ]
       })
@@ -2261,7 +2335,9 @@ async function triggerCardEvolution(ideaId) {
       turningPoint: parsed.turningPoint || idea.card.turningPoint,
       branches: parsed.branches || idea.card.branches,
       tensions: parsed.tensions || idea.card.tensions,
-      next: parsed.next || idea.card.next
+      next: parsed.next || idea.card.next,
+      actions: parsed.actions || idea.card.actions,
+      seed: parsed.seed || idea.card.seed
     };
     
     idea.updatedAt = Date.now();
@@ -2320,15 +2396,34 @@ async function generateIdeaCard(auto) {
         messages: [
           {
             role: 'system',
-            content: `从以下对话中提炼一张点子卡，返回JSON，不要任何markdown包裹，branches数组包含3到5个方向（根据对话丰富程度决定）：
-{"core":"核心想法，1-2句，第一人称，像日记里的发现","origin":"最能唤回最初念头的一句用户原话，保持原口吻，20字内","turningPoint":"对话里认知发生变化的关键转折，1句话；没有明显转折则为空字符串","branches":["方向1，10字内","方向2，10字内","方向3，10字内"],"tensions":"最大的矛盾或未解决问题，1句话","next":"下一步可继续创作的具体动作，15字内"}`
+            content: `你是“抽屉”的想法编辑。请从对话中提炼一张真正属于这个点子的卡片。
+
+语气与质量标准：
+1. 简短、有温度、有画面，不总结人生，不教育用户，不使用咨询报告或论文语气。
+2. core 应该像一个突然变清楚的发现、反差或追问。直接写事物本身，不要以“我想探索 / 本项目旨在 / 关于……的思考”开头。
+3. branches 只写 2-3 条具体方向。每条包含明确对象、场景或可观察行为；换到别的点子里仍然成立的句子必须重写。
+4. next 是最值得先做的一步，必须可以执行，包含动作和对象；如果对话提供了时间、地点或数量，就把它写进去。
+5. actions 是四条次级动作标签，每条 4-12 个词或相当长度：
+   - deeper：回到这个点子最具体的现场，再多看一步。
+   - outline：把这个点子推进成某种可创作的东西，但不要空泛地写“做提纲”。
+   - echo：指出应该去找哪类前人作品、旧记录或相似表达。
+   - rest：允许暂时放下，同时写出什么信号出现时值得回来。
+   禁止生成“深入探索 / Dig deeper”“变成提纲 / Turn into an outline”“寻找回声 / Find an echo”“先放在这里 / Leave it here”等通用菜单。
+6. seed 从最早的用户表达中提炼一条带具体场景、动作或感受的起点，不虚构对话中没有发生的事实。
+7. origin 尽量保留用户原话；turningPoint 只记录对话中真实发生的认知转向，没有就留空。
+
+返回 JSON，不要 markdown，不要增加字段：
+{"core":"一个有张力的核心句","origin":"用户原话，尽量简短","turningPoint":"认知转向或空字符串","branches":["具体方向1","具体方向2"],"tensions":"一个仍未解决的真实问题","next":"最值得先做的具体动作","actions":{"deeper":"专属动作","outline":"专属动作","echo":"专属动作","rest":"专属动作"},"seed":"带场景的最初种子"}`
           },
           { role: 'user', content: `点子名：${idea.name}\n\n对话：\n${conversation}` }
         ]
       })
     });
     const data = await res.json();
-    const raw = data.choices[0].message.content.replace(/```json|```/g, '').trim();
+    let raw = data.choices[0].message.content.replace(/```json|```/g, '').trim();
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) raw = raw.slice(firstBrace, lastBrace + 1);
     idea.card = JSON.parse(raw);
     idea.updatedAt = Date.now();
     saveIdeas();
@@ -2374,14 +2469,16 @@ function growIdea(mode) {
     return;
   }
 
+  const selectedAction = idea.card?.actions?.[mode] || '';
+  const actionLead = selectedAction ? (currentLanguage === 'en' ? `Follow this specific direction: “${selectedAction}” ` : `沿着这条具体动作继续：“${selectedAction}”。`) : '';
   const prompts = currentLanguage === 'en' ? {
-    deeper: `Do not summarize. Find the most uncomfortable tension inside “${idea.card?.tensions || idea.name}” and ask me one sharper question.`,
-    outline: 'Move this idea toward something I could create. First ask whether it wants to become an article, video, product, or another form—do not finish it for me.',
-    echo: `Look through my other ideas and find the one most likely to echo “${idea.name}”. Go beyond shared keywords and explain what new direction it opens.`
+    deeper: `${actionLead}Do not summarize. Find the most uncomfortable tension inside “${idea.card?.tensions || idea.name}” and ask me one sharper question.`,
+    outline: `${actionLead}Move this idea toward something I could create. Ask one focused question before shaping it; do not finish it for me.`,
+    echo: `${actionLead}Look through my other ideas and relevant prior work for the most meaningful echo. Go beyond shared keywords and explain what new direction it opens.`
   } : {
-    deeper: `别总结。抓住「${idea.card?.tensions || idea.name}」里最别扭的地方，再往深处问我一个问题。`,
-    outline: '把这个点子往一个可创作的作品推进。先问我它最想变成文章、视频、产品还是别的形式，不要直接替我写完。',
-    echo: `看看我已有的其他点子里，哪个最可能和「${idea.name}」产生回声。不要只找相同关键词，要解释它能打开什么新方向。`
+    deeper: `${actionLead}别总结。抓住「${idea.card?.tensions || idea.name}」里最别扭的地方，再往深处问我一个问题。`,
+    outline: `${actionLead}把这个点子往一个可创作的作品推进。先问我一个关键问题，不要直接替我写完。`,
+    echo: `${actionLead}看看我已有的其他点子和相关作品里，哪个最可能和「${idea.name}」产生真正的回声。不要只找相同关键词，要解释它能打开什么新方向。`
   };
   const input = document.getElementById('chatInput');
   input.value = prompts[mode];
