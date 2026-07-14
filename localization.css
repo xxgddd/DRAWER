@@ -1,0 +1,73 @@
+:root {
+  --font-serif:'Noto Serif SC',Georgia,'Times New Roman',serif;
+  --font-sans:'Space Grotesk',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+  --font-mono:'Space Mono',Menlo,Consolas,monospace;
+}
+
+body,button,input,textarea,select,
+.idea-view .card-tension-content,.idea-view .card-turn-content,
+.idea-view .growth-dock .card-next-action,.idea-view .growth-actions button,
+.idea-view .msg-bubble,.idea-view .timeline-text,
+.idea-status-badge,.universe-preview-status,#ideaStatusChip {
+  font-family:var(--font-sans);
+}
+
+.app-title,.app-tagline,.idea-item-title,.idea-item-preview,
+.idea-bar-name,.idea-hero-summary,.core-card .card-core-text,
+.card-origin-content,.universe-preview-title,
+.universe-preview-teaser,.universe-inspector-title,
+.universe-inspector-core,.chat-head-title,.modal h2 {
+  font-family:var(--font-serif);
+}
+
+.app-label,.sidebar-list-label,.idea-item-info,
+.idea-hero-kicker,.idea-meta-chip,.timeline-time,.card-next-kicker,
+.universe-preview-date,.universe-preview-meta,.universe-preview-hint,
+.universe-inspector-kicker,.universe-inspector-meta,.msg-who,
+.chat-head-subtitle,.input-hint,.capture-kicker {
+  font-family:var(--font-mono);
+}
+
+/* Space Mono only ships in 400 and 700. */
+.app-label,.sidebar-list-label,.idea-hero-kicker,.card-next-kicker,
+.universe-inspector-kicker { font-weight:700; }
+.idea-item-info,.idea-meta-chip,.timeline-time,
+.universe-preview-date,.universe-preview-meta,.universe-preview-hint,
+.universe-inspector-meta,.msg-who,.chat-head-subtitle,.input-hint { font-weight:400; }
+
+.bottom-sec {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+}
+.bottom-sec .settings-link { flex:1; min-width:0; padding-right:10px; padding-left:10px; }
+.language-switch {
+  flex:0 0 auto;
+  min-width:78px;
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:0 10px;
+  border:0;
+  border-radius:var(--ds-radius-md,12px);
+  background:#191a1d;
+  color:rgba(243,239,231,.34);
+  font:700 10px/1 var(--font-mono);
+  letter-spacing:.04em;
+  cursor:pointer;
+  transition:background .18s,color .18s,box-shadow .18s;
+}
+.language-switch i { width:1px; height:12px; background:rgba(255,255,255,.08); }
+.language-switch:hover { background:#202226; color:rgba(243,239,231,.64); }
+.language-option { transition:color .18s,text-shadow .18s; }
+.language-option.active { color:#f2a93b; text-shadow:0 0 12px rgba(242,169,59,.26); }
+
+.idea-view .idea-hero-kicker,.idea-view .card-next-kicker { letter-spacing:.16em; }
+.idea-status-badge,.universe-preview-status,#ideaStatusChip { font-size:11px; font-weight:500; letter-spacing:.02em; }
+
+html[lang="en"] .app-title,
+html[lang="en"] .idea-bar-name,
+html[lang="en"] .core-card .card-core-text { letter-spacing:-.025em; }

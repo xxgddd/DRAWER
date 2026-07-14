@@ -1,0 +1,140 @@
+/* New-idea capture surface. Other dialogs keep their own layout. */
+#newIdeaModal.overlay {
+  background:rgba(4,5,6,.76);
+  backdrop-filter:blur(14px) saturate(.82);
+  -webkit-backdrop-filter:blur(14px) saturate(.82);
+}
+
+#newIdeaModal .modal {
+  position:relative;
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr);
+  column-gap:13px;
+  width:min(480px,calc(100vw - 32px));
+  max-width:none;
+  padding:26px;
+  border:0;
+  border-radius:var(--ds-radius-lg,16px);
+  background:
+    radial-gradient(130% 100% at 100% 0%,rgba(242,169,59,.13),transparent 48%),
+    #151619;
+  box-shadow:0 34px 90px rgba(0,0,0,.58),0 10px 42px rgba(242,169,59,.07);
+  animation:captureModalIn .22s cubic-bezier(.2,.8,.2,1);
+}
+
+#newIdeaModal .modal::before {
+  content:'✦';
+  display:flex;
+  grid-column:1;
+  grid-row:1;
+  width:40px;
+  height:40px;
+  align-items:center;
+  justify-content:center;
+  border-radius:var(--ds-radius-md,12px);
+  background:rgba(242,169,59,.12);
+  color:#f2a93b;
+  font-size:18px;
+  box-shadow:0 0 28px rgba(242,169,59,.12);
+}
+
+#newIdeaModal .modal h2 {
+  grid-column:2;
+  grid-row:1;
+  align-self:center;
+  margin:0;
+  color:#f3efe7;
+  font:700 24px/1.2 'Noto Serif SC',serif;
+  letter-spacing:-.015em;
+}
+#newIdeaModal .modal h2::before {
+  content:'捕捉此刻';
+  display:block;
+  margin-bottom:7px;
+  color:#f2a93b;
+  font:700 9px/1 'Space Mono',monospace;
+  letter-spacing:.14em;
+}
+html[lang="en"] #newIdeaModal .modal h2::before { content:'CAPTURE THIS MOMENT'; }
+
+#newIdeaModal .modal p {
+  grid-column:1/-1;
+  margin:19px 0 20px;
+  color:rgba(243,239,231,.58);
+  font:400 13px/1.75 'Noto Serif SC',serif;
+}
+
+#newIdeaModal .modal-input-lg {
+  grid-column:1/-1;
+  width:100%;
+  min-height:74px;
+  margin:0;
+  padding:16px;
+  border:0;
+  border-radius:var(--ds-radius-md,12px);
+  background:#1d1f23;
+  color:#f3efe7;
+  outline:0;
+  box-shadow:0 10px 26px rgba(0,0,0,.14);
+  font:600 16px/1.55 'Noto Serif SC',serif;
+  letter-spacing:0;
+  transition:background .2s,box-shadow .2s,transform .2s;
+}
+#newIdeaModal .modal-input-lg:focus {
+  background:#202226;
+  box-shadow:0 14px 34px rgba(0,0,0,.2),0 0 30px rgba(242,169,59,.065);
+  transform:translateY(-1px);
+}
+#newIdeaModal .modal-input-lg::placeholder { color:rgba(243,239,231,.25); font-weight:400; }
+
+#newIdeaModal .modal-btn {
+  grid-column:1/-1;
+  min-height:44px;
+  margin-top:18px;
+  padding:0 18px;
+  border:0;
+  border-radius:var(--ds-radius-md,12px);
+  background:#f2a93b;
+  color:#21170b;
+  box-shadow:0 10px 28px rgba(242,169,59,.16);
+  font:700 13px/1 'Noto Serif SC',serif;
+  letter-spacing:.02em;
+  text-transform:none;
+  transition:background .18s,box-shadow .18s,transform .18s;
+}
+#newIdeaModal .modal-btn::after { content:'  ↵'; margin-left:10px; font-family:'Space Mono',monospace; }
+#newIdeaModal .modal-btn:hover {
+  opacity:1;
+  background:#f7b64f;
+  box-shadow:0 14px 34px rgba(242,169,59,.22);
+  transform:translateY(-1px);
+}
+
+#newIdeaModal .modal-cancel {
+  grid-column:1/-1;
+  width:max-content;
+  min-height:36px;
+  margin:8px auto -5px;
+  padding:0 14px;
+  border:0;
+  border-radius:var(--ds-radius-sm,8px);
+  background:transparent;
+  color:rgba(243,239,231,.38);
+  font:500 11px/1 'Noto Serif SC',serif;
+  letter-spacing:0;
+}
+#newIdeaModal .modal-cancel:hover { background:rgba(255,255,255,.035); color:rgba(243,239,231,.7); }
+
+@keyframes captureModalIn {
+  from { opacity:0; transform:translateY(10px) scale(.985); }
+  to { opacity:1; transform:translateY(0) scale(1); }
+}
+
+@media (max-width:520px) {
+  #newIdeaModal .modal { padding:22px 18px 18px; }
+  #newIdeaModal .modal h2 { font-size:22px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  #newIdeaModal .modal { animation:none; }
+}

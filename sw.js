@@ -1,8 +1,16 @@
-const CACHE_NAME = 'drawer-v11-mobile-density';
+const CACHE_NAME = 'drawer-v27-chat-depth';
 const ASSETS = [
   '/',
   '/index.html',
   '/style.css',
+  '/card-redesign.css',
+  '/card-reference.css',
+  '/chat-calm.css',
+  '/sidebar-calm.css',
+  '/universe-interactions.css',
+  '/design-tokens.css',
+  '/capture-modal.css',
+  '/localization.css',
   '/script.js',
   '/manifest.json',
   'https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;700&family=Space+Mono&display=swap',

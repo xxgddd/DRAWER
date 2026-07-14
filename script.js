@@ -8,6 +8,279 @@ let loading = false;
 let graphCollapsed = false;
 let sim = null;
 let cardGenerating = false;
+let currentLanguage = localStorage.getItem('drawer_language') || 'zh';
+
+const UI_COPY = {
+  '在这里，点子不是为了完成，': 'Ideas are not here to be finished,',
+  '而是为了生长。': 'but to keep growing.',
+  '新的点子': 'New idea',
+  '进入你的思维宇宙': 'Thought universe',
+  '点子': 'Ideas',
+  '设置 & API': 'Settings & API',
+  '想到了什么？': 'What is on your mind?',
+  '回车即刻捕捉灵感': 'Press Enter to capture it',
+  '或从左侧侧边栏查看过往点子': 'Or revisit an idea from the sidebar',
+  '你的思维宇宙': 'Your thought universe',
+  '还没有足够的点子来形成宇宙。': 'Not enough ideas to form a universe yet.',
+  '至少需要 2 个有内容的点子。': 'You need at least two developed ideas.',
+  '关闭': 'Close',
+  '当前星体': 'CURRENT OBJECT',
+  '打开点子': 'Open idea',
+  '以它为中心': 'Set as focus',
+  '交汇点': 'CROSSROADS',
+  '带走': 'Keep it',
+  '放弃': 'Discard',
+  '探索这个交叉点…': 'Explore this intersection…',
+  '点击星球 → 深入了解': 'Click a planet → explore it',
+  '金色回声 → 找回旧念头': 'Golden echo → revisit an old thought',
+  '蓝色碰撞 → 长出新方向': 'Blue collision → grow a new direction',
+  '核心点子': 'CORE IDEA',
+  '点击重命名': 'Click to rename',
+  '点子载入中...': 'Loading idea…',
+  '进行中': 'Active',
+  '创建于今天': 'Created today',
+  '萌芽': 'Seed',
+  '推进': 'Growing',
+  '搁置': 'Parked',
+  '点子卡片': 'Idea card',
+  '灵感图谱': 'Idea graph',
+  '聊上几句，我来帮你整理思路。': 'Talk it through, and I will shape it into a card.',
+  '整理成卡片': 'Shape into a card',
+  '核心观点': 'Core thought',
+  '复制卡片': 'Copy card',
+  '重新整理': 'Reshape',
+  '可执行的下一步': 'Actionable next steps',
+  '推荐优先': 'START HERE',
+  '再挖深一点': 'Dig deeper',
+  '变成创作提纲': 'Turn into an outline',
+  '寻找旧点子的回声': 'Find an echo',
+  '先放在这里': 'Leave it here',
+  '还没想清楚的问题': 'Still unresolved',
+  '开放问题': 'Open question',
+  '最初的触发': 'Original spark',
+  '思路发生了变化': 'How it evolved',
+  '最初关注': 'THEN',
+  '现在关注': 'NOW',
+  '在这里钉入你的思维节点，': 'Pin your thoughts here,',
+  '连成线，织成网。': 'connect the lines, grow a web.',
+  '顺着这个点子聊': 'Keep exploring this idea',
+  '继续把还没想清楚的地方往下挖': 'Follow the part that is still unresolved',
+  '展开对话': 'Open chat',
+  '收起对话': 'Close chat',
+  '正在延续：': 'Continuing:',
+  '当前点子的核心问题': 'the core question of this idea',
+  '新的火花...': 'A new spark…',
+  'Shift+Enter 换行 · 对话灵感可钉入图谱': 'Shift+Enter for a new line · Pin insights to the graph',
+  '欢迎来到抽屉': 'Welcome to Drawer',
+  '保存并开始': 'Save and begin',
+  '捕捉新点子': 'Capture a new idea',
+  '给这个灵感起个名字。别担心，以后随时可以改。': 'Give this spark a temporary name. You can change it anytime.',
+  '点子名称...': 'Name this idea…',
+  '放入抽屉': 'Put it in the drawer',
+  '取消': 'Cancel',
+  '应用设置': 'App settings',
+  '显示字号': 'Display size',
+  '偏小': 'Small',
+  '适中': 'Medium',
+  '偏大': 'Large',
+  '保存更改': 'Save changes',
+  '清空对话': 'Clear chat',
+  '删除点子': 'Delete idea',
+  '演变过程': 'Evolution',
+  '钉入时间线': 'Pin to timeline',
+  '钉为待办': 'Pin as action',
+  'AI 思考过程': 'AI reasoning'
+  ,'还没有点子。': 'No ideas yet.'
+  ,'想到什么就加进来。': 'Drop in whatever appears.'
+  ,'碰撞生成': 'Collision-born'
+  ,'由两个点子碰撞产生的新方向': 'A new direction born from two colliding ideas'
+  ,'刚刚捕捉、还在形成中的点子': 'Newly captured and still taking shape'
+  ,'正在持续思考和发展的点子': 'An idea that is actively growing'
+  ,'暂时放下，之后可以再回来': 'Set aside for now, ready to revisit'
+  ,'刚刚萌芽': 'New seed'
+  ,'暂时搁置': 'Parked'
+  ,'推进中': 'Active'
+  ,'提炼': 'Distilled'
+  ,'你说的': 'You said'
+  ,'整理中…': 'Shaping…'
+  ,'正在随手整理思路…': 'Gathering the threads…'
+  ,'✓ 已复制': '✓ Copied'
+  ,'✓ 已钉入': '✓ Pinned'
+  ,'提炼中…': 'Distilling…'
+  ,'出了点问题': 'Something went wrong'
+  ,'连接出了点问题，再试一次？': 'The connection slipped. Try again?'
+  ,'⚙ 设置 & API': '⚙ Settings & API'
+  ,'✦ 你的思维宇宙': '✦ Your thought universe'
+  ,'✦ 交汇点': '✦ CROSSROADS'
+  ,'🚀 带走': '🚀 Keep it'
+  ,'🗑️ 放弃': '🗑️ Discard'
+  ,'🌱 萌芽': '🌱 Seed'
+  ,'🌿 推进': '🌿 Growing'
+  ,'❄️ 搁置': '❄️ Parked'
+  ,'点击选择 · 双击设为中心': 'Click to select · Double-click to focus'
+  ,'⌁ 钉入时间线': '⌁ Pin to timeline'
+  ,'✓ 钉为待办': '✓ Pin as action'
+};
+const UI_COPY_REVERSE = Object.fromEntries(Object.entries(UI_COPY).map(([zh, en]) => [en, zh]));
+
+function t(zh, en) { return currentLanguage === 'en' ? en : zh; }
+function languageDirective() {
+  return currentLanguage === 'en'
+    ? 'Language requirement: Respond in natural, concise English. For JSON requests, keep every requested key exactly unchanged and write every human-readable string value in English. Do not mix in Chinese unless quoting the user.'
+    : '语言要求：请始终使用自然、简洁的简体中文回答。若要求返回 JSON，保持指定键名完全不变，所有面向用户的字符串值使用简体中文。除非引用用户原话，不要混用英文。';
+}
+
+function translatePattern(value, target) {
+  const rules = target === 'en' ? [
+    [/^点子 · (\d+)$/, 'Ideas · $1'],
+    [/^已连接 (\d+) 个节点$/, '$1 nodes connected'],
+    [/^创建于 (.+)$/, 'Created $1'],
+    [/^(\d+) 个点子 · (\d+) 颗恒星$/, '$1 ideas · $2 stars'],
+    [/^(\d+) 轮对话$/, '$1 turns'],
+    [/^(\d+) 个节点$/, '$1 nodes'],
+    [/^(\d+) 条连接$/, '$1 links'],
+    [/^(\d+)天前$/, '$1d ago'],
+    [/^(\d+)天前·(\d+)节$/, '$1d ago · $2 nodes'],
+    [/^刚刚·(\d+)节$/, 'Just now · $1 nodes'],
+    [/^(.+)·(\d+)节$/, '$1 · $2 nodes']
+  ] : [
+    [/^Ideas · (\d+)$/, '点子 · $1'],
+    [/^(\d+) nodes connected$/, '已连接 $1 个节点'],
+    [/^Created (.+)$/, '创建于 $1'],
+    [/^(\d+) ideas · (\d+) stars$/, '$1 个点子 · $2 颗恒星'],
+    [/^(\d+) turns$/, '$1 轮对话'],
+    [/^(\d+) nodes$/, '$1 个节点'],
+    [/^(\d+) links$/, '$1 条连接'],
+    [/^(\d+)d ago$/, '$1天前'],
+    [/^(\d+)d ago · (\d+) nodes$/, '$1天前·$2节'],
+    [/^Just now · (\d+) nodes$/, '刚刚·$1节'],
+    [/^(.+) · (\d+) nodes$/, '$1·$2节']
+  ];
+  for (const [pattern, replacement] of rules) if (pattern.test(value)) return value.replace(pattern, replacement);
+  return value;
+}
+
+function translateValue(value, target = currentLanguage) {
+  if (!value) return value;
+  const leading = value.match(/^\s*/)?.[0] || '';
+  const trailing = value.match(/\s*$/)?.[0] || '';
+  const core = value.trim();
+  if (!core) return value;
+  const dictionary = target === 'en' ? UI_COPY : UI_COPY_REVERSE;
+  const translated = dictionary[core] || translatePattern(core, target);
+  return leading + translated + trailing;
+}
+
+function translateSubtree(root) {
+  if (!root) return;
+  const visit = node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const next = translateValue(node.nodeValue);
+      if (next !== node.nodeValue) node.nodeValue = next;
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    ['placeholder', 'title', 'aria-label'].forEach(attr => {
+      if (node.hasAttribute(attr)) {
+        const current = node.getAttribute(attr);
+        const next = translateValue(current);
+        if (next !== current) node.setAttribute(attr, next);
+      }
+    });
+    node.childNodes.forEach(visit);
+  };
+  visit(root);
+}
+
+function refreshCaptureGreeting() {
+  const greetings = currentLanguage === 'en' ? [
+    'What has been circling your mind today?',
+    'What idea have you not said out loud yet?',
+    'What has been quietly exciting you lately?',
+    'Is there something you keep returning to?',
+    'Say anything—even a single word.',
+    'The drawer is open. Empty your mind.'
+  ] : [
+    '今天脑子里在转什么？', '有什么想法还没说出口？', '最近让你兴奋的事情是？',
+    '有没有一件事一直在想？', '说点什么，哪怕只是一个词。', '抽屉已打开，请倾倒。'
+  ];
+  const greeting = document.getElementById('captureGreeting');
+  if (greeting) greeting.textContent = greetings[Math.floor(Math.random() * greetings.length)];
+}
+
+function applyLanguage() {
+  document.documentElement.lang = currentLanguage === 'en' ? 'en' : 'zh-CN';
+  document.body?.classList.toggle('language-en', currentLanguage === 'en');
+  document.title = t('抽屉 Drawer - 捕捉你的灵感', 'Idea Drawer — Capture what is forming');
+  const appTitle = document.querySelector('.app-title');
+  if (appTitle) appTitle.innerHTML = currentLanguage === 'en' ? 'Idea <span>Drawer</span>' : '抽屉 <span>Drawer</span>';
+  const mobileTitle = document.querySelector('.mobile-hdr-title');
+  if (mobileTitle) mobileTitle.textContent = currentLanguage === 'en' ? 'Idea Drawer' : '抽屉 Drawer';
+  const apiDesc = document.querySelector('#apiModal .modal-desc');
+  if (apiDesc) apiDesc.innerHTML = currentLanguage === 'en'
+    ? 'Enter the <b>access code</b> provided by the site owner, or use your own <b>SiliconFlow API Key</b>. Your data stays on this device.'
+    : '请输入站长提供的 <b>访问码</b>，或填入你自己的 <b>SiliconFlow API Key</b>。数据仅存在于本地。';
+  const apiNote = document.querySelector('#apiModal .modal-note');
+  if (apiNote) apiNote.innerHTML = currentLanguage === 'en'
+    ? 'Need a key? Get one free at <a href="https://siliconflow.cn/" target="_blank" style="color:var(--accent)">siliconflow.cn</a>.'
+    : '没有 Key？去 <a href="https://siliconflow.cn/" target="_blank" style="color:var(--accent)">siliconflow.cn</a> 免费申请一个。';
+  document.querySelectorAll('.msg-who').forEach(el => {
+    if (['抽屉','Drawer'].includes(el.textContent.trim())) el.textContent = t('抽屉', 'Drawer');
+    if (['你','You'].includes(el.textContent.trim())) el.textContent = t('你', 'You');
+  });
+  document.querySelectorAll('.msg-avatar-user').forEach(el => { el.textContent = t('你', 'You'); });
+  document.getElementById('languageZh')?.classList.toggle('active', currentLanguage === 'zh');
+  document.getElementById('languageEn')?.classList.toggle('active', currentLanguage === 'en');
+  const switcher = document.getElementById('languageSwitch');
+  if (switcher) switcher.setAttribute('aria-label', t('切换中英文', 'Switch Chinese / English'));
+  translateSubtree(document.body);
+  refreshCaptureGreeting();
+}
+
+function toggleLanguage() {
+  currentLanguage = currentLanguage === 'zh' ? 'en' : 'zh';
+  localStorage.setItem('drawer_language', currentLanguage);
+  renderList();
+  if (currentId) {
+    const idea = getIdea(currentId);
+    updateIdeaHero(idea);
+    renderCard();
+    updateDrawerLabel(document.getElementById('drawerPanel')?.classList.contains('open'));
+  }
+  applyLanguage();
+}
+
+const nativeFetch = window.fetch.bind(window);
+window.fetch = function bilingualFetch(input, init = {}) {
+  const url = typeof input === 'string' ? input : input?.url || '';
+  if (url.includes('/api/chat') && typeof init.body === 'string') {
+    try {
+      const payload = JSON.parse(init.body);
+      if (Array.isArray(payload.messages)) {
+        const directive = languageDirective();
+        const systemIndex = payload.messages.findIndex(message => message.role === 'system');
+        if (systemIndex >= 0) payload.messages[systemIndex] = { ...payload.messages[systemIndex], content: `${payload.messages[systemIndex].content}\n\n${directive}` };
+        else payload.messages.unshift({ role: 'system', content: directive });
+        init = { ...init, body: JSON.stringify(payload) };
+      }
+    } catch (_) { }
+  }
+  return nativeFetch(input, init);
+};
+
+let languageObserver = null;
+function initLanguage() {
+  applyLanguage();
+  if (!languageObserver) {
+    languageObserver = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (mutation.type === 'characterData') translateSubtree(mutation.target);
+        mutation.addedNodes.forEach(node => translateSubtree(node));
+      });
+    });
+    languageObserver.observe(document.body, { childList:true, subtree:true, characterData:true });
+  }
+}
 
 // ── Quota System ──
 const MAX_FREE_MESSAGES = 30;
@@ -46,6 +319,7 @@ window.addEventListener('load', () => {
   // ----------------------------------------------------
 
   applyFontSize(fontSize);
+  initLanguage();
   renderList();
   initTextarea();
   initQuickCapture();
@@ -107,7 +381,7 @@ function toggleDrawer() {
   if (drawer.classList.contains('closed')) {
     drawer.classList.remove('closed');
     drawer.classList.add('open');
-    if (btn) btn.innerHTML = '↓ 收起对话';
+    updateDrawerLabel(true);
     // Scroll to bottom of msgs after opening
     setTimeout(() => {
       const msgs = document.getElementById('messages');
@@ -116,7 +390,7 @@ function toggleDrawer() {
   } else {
     drawer.classList.add('closed');
     drawer.classList.remove('open');
-    if (btn) btn.innerHTML = '↑ 展开对话';
+    updateDrawerLabel(false);
   }
 }
 
@@ -126,7 +400,7 @@ function expandDrawerIfNot() {
   if (drawer.classList.contains('closed')) {
     drawer.classList.remove('closed');
     drawer.classList.add('open');
-    if (btn) btn.innerHTML = '↓ 收起对话';
+    updateDrawerLabel(true);
     const msgs = document.getElementById('messages');
     setTimeout(() => msgs.scrollTop = msgs.scrollHeight, 100);
   }
@@ -149,19 +423,7 @@ function initQuickCapture() {
   const ta = document.getElementById('quickCaptureInput');
   if (!ta) return;
 
-  // 随机引导语，每次打开都不一样
-  const greetings = [
-    '今天脑子里在转什么？',
-    '有什么想法还没说出口？',
-    '最近让你兴奋的事情是？',
-    '有没有一件事一直在想？',
-    '说点什么，哪怕只是一个词。',
-    '抽屉已打开，请倾倒。'
-  ];
-  const greetingEl = document.getElementById('captureGreeting');
-  if (greetingEl) {
-    greetingEl.textContent = greetings[Math.floor(Math.random() * greetings.length)];
-  }
+  refreshCaptureGreeting();
 
   ta.addEventListener('input', function () {
     this.style.height = 'auto';
@@ -251,7 +513,47 @@ function clearCurrentChat() {
 
 function updateStatus(status) {
   const idea = getIdea(currentId);
-  if (idea) { idea.status = status; idea.updatedAt = Date.now(); saveIdeas(); renderList(); }
+  if (idea) { idea.status = status; idea.updatedAt = Date.now(); saveIdeas(); renderList(); updateIdeaHero(idea); }
+}
+
+function updateDrawerLabel(isOpen) {
+  const btn = document.getElementById('drawerToggleBtn');
+  const text = document.getElementById('drawerToggleText');
+  const ideaView = document.getElementById('ideaView');
+  if (ideaView) ideaView.classList.toggle('chat-open', Boolean(isOpen));
+  if (text) text.textContent = isOpen ? t('收起对话', 'Close chat') : t('展开对话', 'Open chat');
+  if (btn) btn.setAttribute('aria-label', isOpen ? t('收起对话', 'Close chat') : t('展开对话', 'Open chat'));
+}
+
+function updateIdeaHero(idea) {
+  if (!idea) return;
+  const summary = document.getElementById('ideaHeroSummary');
+  const number = document.getElementById('ideaHeroNumber');
+  const statusText = document.getElementById('ideaStatusText');
+  const statusChip = document.getElementById('ideaStatusChip');
+  const connectionChip = document.getElementById('ideaConnectionChip');
+  const createdChip = document.getElementById('ideaCreatedChip');
+  const chatSubtitle = document.getElementById('chatIdeaSubtitle');
+  const chatContext = document.getElementById('chatContextText');
+  const statusLabels = currentLanguage === 'en'
+    ? { seed: 'New seed', grow: 'Active', pause: 'Parked' }
+    : { seed: '刚刚萌芽', grow: '进行中', pause: '暂时搁置' };
+  if (summary) {
+    const text = idea.card?.origin || idea.card?.core || t('这个点子还在形成中，继续聊几句，让它慢慢长出轮廓。', 'This idea is still forming. Keep talking and let its shape emerge.');
+    summary.textContent = text.replace(/^[“\"]|[”\"]$/g, '');
+  }
+  if (number) number.textContent = `· Idea #${String(idea.id).slice(-3).padStart(3, '0')}`;
+  if (statusText) statusText.textContent = statusLabels[idea.status] || statusLabels.seed;
+  if (statusChip) statusChip.className = `idea-meta-chip is-active status-${idea.status || 'seed'}`;
+  if (connectionChip) connectionChip.textContent = currentLanguage === 'en' ? `${(idea.nodes || []).length} nodes connected` : `已连接 ${(idea.nodes || []).length} 个节点`;
+  if (createdChip) {
+    const created = new Date(idea.createdAt || Date.now());
+    createdChip.textContent = currentLanguage === 'en'
+      ? `Created ${created.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      : `创建于 ${created.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}`;
+  }
+  if (chatSubtitle) chatSubtitle.textContent = idea.name;
+  if (chatContext) chatContext.textContent = idea.card?.tensions || idea.card?.next || idea.card?.core || t('当前点子的核心问题', 'the core question of this idea');
 }
 
 function startRename() {
@@ -265,7 +567,7 @@ function startRename() {
     if (inp.value.trim()) { idea.name = inp.value.trim(); saveIdeas(); renderList(); }
     const newEl = document.createElement('div');
     newEl.className = 'idea-bar-name'; newEl.id = 'ideaBarName';
-    newEl.onclick = startRename; newEl.title = '点击重命名';
+    newEl.onclick = startRename; newEl.title = t('点击重命名', 'Click to rename');
     newEl.textContent = idea.name; inp.replaceWith(newEl);
   };
   inp.addEventListener('blur', done);
@@ -278,7 +580,7 @@ function addNode(text, type, keyword) {
   if (!idea) return;
   idea.nodes.push({
     id: Date.now(), text, type, keyword: keyword || text.slice(0, 6), tasks: [],
-    time: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    time: new Date().toLocaleString(currentLanguage === 'en' ? 'en-US' : 'zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   });
   idea.updatedAt = Date.now();
   saveIdeas(); renderList(); renderGraph();
@@ -293,6 +595,7 @@ async function selectIdea(id, options = {}) {
 
   document.getElementById('ideaBarName').textContent = idea.name;
   document.getElementById('statusSel').value = idea.status;
+  updateIdeaHero(idea);
 
   // Confetti for first-time supernova viewing
   if (idea.type === 'supernova' && !idea.hasBeenViewed) {
@@ -308,19 +611,19 @@ async function selectIdea(id, options = {}) {
   if (options.expandChat) {
     drawer.classList.add('open');
     drawer.classList.remove('closed');
-    if (drawerBtn) drawerBtn.innerHTML = '↓ 收起对话';
+    updateDrawerLabel(true);
   } else {
     drawer.classList.add('closed');
     drawer.classList.remove('open');
-    if (drawerBtn) drawerBtn.innerHTML = '↑ 展开对话';
+    updateDrawerLabel(false);
   }
 
   // Seed memory (only for old ideas that lack chatHistory)
   if (idea.nodes.length > 0 && (!chatHistory || chatHistory.length === 0)) {
-    const memory = idea.nodes.slice(-4).map(n => n.text).join('；');
+    const memory = idea.nodes.slice(-4).map(n => n.text).join(currentLanguage === 'en' ? '; ' : '；');
     chatHistory = [
-      { role: 'user', content: `点子名：${idea.name}。之前的节点：${memory}` },
-      { role: 'assistant', content: '我记着了。' }
+      { role: 'user', content: currentLanguage === 'en' ? `Idea: ${idea.name}. Previous nodes: ${memory}` : `点子名：${idea.name}。之前的节点：${memory}` },
+      { role: 'assistant', content: t('我记着了。', 'I remember.') }
     ];
     idea.chatHistory = chatHistory;
     saveIdeas();
@@ -336,7 +639,9 @@ async function selectIdea(id, options = {}) {
     });
   } else if (idea.nodes.length === 0 && chatHistory.length === 0) {
     // First time
-    const initialMsg = `"${idea.name}"——现在在你脑子里是什么状态？哪怕一个词。`;
+    const initialMsg = currentLanguage === 'en'
+      ? `“${idea.name}” — what shape does it have in your mind right now? Even one word is enough.`
+      : `“${idea.name}”——现在在你脑子里是什么状态？哪怕一个词。`;
     appendMsg('ai', initialMsg, false);
     chatHistory.push({ role: 'assistant', content: initialMsg });
     idea.chatHistory = chatHistory;
@@ -381,7 +686,9 @@ async function generateHook(idea) {
     const data = await res.json();
     return data.choices[0].message.content.trim().replace(/^["「『]|["」』]$/g, '');
   } catch (e) {
-    return `上次聊到"${lastNode.keyword}"——那个方向现在怎么样了？`;
+    return currentLanguage === 'en'
+      ? `Last time we reached “${lastNode.keyword}”. Where is that direction now?`
+      : `上次聊到“${lastNode.keyword}”——那个方向现在怎么样了？`;
   }
 }
 
@@ -438,10 +745,13 @@ function openUniverseInspector(id) {
   const panel = document.getElementById('universeInspector');
   if (!idea || !panel) return;
   inspectedUniverseIdeaId = id;
+  if (typeof d3 !== 'undefined') {
+    d3.selectAll('#universeSvg .universe-node').classed('selected', d => d && d.id === id);
+  }
   const isFocus = id === universeFocusId;
-  document.getElementById('universeInspectorKicker').textContent = isFocus ? '当前中心' : '进入视野';
+  document.getElementById('universeInspectorKicker').textContent = isFocus ? t('当前中心', 'CURRENT FOCUS') : t('进入视野', 'IN VIEW');
   document.getElementById('universeInspectorTitle').textContent = idea.name;
-  document.getElementById('universeInspectorCore').textContent = idea.card?.core || '这个点子还没有被展开。打开它，聊几句，让轮廓慢慢出现。';
+  document.getElementById('universeInspectorCore').textContent = idea.card?.core || t('这个点子还没有被展开。打开它，聊几句，让轮廓慢慢出现。', 'This idea has not been unfolded yet. Open it and let its shape emerge.');
   const relation = activeUniverseLinks.find(link => {
     const sourceId = link.source?.id || link.source;
     const targetId = link.target?.id || link.target;
@@ -449,19 +759,22 @@ function openUniverseInspector(id) {
   });
   const reasonEl = document.getElementById('universeInspectorReason');
   if (id === universeFocusId) {
-    reasonEl.textContent = '这是当前的引力中心。周围的点子由它牵引进入视野。';
+    reasonEl.textContent = t('这是当前的引力中心。周围的点子由它牵引进入视野。', 'This is the current center of gravity. Nearby ideas are pulled into view around it.');
   } else if (relation) {
-    const label = relation.relation === 'collision' ? '碰撞' : '回声';
-    reasonEl.textContent = `${label} · ${relation.aiReason || `共同触及「${relation.sharedChars}」`}`;
+    const label = relation.relation === 'collision' ? t('碰撞', 'Collision') : t('回声', 'Echo');
+    reasonEl.textContent = `${label} · ${relation.aiReason || (currentLanguage === 'en' ? `Both touch “${relation.sharedChars}”` : `共同触及「${relation.sharedChars}」`)}`;
   } else {
-    reasonEl.textContent = '它暂时没有与中心形成足够清晰的联系。';
+    reasonEl.textContent = t('它暂时没有与中心形成足够清晰的联系。', 'Its connection to the center is not clear enough yet.');
   }
   const nextEl = document.getElementById('universeInspectorNext');
-  nextEl.textContent = idea.card?.next ? `可以继续：${idea.card.next}` : '';
+  nextEl.textContent = idea.card?.next ? (currentLanguage === 'en' ? `Continue with: ${idea.card.next}` : `可以继续：${idea.card.next}`) : '';
   nextEl.style.display = idea.card?.next ? 'block' : 'none';
   const nodeCount = (idea.nodes || []).length;
   const chatCount = (idea.chatHistory || []).filter(m => m.role === 'user').length;
-  document.getElementById('universeInspectorMeta').textContent = `${chatCount} 轮对话 · ${nodeCount} 个生长节点 · ${{seed:'萌芽',grow:'推进中',pause:'搁置'}[idea.status] || '萌芽'}`;
+  const inspectorStatuses = currentLanguage === 'en' ? {seed:'Seed',grow:'Active',pause:'Parked'} : {seed:'萌芽',grow:'推进中',pause:'搁置'};
+  document.getElementById('universeInspectorMeta').textContent = currentLanguage === 'en'
+    ? `${chatCount} turns · ${nodeCount} growth nodes · ${inspectorStatuses[idea.status] || inspectorStatuses.seed}`
+    : `${chatCount} 轮对话 · ${nodeCount} 个生长节点 · ${inspectorStatuses[idea.status] || inspectorStatuses.seed}`;
   panel.classList.add('open');
   panel.setAttribute('aria-hidden', 'false');
 }
@@ -473,6 +786,48 @@ function closeUniverseInspector() {
     panel.setAttribute('aria-hidden', 'true');
   }
   inspectedUniverseIdeaId = null;
+  if (typeof d3 !== 'undefined') d3.selectAll('#universeSvg .universe-node').classed('selected', false);
+}
+
+function showUniverseNodePreview(event, node) {
+  const preview = document.getElementById('universeNodePreview');
+  const wrap = document.getElementById('universeSvgWrap');
+  if (!preview || !wrap || !node) return;
+  const idea = getIdea(node.id);
+  if (!idea) return;
+  const rect = wrap.getBoundingClientRect();
+  const x = Math.max(142, Math.min(rect.width - 142, event.clientX - rect.left));
+  const rawY = event.clientY - rect.top;
+  const placeBelow = rawY < 210;
+  const y = placeBelow ? rawY + 34 : rawY - 28;
+  const statusLabels = currentLanguage === 'en' ? { seed:'Seed', grow:'Active', pause:'Parked' } : { seed: '萌芽', grow: '推进', pause: '搁置' };
+  const statusClass = `status-${idea.status || 'seed'}`;
+  const date = new Date(idea.updatedAt || idea.createdAt || Date.now()).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+  const userTurns = (idea.chatHistory || []).filter(message => message.role === 'user').length;
+  const relationCount = activeUniverseLinks.filter(link => {
+    const source = link.source?.id || link.source;
+    const target = link.target?.id || link.target;
+    return source === idea.id || target === idea.id;
+  }).length;
+  const teaser = idea.card?.core || idea.card?.origin || t('这个点子还没有展开，和它聊几句就会慢慢亮起来。', 'This idea is still dim. Talk with it and let it light up.');
+  preview.className = `universe-node-preview ${placeBelow ? 'is-below' : 'is-above'}`;
+  preview.style.left = `${x}px`;
+  preview.style.top = `${y}px`;
+  preview.innerHTML = `
+    <div class="universe-preview-row"><span class="universe-preview-status ${statusClass}"><i></i>${statusLabels[idea.status] || '萌芽'}</span><span class="universe-preview-date">${date}</span></div>
+    <div class="universe-preview-title">${esc(idea.name)}</div>
+    <div class="universe-preview-teaser">${esc(teaser)}</div>
+    <div class="universe-preview-meta"><span>${userTurns} 轮对话</span><span>${(idea.nodes || []).length} 个节点</span><span>${relationCount} 条连接</span></div>
+    <div class="universe-preview-hint">点击选择 · 双击设为中心</div>`;
+  preview.classList.add('show');
+  preview.setAttribute('aria-hidden', 'false');
+}
+
+function hideUniverseNodePreview() {
+  const preview = document.getElementById('universeNodePreview');
+  if (!preview) return;
+  preview.classList.remove('show');
+  preview.setAttribute('aria-hidden', 'true');
 }
 
 function openInspectedIdea() {
@@ -530,7 +885,9 @@ function openUChat(idA, idB) {
     // Generate an opening line
     const ctxA = getIdeaFullContext(ideaA);
     const ctxB = getIdeaFullContext(ideaB);
-    const opener = `这是「${ideaA.name}」和「${ideaB.name}」的交汇空间。你可以在这里探索它们之间的可能性。\n\n说点什么，我来帮你挖深。`;
+    const opener = currentLanguage === 'en'
+      ? `This is where “${ideaA.name}” and “${ideaB.name}” intersect. Explore what becomes possible between them.\n\nSay anything, and I will help you dig deeper.`
+      : `这是「${ideaA.name}」和「${ideaB.name}」的交汇空间。你可以在这里探索它们之间的可能性。\n\n说点什么，我来帮你挖深。`;
     appendUMsg('ai', opener);
     history.push({ role: 'assistant', content: opener });
     uChatContext.history = history;
@@ -695,7 +1052,7 @@ ${ctxB}
     uChatContext.history.push({ role: 'assistant', content: reply });
   } catch(err) {
     typing.remove();
-    appendUMsg('ai', '连接出了点问题，再试一次？');
+    appendUMsg('ai', t('连接出了点问题，再试一次？', 'The connection slipped. Try again?'));
   }
 
   localStorage.setItem(uChatContext.key, JSON.stringify(uChatContext.history));
@@ -721,6 +1078,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function renderUniverse() {
   const svg = d3.select('#universeSvg');
   svg.selectAll('*').remove();
+  hideUniverseNodePreview();
   if (universeSim) { universeSim.stop(); universeSim = null; }
 
   const emptyEl = document.getElementById('universeEmpty');
@@ -736,7 +1094,9 @@ function renderUniverse() {
   }
 
   const ideasWithCards = ideas.filter(i => i.card && i.card.core);
-  subtitle.textContent = `${ideas.length} 个点子 · ${ideasWithCards.length} 颗恒星`;
+  subtitle.textContent = currentLanguage === 'en'
+    ? `${ideas.length} ideas · ${ideasWithCards.length} stars`
+    : `${ideas.length} 个点子 · ${ideasWithCards.length} 颗恒星`;
 
   emptyEl.style.display = 'none';
   svgWrap.style.display = 'block';
@@ -911,6 +1271,7 @@ function renderUniverse() {
   // Node groups
   const nodeSel = svg.append('g').selectAll('g')
     .data(nodes).join('g')
+    .attr('class', 'universe-node')
     .attr('cursor', 'pointer')
     .call(d3.drag()
       .on('start', (e, d) => { if (!e.active) universeSim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
@@ -918,7 +1279,15 @@ function renderUniverse() {
       .on('end', (e, d) => { if (!e.active) universeSim.alphaTarget(0); d.fx = null; d.fy = null; }))
     .on('click', (e, d) => {
       e.stopPropagation();
+      hideUniverseNodePreview();
       openUniverseInspector(d.id);
+    })
+    .on('dblclick', (e, d) => {
+      e.stopPropagation();
+      universeFocusId = d.id;
+      closeUniverseInspector();
+      hideUniverseNodePreview();
+      renderUniverse();
     });
 
   // Planet / dark matter rendering
@@ -975,21 +1344,16 @@ function renderUniverse() {
     })
     .text(d => d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name);
 
-  // Node tooltip
+  // Node hover preview. Link hints continue using nodeTip below.
   const tip = document.getElementById('nodeTip');
   nodeSel
     .on('mouseenter', function(e, d) {
       d3.select(this).select('text').attr('opacity', 1);
-      if (d.hasCard) {
-        tip.innerHTML = `<div class="node-tip-meta">${d.chatLen}轮对话 · ${d.nodeCount}个节点 · ${{seed:'🌱萌芽',grow:'🌿推进',pause:'❄️搁置'}[d.status]}</div><strong>${d.name}</strong><br>${esc(d.core)}`;
-      } else {
-        tip.innerHTML = `<div class="node-tip-meta">暗物质 · 未展开</div><strong>${d.name}</strong><br><em>聊上几句就能点亮这颗星</em>`;
-      }
-      tip.classList.add('show');
-    })
-    .on('mousemove', e => { tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 8) + 'px'; })
-    .on('mouseleave', function(e, d) {
       tip.classList.remove('show');
+      showUniverseNodePreview(e, d);
+    })
+    .on('mouseleave', function(e, d) {
+      hideUniverseNodePreview();
       const baseOpacity = d.isFocus ? 1 : (!d.hasCard ? 0.22 : (d.isDwarf ? 0.42 : (d.size >= 16 ? 0.82 : 0.58)));
       d3.select(this).select('text').attr('opacity', baseOpacity);
     });
@@ -1122,10 +1486,14 @@ function renderUniverse() {
     generateUniverseNarration(ideasWithCards, links);
   } else if (ideasWithCards.length >= 2) {
     narration.style.display = 'block';
-    document.getElementById('narrationText').textContent = `✦ ${ideasWithCards.length} 颗恒星尚未产生联系。继续聊，连线会自己长出来。`;
+    document.getElementById('narrationText').textContent = currentLanguage === 'en'
+      ? `✦ ${ideasWithCards.length} stars have not connected yet. Keep talking and the links will grow.`
+      : `✦ ${ideasWithCards.length} 颗恒星尚未产生联系。继续聊，连线会自己长出来。`;
   } else {
     narration.style.display = 'block';
-    document.getElementById('narrationText').textContent = `✦ ${ideas.length} 颗暗物质等待被点亮。和它们聊几句，让它们变成恒星。`;
+    document.getElementById('narrationText').textContent = currentLanguage === 'en'
+      ? `✦ ${ideas.length} pieces of dark matter are waiting to be lit. Talk with them and turn them into stars.`
+      : `✦ ${ideas.length} 颗暗物质等待被点亮。和它们聊几句，让它们变成恒星。`;
   }
 
   // Auto-discover supernovae (runs in background)
@@ -1154,7 +1522,7 @@ async function generateUniverseNarration(ideasWithCards, links) {
   const narrationText = document.getElementById('narrationText');
   
   narration.style.display = 'block';
-  narrationText.textContent = '正在观察你的思维星图…';
+  narrationText.textContent = t('正在观察你的思维星图…', 'Reading your thought map…');
 
   const summary = ideasWithCards.map(i => getIdeaFullContext(i)).join('\n---\n');
   const connectionSummary = links.slice(0, 5).map(l => {
@@ -1184,7 +1552,9 @@ async function generateUniverseNarration(ideasWithCards, links) {
     const data = await res.json();
     narrationText.textContent = '✦ ' + data.choices[0].message.content.trim().replace(/^["「『]|["」』]$/g, '');
   } catch (e) {
-    narrationText.textContent = `✦ ${ideasWithCards.length} 个点子，${links.length} 条隐藏联系。点击星球深入探索。`;
+    narrationText.textContent = currentLanguage === 'en'
+      ? `✦ ${ideasWithCards.length} ideas, ${links.length} hidden links. Click a planet to explore.`
+      : `✦ ${ideasWithCards.length} 个点子，${links.length} 条隐藏联系。点击星球深入探索。`;
   }
 }
 
@@ -1367,6 +1737,8 @@ async function autoDiscoverSupernovae(ideasWithCards) {
 function renderList() {
   const el = document.getElementById('ideasList');
   if (!el) return;
+  const countEl = document.getElementById('ideaCount');
+  if (countEl) countEl.textContent = ideas.length;
   if (!ideas.length) { el.innerHTML = '<div class="list-empty">还没有点子。<br>想到什么就加进来。</div>'; return; }
   const now = Date.now();
   const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -1589,6 +1961,9 @@ function renderCard() {
     const turnBlock = document.getElementById('cardTurnBlock');
     const origin = idea.card.origin || '';
     const turningPoint = idea.card.turningPoint || '';
+    const hasContext = Boolean(origin || turningPoint);
+    cardContent.classList.toggle('has-context', hasContext);
+    cardContent.classList.toggle('no-context', !hasContext);
     originBlock.style.display = origin ? 'flex' : 'none';
     turnBlock.style.display = turningPoint ? 'flex' : 'none';
     document.getElementById('cardOrigin').textContent = origin;
@@ -1618,26 +1993,28 @@ function renderTimeline(idea) {
   let events = [];
   
   // 1. Seed
-  events.push({ time: idea.createdAt, type: 'seed', text: '种子种下：最早的念头碎片' });
+  events.push({ time: idea.createdAt, type: 'seed', text: t('种子种下：最早的念头碎片', 'Seed planted: the earliest fragment of the thought') });
   
   // 2. Supernova (if any)
   if (idea.parentIds && idea.parentIds.length === 2) {
     const p1 = getIdea(idea.parentIds[0]);
     const p2 = getIdea(idea.parentIds[1]);
-    const n1 = p1 ? p1.name : '未知';
-    const n2 = p2 ? p2.name : '未知';
-    events.push({ time: idea.createdAt + 10, type: 'supernova', text: `星系交汇：从「${n1}」与「${n2}」中碰撞孕育` });
+    const n1 = p1 ? p1.name : t('未知', 'Unknown');
+    const n2 = p2 ? p2.name : t('未知', 'Unknown');
+    events.push({ time: idea.createdAt + 10, type: 'supernova', text: currentLanguage === 'en' ? `Convergence: born from the collision of “${n1}” and “${n2}”` : `星系交汇：从「${n1}」与「${n2}」中碰撞孕育` });
   }
   
   // 3. AI Insights / Todos (Pinned nodes)
   (idea.nodes || []).forEach(n => {
-    const text = n.type === 'todo' ? `决定了一步小行动：${n.text}` : `思维突破：${n.text}`;
+    const text = n.type === 'todo'
+      ? (currentLanguage === 'en' ? `Action chosen: ${n.text}` : `决定了一步小行动：${n.text}`)
+      : (currentLanguage === 'en' ? `Breakthrough: ${n.text}` : `思维突破：${n.text}`);
     events.push({ time: n.id, type: 'insight', text });
   });
   
   // 4. Evolutions
   (idea.evolutions || []).forEach(e => {
-    events.push({ time: e.time, type: 'evolution', text: `核心进化：概念升级为了 "<strong>${e.newCore}</strong>"` });
+    events.push({ time: e.time, type: 'evolution', text: currentLanguage === 'en' ? `Core evolved into “<strong>${e.newCore}</strong>”` : `核心进化：概念升级为了 “<strong>${e.newCore}</strong>”` });
   });
   
   // Sort chronologically
@@ -1649,9 +2026,10 @@ function renderTimeline(idea) {
   }
   
   tl.style.display = 'flex';
-  tl.innerHTML = '<div class="card-section-label">生长轨迹</div>' + events.map(e => {
-    const dateStr = new Date(e.time).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    return `<div class="timeline-item ${e.type}">
+  tl.innerHTML = `<div class="card-section-label"><span class="card-label-icon" aria-hidden="true">⌁</span>${t('演变过程', 'Evolution')}</div>` + events.map((e, index) => {
+    const dateStr = new Date(e.time).toLocaleString(currentLanguage === 'en' ? 'en-US' : 'zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const progressClass = index === events.length - 1 ? 'active' : 'done';
+    return `<div class="timeline-item ${e.type} ${progressClass}">
       <div class="timeline-time">${dateStr}</div>
       <div class="timeline-text">${e.text}</div>
     </div>`;
@@ -1794,9 +2172,9 @@ function copyCard() {
   const idea = currentId ? getIdea(currentId) : null;
   if (!idea || !idea.card) return;
   const c = idea.card;
-  const origin = c.origin ? `\n\n**从这里长出来**\n${c.origin}` : '';
-  const turn = c.turningPoint ? `\n\n**这次转弯**\n${c.turningPoint}` : '';
-  const text = `# ${idea.name}\n\n**核心想法**\n${c.core}${origin}${turn}\n\n**关键方向**\n${(c.branches || []).map(b => '· ' + b).join('\n')}\n\n**未解决的张力**\n${c.tensions}\n\n**接下来可以长成**\n${c.next}`;
+  const origin = c.origin ? `\n\n**${t('从这里长出来', 'Where it began')}**\n${c.origin}` : '';
+  const turn = c.turningPoint ? `\n\n**${t('这次转弯', 'The turn')}**\n${c.turningPoint}` : '';
+  const text = `# ${idea.name}\n\n**${t('核心想法', 'Core thought')}**\n${c.core}${origin}${turn}\n\n**${t('关键方向', 'Key directions')}**\n${(c.branches || []).map(b => '· ' + b).join('\n')}\n\n**${t('未解决的张力', 'Unresolved tension')}**\n${c.tensions}\n\n**${t('接下来可以长成', 'What it could become next')}**\n${c.next}`;
   navigator.clipboard.writeText(text)
     .then(() => {
       const btn = document.querySelector('.card-copy-btn');
@@ -1819,9 +2197,13 @@ function growIdea(mode) {
     return;
   }
 
-  const prompts = {
+  const prompts = currentLanguage === 'en' ? {
+    deeper: `Do not summarize. Find the most uncomfortable tension inside “${idea.card?.tensions || idea.name}” and ask me one sharper question.`,
+    outline: 'Move this idea toward something I could create. First ask whether it wants to become an article, video, product, or another form—do not finish it for me.',
+    echo: `Look through my other ideas and find the one most likely to echo “${idea.name}”. Go beyond shared keywords and explain what new direction it opens.`
+  } : {
     deeper: `别总结。抓住「${idea.card?.tensions || idea.name}」里最别扭的地方，再往深处问我一个问题。`,
-    outline: `把这个点子往一个可创作的作品推进。先问我它最想变成文章、视频、产品还是别的形式，不要直接替我写完。`,
+    outline: '把这个点子往一个可创作的作品推进。先问我它最想变成文章、视频、产品还是别的形式，不要直接替我写完。',
     echo: `看看我已有的其他点子里，哪个最可能和「${idea.name}」产生回声。不要只找相同关键词，要解释它能打开什么新方向。`
   };
   const input = document.getElementById('chatInput');
@@ -1851,7 +2233,9 @@ function toggleTodoNode(nodeId) {
     });
   }
 
-  document.getElementById('chatInput').value = `我刚刚完成了这个行动：【${node.keyword}】。下一步该做什么？`;
+  document.getElementById('chatInput').value = currentLanguage === 'en'
+    ? `I just completed this action: “${node.keyword}”. What should I do next?`
+    : `我刚刚完成了这个行动：【${node.keyword}】。下一步该做什么？`;
   sendMessage();
 }
 
@@ -1893,7 +2277,7 @@ async function sendMessage(e) {
   const msgs = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = 'msg ai';
-  div.innerHTML = `<div class="msg-who">抽屉</div><div class="msg-bubble ai-stream-bubble"></div>`;
+  div.innerHTML = `<span class="msg-avatar"><span class="msg-avatar-core"></span></span><div class="msg-stack"><div class="msg-who">${t('抽屉', 'Drawer')}</div><div class="msg-bubble ai-stream-bubble"></div></div>`;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
   const bubble = div.querySelector('.ai-stream-bubble');
@@ -2032,21 +2416,22 @@ ${ctx}
 
     if (chatHistory.length >= 3) {
       const btnsDiv = document.createElement('div');
-      btnsDiv.style.display = 'flex'; btnsDiv.style.gap = '10px';
+      btnsDiv.className = 'chat-inline-actions';
 
       const pinBtn = document.createElement('button');
       pinBtn.className = 'pin-btn';
-      pinBtn.textContent = '↓ 钉入时间线';
+      pinBtn.textContent = t('↓ 钉入时间线', '↓ Pin to timeline');
       pinBtn.onclick = function () { pinToTimeline(this, false, currentIdx); };
 
       const todoBtn = document.createElement('button');
       todoBtn.className = 'todo-btn';
-      todoBtn.textContent = '☐ 钉为待办';
+      todoBtn.textContent = t('☐ 钉为待办', '☐ Pin as action');
       todoBtn.onclick = function () { pinToTimeline(this, true, currentIdx); };
 
       btnsDiv.appendChild(pinBtn);
       btnsDiv.appendChild(todoBtn);
-      div.appendChild(btnsDiv);
+      const stack = div.querySelector('.msg-stack');
+      (stack || div).appendChild(btnsDiv);
     }
 
   } catch (e) {
@@ -2118,12 +2503,15 @@ function appendMsg(role, text, showPin, msgIdx) {
   let actions = '';
   if (showPin && role === 'ai') {
     const idxParam = typeof msgIdx === 'number' ? msgIdx : 'null';
-    actions = `<div style="display:flex;gap:10px;margin-top:6px;">
-  <button class="pin-btn" style="margin-top:0;" onclick="pinToTimeline(this, false, ${idxParam})">↓ 钉入时间线</button>
-  <button class="todo-btn" style="margin-top:0;" onclick="pinToTimeline(this, true, ${idxParam})">☐ 钉为待办</button>
+    actions = `<div class="chat-inline-actions">
+  <button class="pin-btn" onclick="pinToTimeline(this, false, ${idxParam})">${t('⌁ 钉入时间线', '⌁ Pin to timeline')}</button>
+  <button class="todo-btn" onclick="pinToTimeline(this, true, ${idxParam})">${t('✓ 钉为待办', '✓ Pin as action')}</button>
 </div>`;
   }
-  div.innerHTML = `<div class="msg-who">${role === 'user' ? '你' : '抽屉'}</div><div class="msg-bubble">${fmt(text)}</div>${actions}`;
+  const avatar = role === 'user'
+    ? `<span class="msg-avatar msg-avatar-user">${t('你', 'You')}</span>`
+    : `<span class="msg-avatar"><span class="msg-avatar-core"></span></span>`;
+  div.innerHTML = `${avatar}<div class="msg-stack"><div class="msg-who">${role === 'user' ? t('你', 'You') : t('抽屉', 'Drawer')}</div><div class="msg-bubble">${fmt(text)}</div>${actions}</div>`;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
 }
