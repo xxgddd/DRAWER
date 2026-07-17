@@ -379,12 +379,18 @@
         </select>
       </div>
 
+      <div class="setting-item" style="margin-bottom:20px;">
+        <label>数据备份</label>
+        <p class="modal-note" style="margin:7px 0 10px;">导出全部点子、卡片、节点和聊天记录，不包含 API Key。</p>
+        <button class="modal-btn" id="exportBackupBtn" type="button" onclick="exportDrawerBackup()">导出完整备份</button>
+      </div>
+
       <button class="modal-btn" onclick="saveSettings()">保存更改</button>
       <button class="modal-cancel" onclick="closeModal('settingsModal')">取消</button>
     </div>
   </div>
 
-  <script src="script.js?v=42"></script>
+  <script src="script.js?v=43"></script>
   <script>
     // Service Worker Registration
     if ('serviceWorker' in navigator) {

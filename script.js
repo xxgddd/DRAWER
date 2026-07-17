@@ -139,6 +139,9 @@ const UI_COPY = {
   ,'点子摘要': 'Card summary'
   ,'起点与转变': 'Context'
   ,'重新整理整张卡片': 'Regenerate full card'
+  ,'数据备份': 'Data backup'
+  ,'导出全部点子、卡片、节点和聊天记录，不包含 API Key。': 'Export all ideas, cards, nodes, and chats. API keys are excluded.'
+  ,'导出完整备份': 'Export full backup'
 };
 const UI_COPY_REVERSE = Object.fromEntries(Object.entries(UI_COPY).map(([zh, en]) => [en, zh]));
 
@@ -515,6 +518,42 @@ async function handleQuickCapture() {
 
 // ── Ideas ──
 function saveIdeas() { localStorage.setItem('drawer_ideas', JSON.stringify(ideas)); }
+
+function exportDrawerBackup() {
+  const universeChats = {};
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key?.startsWith('uchat_')) {
+      try { universeChats[key] = JSON.parse(localStorage.getItem(key) || '[]'); }
+      catch (_) { universeChats[key] = []; }
+    }
+  }
+
+  const backup = {
+    format: 'drawer-backup',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      ideas,
+      universeChats,
+      preferences: {
+        language: currentLanguage,
+        fontSize
+      }
+    }
+  };
+
+  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `drawer-backup-${stamp}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 function getIdea(id) { return ideas.find(i => i.id === id); }
 
 function createIdea() {

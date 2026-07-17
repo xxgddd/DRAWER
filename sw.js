@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v42-universe-labels';
+const CACHE_NAME = 'drawer-v43-data-export';
 const ASSETS = [
   '/',
   '/index.html',
