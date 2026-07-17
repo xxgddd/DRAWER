@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v43-data-export';
+const CACHE_NAME = 'drawer-v44-data-import';
 const ASSETS = [
   '/',
   '/index.html',

@@ -140,8 +140,9 @@ const UI_COPY = {
   ,'起点与转变': 'Context'
   ,'重新整理整张卡片': 'Regenerate full card'
   ,'数据备份': 'Data backup'
-  ,'导出全部点子、卡片、节点和聊天记录，不包含 API Key。': 'Export all ideas, cards, nodes, and chats. API keys are excluded.'
+  ,'导出或恢复全部点子、卡片、节点和聊天记录，不包含 API Key。': 'Export or restore all ideas, cards, nodes, and chats. API keys are excluded.'
   ,'导出完整备份': 'Export full backup'
+  ,'从备份恢复': 'Restore from backup'
 };
 const UI_COPY_REVERSE = Object.fromEntries(Object.entries(UI_COPY).map(([zh, en]) => [en, zh]));
 
@@ -553,6 +554,63 @@ function exportDrawerBackup() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function importDrawerBackup(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  if (!file) return;
+
+  try {
+    const backup = JSON.parse(await file.text());
+    const data = backup?.data;
+    if (backup?.format !== 'drawer-backup' || backup?.version !== 1 || !Array.isArray(data?.ideas)) {
+      throw new Error(t('这不是有效的抽屉备份文件。', 'This is not a valid Drawer backup file.'));
+    }
+
+    const universeChats = data.universeChats;
+    if (universeChats != null && (typeof universeChats !== 'object' || Array.isArray(universeChats))) {
+      throw new Error(t('备份中的宇宙聊天数据无效。', 'The universe chat data in this backup is invalid.'));
+    }
+
+    const confirmed = confirm(t(
+      `将用备份中的 ${data.ideas.length} 个点子替换当前浏览器里的全部抽屉数据。API Key 会保留。继续吗？`,
+      `This will replace all Drawer data in this browser with ${data.ideas.length} ideas from the backup. Your API key will be kept. Continue?`
+    ));
+    if (!confirmed) return;
+
+    const chatKeys = [];
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (key?.startsWith('uchat_')) chatKeys.push(key);
+    }
+    chatKeys.forEach(key => localStorage.removeItem(key));
+
+    localStorage.setItem('drawer_ideas', JSON.stringify(data.ideas));
+    Object.entries(universeChats || {}).forEach(([key, history]) => {
+      if (key.startsWith('uchat_') && Array.isArray(history)) {
+        localStorage.setItem(key, JSON.stringify(history));
+      }
+    });
+
+    const preferences = data.preferences || {};
+    if (preferences.language === 'zh' || preferences.language === 'en') {
+      localStorage.setItem('drawer_language', preferences.language);
+    }
+    if (['small', 'medium', 'large'].includes(preferences.fontSize)) {
+      localStorage.setItem('drawer_font_size', preferences.fontSize);
+    }
+
+    alert(t(
+      `恢复成功：已导入 ${data.ideas.length} 个点子。`,
+      `Restore complete: ${data.ideas.length} ideas imported.`
+    ));
+    location.reload();
+  } catch (error) {
+    alert(error?.message || t('备份恢复失败，请检查文件后重试。', 'Restore failed. Check the file and try again.'));
+  } finally {
+    input.value = '';
+  }
 }
 function getIdea(id) { return ideas.find(i => i.id === id); }
 
