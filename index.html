@@ -22,21 +22,64 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="card-redesign.css">
+  <link rel="stylesheet" href="style.css?v=69">
+  <link rel="stylesheet" href="card-redesign.css?v=69">
   <link rel="stylesheet" href="card-reference.css">
-  <link rel="stylesheet" href="chat-calm.css">
-  <link rel="stylesheet" href="sidebar-calm.css?v=37">
-  <link rel="stylesheet" href="universe-interactions.css">
+  <link rel="stylesheet" href="chat-calm.css?v=69">
+  <link rel="stylesheet" href="sidebar-calm.css?v=69">
+  <link rel="stylesheet" href="universe-interactions.css?v=69">
+  <link rel="stylesheet" href="atlas-view.css?v=69">
+  <link rel="stylesheet" href="world-window.css?v=68">
   <link rel="stylesheet" href="design-tokens.css">
   <link rel="stylesheet" href="capture-modal.css">
   <link rel="stylesheet" href="localization.css">
-  <link rel="stylesheet" href="home-universe.css?v=37">
+  <link rel="stylesheet" href="home-universe.css?v=55">
   <link rel="stylesheet" href="idea-graph.css?v=37">
   <link rel="stylesheet" href="card-density.css?v=40">
 </head>
 
 <body>
+  <svg class="ui-icon-sprite" aria-hidden="true">
+    <symbol id="ui-orbit" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3"></circle><ellipse cx="12" cy="12" rx="9" ry="5.5"></ellipse><circle cx="19.5" cy="9" r="1.2" class="ui-icon-fill"></circle>
+    </symbol>
+    <symbol id="ui-atlas" viewBox="0 0 24 24">
+      <path d="M3 5l5-2 8 2 5-2v16l-5 2-8-2-5 2Z"></path><path d="M8 3v16M16 5v16"></path>
+    </symbol>
+    <symbol id="ui-window" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 4v16M12 15l6-6M14 9h4v4"></path>
+    </symbol>
+    <symbol id="ui-nodes" viewBox="0 0 24 24">
+      <circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="5" r="2"></circle><circle cx="19" cy="12" r="2"></circle><path d="M6.5 10.5l4-4M13.5 6.5l4 4M7 12h10"></path>
+    </symbol>
+    <symbol id="ui-calendar" viewBox="0 0 24 24">
+      <rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M7 3v4M17 3v4M3 10h18"></path>
+    </symbol>
+    <symbol id="ui-card" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 9h10M7 13h7M7 17h4"></path>
+    </symbol>
+    <symbol id="ui-graph" viewBox="0 0 24 24">
+      <circle cx="5" cy="17" r="2"></circle><circle cx="10" cy="7" r="2"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="18" cy="17" r="2"></circle><path d="M6 15l3-6M12 7l5-1M11 8l5 7M7 17h9"></path>
+    </symbol>
+    <symbol id="ui-chat" viewBox="0 0 24 24">
+      <path d="M4 5h16v11H9l-5 4Z"></path><path d="M8 9h8M8 12h5"></path>
+    </symbol>
+    <symbol id="ui-trash" viewBox="0 0 24 24">
+      <path d="M4 7h16M9 3h6l1 4H8l1-4ZM7 7l1 14h8l1-14M10 11v6M14 11v6"></path>
+    </symbol>
+    <symbol id="ui-clear" viewBox="0 0 24 24">
+      <path d="M4 15l9-9 7 7-7 7H7Z"></path><path d="M10 9l7 7M13 20h8"></path>
+    </symbol>
+    <symbol id="ui-open" viewBox="0 0 24 24">
+      <path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v5H5V6h5"></path>
+    </symbol>
+    <symbol id="ui-focus" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="5"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path>
+    </symbol>
+    <symbol id="ui-chevron" viewBox="0 0 24 24">
+      <path d="m6 15 6-6 6 6"></path>
+    </symbol>
+  </svg>
 
   <div class="app">
     <!-- Overlay for mobile sidebar -->
@@ -110,9 +153,125 @@
       <!-- Universe View -->
       <div class="universe-view" id="universeView" style="display:none;">
         <div class="universe-header">
-          <div class="universe-title">✦ 你的思维宇宙</div>
-          <div class="universe-subtitle" id="universeSubtitle"></div>
+          <div class="universe-header-copy">
+            <div class="universe-title">✦ 你的思维宇宙</div>
+            <div class="universe-subtitle" id="universeSubtitle"></div>
+          </div>
+          <div id="universeModeSwitch" class="universe-mode-switch" role="group" aria-label="宇宙视图">
+            <button id="universeGravityModeBtn" class="active icon-only-btn" onclick="DrawerAtlasView.switchMode('gravity')" aria-label="星图" title="星图">
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-orbit"></use></svg>
+            </button>
+            <button id="universeAtlasModeBtn" class="icon-only-btn" onclick="DrawerAtlasView.switchMode('atlas')" aria-label="年鉴" title="年鉴">
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-atlas"></use></svg>
+            </button>
+            <button id="universeWorldModeBtn" class="icon-only-btn" onclick="DrawerAtlasView.switchMode('world')" aria-label="世界之窗" title="世界之窗">
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-window"></use></svg>
+            </button>
+          </div>
         </div>
+
+        <div class="atlas-view" id="atlasView" aria-hidden="true">
+          <div class="atlas-canvas-wrap" id="atlasCanvasWrap">
+            <div class="atlas-heading">
+              <div class="atlas-kicker">THE ATLAS OF YOUR YEAR</div>
+              <div class="atlas-heading-title">把这一年的念头，放回它们真正的位置</div>
+              <div class="atlas-heading-meta" id="atlasHeadingMeta">正在测绘语义坐标…</div>
+            </div>
+            <svg id="atlasSvg" aria-label="二维语义星图"></svg>
+            <div class="atlas-loading" id="atlasLoading">
+              <span></span>
+              <div id="atlasLoadingText">正在测绘语义坐标…</div>
+            </div>
+            <div class="atlas-tooltip" id="atlasTooltip"></div>
+          </div>
+          <aside class="atlas-expedition" id="atlasExpedition" aria-hidden="true">
+            <button class="atlas-expedition-close" onclick="DrawerAtlasView.closeExpedition()" aria-label="关闭">✕</button>
+            <div class="atlas-expedition-kicker">🧭 CHART AN EXPEDITION</div>
+            <div class="atlas-expedition-tag">TERRA INCOGNITA</div>
+            <div class="atlas-expedition-name" id="atlasExpeditionName"></div>
+            <div class="atlas-expedition-description" id="atlasExpeditionDescription"></div>
+            <div class="atlas-expedition-question">
+              <div>STARTER QUESTION</div>
+              <p id="atlasExpeditionQuestion"></p>
+            </div>
+            <div class="atlas-expedition-alternatives">
+              <div>OR TRY</div>
+              <p id="atlasExpeditionAlternative1"></p>
+              <p id="atlasExpeditionAlternative2"></p>
+            </div>
+          </aside>
+        </div>
+
+        <div class="world-window" id="worldWindowView" aria-hidden="true">
+          <div class="world-window-frame">
+            <i class="world-corner world-corner-tl"></i>
+            <i class="world-corner world-corner-tr"></i>
+            <i class="world-corner world-corner-bl"></i>
+            <i class="world-corner world-corner-br"></i>
+
+            <div class="world-heading">
+              <div class="world-kicker">FLOW 2 · WORLD WINDOW</div>
+              <div class="world-title" id="worldWindowTitle">世界之窗</div>
+              <div class="world-date" id="worldWindowDate">今日来信</div>
+              <div class="world-summary" id="worldWindowSummary">正在确认今天的航线…</div>
+            </div>
+            <div class="world-coordinate" id="worldWindowCoordinate">
+              <span>向内 ↔ 向外</span>
+              <span>吸收 ↕ 产出</span>
+            </div>
+            <div class="world-terra-title">
+              TERRA INCOGNITA
+              <span id="worldTerraSubtitle">海岸线之外 · 每日一封来信</span>
+            </div>
+
+            <svg id="worldWindowSvg" aria-label="世界之窗：你的已知内海与今日外部灯塔"></svg>
+            <div class="world-window-loading" id="worldWindowLoading">
+              <span></span>
+              <div id="worldWindowLoadingText">正在拆开今天的来信…</div>
+            </div>
+            <div class="world-window-empty" id="worldWindowEmpty" hidden>
+              <strong id="worldEmptyTitle">先在抽屉里留下一颗星</strong>
+              <span id="worldEmptyBody">世界之窗会从你的边疆向外寻找今天的灯塔。</span>
+            </div>
+            <div class="world-window-tooltip" id="worldWindowTooltip"></div>
+
+            <aside class="world-letter-card" id="worldLetterCard" aria-hidden="true">
+              <button class="world-letter-close" id="worldLetterCloseBtn"
+                onclick="DrawerWorldWindow.closeLetter()" aria-label="关闭">✕</button>
+              <div class="world-letter-kicker" id="worldLetterKicker">TODAY'S LIGHTHOUSE</div>
+              <div class="world-letter-name" id="worldLetterName"></div>
+              <div class="world-letter-verification" id="worldLetterVerification"></div>
+              <div class="world-letter-description" id="worldLetterDescription"></div>
+              <div class="world-letter-relation" id="worldLetterRelation"></div>
+              <div class="world-letter-collision" id="worldLetterCollision" hidden>
+                <div class="world-letter-collision-label" id="worldCollisionLabel">交叉后出现的新方向</div>
+                <div id="worldLetterCollisionText"></div>
+                <button class="world-collision-save" id="worldCollisionSaveBtn" type="button"
+                  onclick="DrawerWorldWindow.saveCollisionSeed()" hidden>保存这个新火种</button>
+              </div>
+              <div class="world-letter-actions">
+                <button id="worldCaptureBtn" onclick="DrawerWorldWindow.captureSelected()">收藏为种子</button>
+                <button id="worldCollideBtn" onclick="DrawerWorldWindow.collideSelected()">和旧点子交叉</button>
+                <button class="quiet" id="worldIgnoreBtn" onclick="DrawerWorldWindow.ignoreSelected()">忽略</button>
+              </div>
+            </aside>
+
+            <aside class="world-daily-nudge" id="worldDailyNudge" aria-live="polite" hidden>
+              <div class="world-nudge-kicker" id="worldNudgeKicker">TODAY'S NUDGE</div>
+              <div class="world-nudge-title" id="worldNudgeTitle">今天只做一件小事</div>
+              <p id="worldNudgeBody">从离你最近的灯塔开始，花两分钟看看它和哪颗旧星相连。</p>
+              <button id="worldNudgeButton" type="button" onclick="DrawerWorldWindow.openDailyNudge()">
+                打开今天的第一盏灯塔 <span>↗</span>
+              </button>
+            </aside>
+
+            <div class="world-legend">
+              <span><i class="known"></i><b id="worldLegendKnown">你的星</b></span>
+              <span><i class="external"></i><b id="worldLegendExternal">外部灯塔</b></span>
+            </div>
+          </div>
+        </div>
+
         <div class="universe-svg-wrap" id="universeSvgWrap">
           <svg id="universeSvg"></svg>
           <div class="universe-node-preview" id="universeNodePreview" aria-hidden="true"></div>
@@ -134,8 +293,12 @@
           <div class="universe-inspector-next" id="universeInspectorNext"></div>
           <div class="universe-inspector-meta" id="universeInspectorMeta"></div>
           <div class="universe-inspector-actions">
-            <button class="inspector-primary" onclick="openInspectedIdea()">打开点子</button>
-            <button onclick="focusInspectedIdea()">以它为中心</button>
+            <button class="inspector-primary icon-only-btn" id="universeInspectorOpenBtn" onclick="openInspectedIdea()" aria-label="打开点子" title="打开点子">
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-open"></use></svg>
+            </button>
+            <button class="icon-only-btn" id="universeInspectorFocusBtn" onclick="focusInspectedIdea()" aria-label="以它为中心" title="以它为中心">
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-focus"></use></svg>
+            </button>
           </div>
         </div>
 
@@ -159,13 +322,19 @@
         <!-- First-visit guide -->
         <div class="universe-guide" id="universeGuide" style="display:none;">
           <div class="universe-guide-item">
-            <span class="guide-icon">◉</span> 点击星球 → 深入了解
+            <span class="guide-icon" style="color:#d7a454;">●</span> 黄色恒星 → 你展开的点子
           </div>
           <div class="universe-guide-item">
-            <span class="guide-line" style="border-color:#e8b86d;"></span> 金色回声 → 找回旧念头
+            <span class="guide-icon" style="color:#c5c9cc;">·</span> 白矮星 → 尚未展开或长期沉寂
           </div>
           <div class="universe-guide-item">
-            <span class="guide-icon" style="color:#7ec8e3;">✦</span> 蓝色碰撞 → 长出新方向
+            <span class="guide-icon" style="color:#7ec8e3;">✦</span> 蓝色新星 → 碰撞产生的候选方向
+          </div>
+          <div class="universe-guide-item">
+            <span class="guide-line" style="border-color:#d7a454;"></span> 黄色线 → 点子之间的潜在暗线
+          </div>
+          <div class="universe-guide-item">
+            <span class="guide-line" style="border-color:#7ec8e3;"></span> 蓝色线 → 新星与母点子的生成血缘
           </div>
         </div>
       </div>
@@ -180,9 +349,12 @@
           </div>
           <div class="idea-hero-side">
             <div class="idea-hero-meta">
-              <span class="idea-meta-chip is-active" id="ideaStatusChip"><span class="idea-meta-dot"></span><span id="ideaStatusText">进行中</span></span>
-              <span class="idea-meta-chip" id="ideaConnectionChip">已连接 0 个节点</span>
-              <span class="idea-meta-chip" id="ideaCreatedChip">创建于今天</span>
+              <span class="idea-meta-chip metric-chip" id="ideaConnectionChip" aria-label="已连接 0 个节点" title="已连接 0 个节点">
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-nodes"></use></svg><b id="ideaConnectionCount">0</b>
+              </span>
+              <span class="idea-meta-chip metric-chip" id="ideaCreatedChip" aria-label="创建于今天" title="创建于今天">
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-calendar"></use></svg><b id="ideaCreatedDate">今天</b>
+              </span>
             </div>
             <div class="idea-bar-controls">
               <select class="status-sel" id="statusSel" onchange="updateStatus(this.value)">
@@ -196,8 +368,12 @@
 
         <div class="graph-hdr">
           <div class="panel-tabs">
-            <button class="tab-btn active" id="tabCard" onclick="switchTab('card')">点子卡片</button>
-            <button class="tab-btn" id="tabGraph" onclick="switchTab('graph')">灵感图谱</button>
+            <button class="tab-btn icon-only-btn active" id="tabCard" onclick="switchTab('card')" aria-label="点子卡片" title="点子卡片">
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-card"></use></svg>
+            </button>
+            <button class="tab-btn icon-only-btn" id="tabGraph" onclick="switchTab('graph')" aria-label="灵感图谱" title="灵感图谱">
+              <svg class="ui-icon" aria-hidden="true"><use href="#ui-graph"></use></svg>
+            </button>
           </div>
         </div>
 
@@ -320,7 +496,11 @@
                 <div class="chat-head-subtitle" id="chatIdeaSubtitle">继续把还没想清楚的地方往下挖</div>
               </div>
             </div>
-            <button class="drawer-toggle-btn" id="drawerToggleBtn" type="button" aria-label="展开对话"><span id="drawerToggleText">展开对话</span><span class="drawer-toggle-icon" aria-hidden="true">↑</span></button>
+            <button class="drawer-toggle-btn icon-only-btn" id="drawerToggleBtn" type="button" aria-label="展开对话" title="展开对话">
+              <span class="visually-hidden" id="drawerToggleText">展开对话</span>
+              <svg class="ui-icon drawer-chat-icon" aria-hidden="true"><use href="#ui-chat"></use></svg>
+              <svg class="ui-icon drawer-toggle-icon" aria-hidden="true"><use href="#ui-chevron"></use></svg>
+            </button>
           </div>
           <div class="chat-context-pin" id="chatContextPin"><span class="chat-pin-star">✦</span><span>正在延续：</span><b id="chatContextText">当前点子的核心问题</b></div>
           <div class="messages" id="messages"></div>
@@ -394,7 +574,11 @@
     </div>
   </div>
 
-  <script src="script.js?v=44"></script>
+  <script src="semantic-space.js?v=55"></script>
+  <script src="atlas-space.js?v=61"></script>
+  <script src="script.js?v=69"></script>
+  <script src="atlas-view.js?v=62"></script>
+  <script src="world-window.js?v=69"></script>
   <script>
     // Service Worker Registration
     if ('serviceWorker' in navigator) {

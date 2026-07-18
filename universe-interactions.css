@@ -23,10 +23,12 @@
 .universe-preview-row { display:flex; align-items:center; justify-content:space-between; gap:9px; }
 .universe-preview-status { display:inline-flex; align-items:center; gap:6px; font:600 10px/1 'Noto Serif SC',serif; }
 .universe-preview-status i { width:6px; height:6px; border-radius:50%; background:currentColor; }
-.universe-preview-status.status-grow { color:var(--card-orange); }
-.universe-preview-status.status-grow i { box-shadow:0 0 7px rgba(242,169,59,.75); }
-.universe-preview-status.status-seed { color:#65b6ba; }
-.universe-preview-status.status-pause { color:var(--card-muted); }
+.universe-preview-status.cosmic-idea { color:#d7a454; }
+.universe-preview-status.cosmic-idea i { box-shadow:0 0 7px rgba(215,164,84,.72); }
+.universe-preview-status.cosmic-dwarf { color:#c5c9cc; }
+.universe-preview-status.cosmic-dwarf i { box-shadow:0 0 5px rgba(197,201,204,.28); }
+.universe-preview-status.cosmic-supernova { color:#7ec8e3; }
+.universe-preview-status.cosmic-supernova i { box-shadow:0 0 8px rgba(126,200,227,.72); }
 .universe-preview-date { color:rgba(243,239,231,.27); font:400 9px/1 'Space Mono',monospace; }
 .universe-preview-title { margin-top:10px; color:#f0ebe3; font:700 16px/1.42 'Noto Serif SC',serif; }
 .universe-preview-teaser {
@@ -100,8 +102,14 @@
   min-height:39px; margin:0; padding:0 12px; border:0; border-radius:10px;
   background:#202125; color:var(--card-text-2); font:600 11px/1 'Noto Serif SC',serif;
 }
+.universe-view .universe-inspector-actions button.icon-only-btn {
+  flex:0 0 40px;
+  width:40px;
+  padding:0;
+}
+.universe-view .universe-inspector-actions button.icon-only-btn .ui-icon { width:16px; height:16px; }
 .universe-view .universe-inspector-actions .inspector-primary {
-  flex:1; border:0; background:var(--card-orange); color:#1a1005;
+  flex:0 0 40px; border:0; background:var(--card-orange); color:#1a1005;
   box-shadow:0 6px 18px rgba(242,169,59,.24);
 }
 

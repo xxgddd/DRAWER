@@ -60,10 +60,13 @@
 .home-planet-node.size-small .home-planet-core { width:11px; height:11px; }
 .home-planet-node.size-small .home-planet-ring.r1 { width:25px; height:25px; }
 .home-planet-node.size-small .home-planet-ring.r2 { width:40px; height:40px; }
-.home-planet-node.status-grow .home-planet-core { background:#f2a93b; box-shadow:0 0 14px rgba(242,169,59,.48); }
-.home-planet-node.status-grow .home-planet-ring { border-color:rgba(242,169,59,.23); }
-.home-planet-node.status-seed .home-planet-core { background:#57aeb1; box-shadow:0 0 12px rgba(87,174,177,.38); }
-.home-planet-node.status-seed .home-planet-ring { border-color:rgba(87,174,177,.20); }
+.home-planet-node.cosmic-idea .home-planet-core { background:#d7a454; box-shadow:0 0 14px rgba(215,164,84,.46); }
+.home-planet-node.cosmic-idea .home-planet-ring { border-color:rgba(215,164,84,.22); }
+.home-planet-node.cosmic-dwarf .home-planet-core { background:#c5c9cc; box-shadow:0 0 8px rgba(197,201,204,.18); }
+.home-planet-node.cosmic-dwarf .home-planet-ring { border-color:rgba(197,201,204,.12); }
+.home-planet-node.cosmic-dwarf { opacity:.42; }
+.home-planet-node.cosmic-supernova .home-planet-core { background:#7ec8e3; box-shadow:0 0 16px rgba(126,200,227,.48); }
+.home-planet-node.cosmic-supernova .home-planet-ring { border-color:rgba(126,200,227,.24); }
 .home-planet-label {
   position:absolute;
   left:50%;

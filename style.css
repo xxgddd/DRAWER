@@ -52,6 +52,50 @@ body.size-large {
   box-sizing: border-box;
 }
 
+.ui-icon-sprite {
+  position:absolute;
+  width:0;
+  height:0;
+  overflow:hidden;
+  pointer-events:none;
+}
+
+.ui-icon {
+  width:16px;
+  height:16px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.65;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+
+.ui-icon .ui-icon-fill {
+  fill:currentColor;
+  stroke:none;
+}
+
+.icon-only-btn {
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.visually-hidden {
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}
+
 body {
   background: var(--bg);
   /* 静态的一束金光从左上角透过来，不动 */
@@ -60,6 +104,47 @@ body {
   font-family: 'Noto Serif SC', serif;
   height: 100vh;
   overflow: hidden;
+}
+
+/*
+ * Card pages use the document scrollbar so browser full-page capture can
+ * include the complete idea summary. Other workspace views keep their
+ * viewport-bound layout and internal scrolling.
+ */
+body.card-page-scroll {
+  height: auto;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.card-page-scroll .app,
+body.card-page-scroll .main-panel {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+body.card-page-scroll .idea-view {
+  flex: 0 0 auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+body.card-page-scroll .card-panel,
+body.card-page-scroll .card-content {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+@media (min-width: 769px) {
+  body.card-page-scroll .list-panel {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
+  }
 }
 
 body::before {
@@ -641,7 +726,7 @@ body::before {
 
 .s-seed { color: var(--accent); }
 
-.s-grow { color: var(--accent3); }
+.s-grow { color: var(--accent); }
 
 .s-pause { color: #756b5d; }
 
@@ -2163,8 +2248,12 @@ body::before {
   transform: translateX(-50%);
   z-index: 150;
   display: flex;
-  gap: 24px;
-  padding: 14px 28px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 22px;
+  width: max-content;
+  max-width: min(920px, calc(100% - 32px));
+  padding: 14px 22px;
   background: rgba(16, 13, 10, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -2172,7 +2261,7 @@ body::before {
   border-radius: 16px;
   animation: guideFloat 1s ease-out;
   transition: opacity .6s ease;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .universe-guide.fade-out {

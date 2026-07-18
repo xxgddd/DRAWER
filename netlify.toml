@@ -6,6 +6,10 @@
   path = "/api/chat"
   function = "chat"
 
+[[edge_functions]]
+  path = "/api/embeddings"
+  function = "embeddings"
+
 # 这里的 redirects 也可以留着作为兜底
 [[redirects]]
   from = "/api/*"

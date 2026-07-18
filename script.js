@@ -13,6 +13,238 @@ let universeLabelFetchPending = false;
 let cardGenerating = false;
 let currentLanguage = localStorage.getItem('drawer_language') || 'zh';
 
+const EMBEDDING_MODEL = 'BAAI/bge-m3';
+const EMBEDDING_CACHE_VERSION = 2;
+const EMBEDDING_DB_NAME = 'drawer-semantic-index';
+const EMBEDDING_STORE_NAME = 'idea-embeddings';
+const EMBEDDING_BATCH_SIZE = 24;
+const SUPERNOVA_MAX_ACTIVE = 3;
+const SUPERNOVA_REVIEW_STORAGE_KEY = 'drawer_supernova_pair_reviews_v1';
+const SUPERNOVA_LAST_REVIEW_STORAGE_KEY = 'drawer_supernova_last_review_v1';
+const SUPERNOVA_REVIEW_COOLDOWN = 12 * 60 * 60 * 1000;
+const WHITE_DWARF_MIN_USER_TURNS = 5;
+const WHITE_DWARF_INACTIVE_DAYS = 30;
+const ideaEmbeddingCache = new Map();
+let embeddingDbPromise = null;
+let embeddingCacheHydrated = false;
+let universeEmbeddingJob = null;
+let universeEmbeddingState = 'idle';
+let universeEmbeddingRetryAt = 0;
+let supernovaReviewAttemptedThisSession = false;
+
+function getIdeaUserTurnCount(idea) {
+  return (idea?.chatHistory || []).filter(message => message.role === 'user').length;
+}
+
+function getIdeaCosmicType(idea, now = Date.now()) {
+  if (idea?.type === 'supernova') return 'supernova';
+  const hasCard = Boolean(idea?.card?.core);
+  const lastActivityAt = Number(idea?.updatedAt || idea?.createdAt || now);
+  const inactiveFor = Math.max(0, now - lastActivityAt);
+  const isDormant = inactiveFor >= WHITE_DWARF_INACTIVE_DAYS * 24 * 60 * 60 * 1000;
+  const isAdoptedCollision = Array.isArray(idea?.parentIds) && idea.parentIds.length === 2;
+  const isUnderdeveloped = !hasCard
+    || (!isAdoptedCollision && getIdeaUserTurnCount(idea) < WHITE_DWARF_MIN_USER_TURNS);
+  return isUnderdeveloped || isDormant ? 'dwarf' : 'idea';
+}
+
+function getCosmicTypeLabel(cosmicType) {
+  if (cosmicType === 'supernova') return t('候选新星', 'Candidate supernova');
+  if (cosmicType === 'dwarf') return t('白矮星', 'White dwarf');
+  return t('你的点子', 'Your idea');
+}
+
+function openEmbeddingDatabase() {
+  if (embeddingDbPromise) return embeddingDbPromise;
+  embeddingDbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      reject(new Error('IndexedDB is unavailable'));
+      return;
+    }
+    const request = indexedDB.open(EMBEDDING_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(EMBEDDING_STORE_NAME)) {
+        database.createObjectStore(EMBEDDING_STORE_NAME, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Failed to open embedding cache'));
+  });
+  return embeddingDbPromise;
+}
+
+async function hydrateEmbeddingCache() {
+  if (embeddingCacheHydrated) return false;
+  try {
+    const database = await openEmbeddingDatabase();
+    const records = await new Promise((resolve, reject) => {
+      const request = database
+        .transaction(EMBEDDING_STORE_NAME, 'readonly')
+        .objectStore(EMBEDDING_STORE_NAME)
+        .getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error || new Error('Failed to read embedding cache'));
+    });
+    records
+      .filter(record => record.cacheVersion === EMBEDDING_CACHE_VERSION
+        && record.model === EMBEDDING_MODEL
+        && Array.isArray(record.vector))
+      .forEach(record => ideaEmbeddingCache.set(String(record.id), record));
+    embeddingCacheHydrated = true;
+    return records.length > 0;
+  } catch (error) {
+    console.warn('Embedding cache will stay in memory:', error.message);
+    embeddingCacheHydrated = true;
+    return false;
+  }
+}
+
+async function persistEmbeddingRecords(records) {
+  if (!records.length) return;
+  try {
+    const database = await openEmbeddingDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(EMBEDDING_STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(EMBEDDING_STORE_NAME);
+      records.forEach(record => store.put(record));
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error || new Error('Failed to save embedding cache'));
+      transaction.onabort = () => reject(transaction.error || new Error('Embedding cache transaction aborted'));
+    });
+  } catch (error) {
+    console.warn('Embedding records could not be persisted:', error.message);
+  }
+}
+
+function getIdeaSemanticDescriptor(idea) {
+  const text = DrawerSemanticSpace.buildIdeaText(idea);
+  return {
+    id: idea.id,
+    text,
+    fingerprint: DrawerSemanticSpace.fingerprint(text)
+  };
+}
+
+function getCurrentIdeaEmbedding(idea) {
+  const record = ideaEmbeddingCache.get(String(idea.id));
+  if (!record
+      || record.cacheVersion !== EMBEDDING_CACHE_VERSION
+      || record.model !== EMBEDDING_MODEL) return null;
+  const descriptor = getIdeaSemanticDescriptor(idea);
+  return record.fingerprint === descriptor.fingerprint ? record : null;
+}
+
+async function requestIdeaEmbeddings(descriptors, purpose = 'idea-embedding') {
+  const records = [];
+  for (let offset = 0; offset < descriptors.length; offset += EMBEDDING_BATCH_SIZE) {
+    const batch = descriptors.slice(offset, offset + EMBEDDING_BATCH_SIZE);
+    const headers = { 'Content-Type': 'application/json', 'X-Drawer-Purpose': purpose };
+    if (apiKey) {
+      headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-')
+        ? `Bearer ${apiKey}`
+        : apiKey;
+    }
+    const response = await fetch('/api/embeddings', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: EMBEDDING_MODEL,
+        input: batch.map(item => item.text)
+      })
+    });
+    const payload = await response.json();
+    if (!response.ok || !Array.isArray(payload.data)) {
+      throw new Error(payload.error || `Embedding request failed (${response.status})`);
+    }
+    const ordered = [...payload.data].sort((left, right) => left.index - right.index);
+    if (ordered.length !== batch.length) throw new Error('Embedding response size mismatch');
+    ordered.forEach((item, index) => {
+      if (!Array.isArray(item.embedding) || item.embedding.length === 0) {
+        throw new Error('Embedding response contained an empty vector');
+      }
+      records.push({
+        id: String(batch[index].id),
+        cacheVersion: EMBEDDING_CACHE_VERSION,
+        model: EMBEDDING_MODEL,
+        fingerprint: batch[index].fingerprint,
+        vector: item.embedding,
+        updatedAt: Date.now()
+      });
+    });
+  }
+  return records;
+}
+
+async function refreshIdeaEmbeddings(targetIdeas) {
+  const hydratedWithData = await hydrateEmbeddingCache();
+  const descriptors = targetIdeas
+    .map(getIdeaSemanticDescriptor)
+    .filter(descriptor => descriptor.text.trim());
+  const stale = descriptors.filter(descriptor => {
+    const record = ideaEmbeddingCache.get(String(descriptor.id));
+    return !record
+      || record.cacheVersion !== EMBEDDING_CACHE_VERSION
+      || record.model !== EMBEDDING_MODEL
+      || record.fingerprint !== descriptor.fingerprint;
+  });
+  if (!stale.length) return hydratedWithData;
+
+  const records = await requestIdeaEmbeddings(stale);
+  records.forEach(record => ideaEmbeddingCache.set(String(record.id), record));
+  await persistEmbeddingRecords(records);
+  return records.length > 0 || hydratedWithData;
+}
+
+function getClusterReadySemanticSpace(targetIdeas = ideas.filter(idea => idea.card?.core)) {
+  const items = targetIdeas.map(idea => {
+    const record = getCurrentIdeaEmbedding(idea);
+    return record ? { id: idea.id, vector: record.vector } : null;
+  }).filter(Boolean);
+  return DrawerSemanticSpace.createDistanceMatrix(items);
+}
+
+function reportLocalSemanticDiagnostics(embeddingItems, ideaCount) {
+  if (!['127.0.0.1', 'localhost'].includes(window.location.hostname) || embeddingItems.length < 2) return;
+  const { ids, matrix } = DrawerSemanticSpace.createDistanceMatrix(embeddingItems);
+  const reviewStatuses = Object.values(loadSupernovaPairReviews()).reduce((counts, review) => {
+    const status = String(review?.status || 'unknown');
+    counts[status] = (counts[status] || 0) + 1;
+    return counts;
+  }, {});
+  const cosmicCounts = ideas.reduce((counts, idea) => {
+    const type = getIdeaCosmicType(idea);
+    counts[type] = (counts[type] || 0) + 1;
+    return counts;
+  }, {});
+  const pairs = [];
+  for (let left = 0; left < ids.length; left++) {
+    for (let right = left + 1; right < ids.length; right++) {
+      pairs.push({
+        source: ids[left],
+        target: ids[right],
+        similarity: 1 - matrix[left][right],
+        semanticDistance: matrix[left][right]
+      });
+    }
+  }
+  pairs.sort((a, b) => b.similarity - a.similarity);
+  fetch('/__dev/semantic-report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: EMBEDDING_MODEL,
+      ideaCount,
+      embeddedCount: embeddingItems.length,
+      vectorDimension: embeddingItems[0]?.vector?.length || 0,
+      activeSupernovae: ideas.filter(idea => idea.type === 'supernova').length,
+      reviewStatuses,
+      cosmicCounts,
+      pairs
+    })
+  }).catch(() => {});
+}
+
 const UI_COPY = {
   '在这里，点子不是为了完成，': 'Ideas are not here to be finished,',
   '而是为了生长。': 'but to keep growing.',
@@ -34,9 +266,11 @@ const UI_COPY = {
   '带走': 'Keep it',
   '放弃': 'Discard',
   '探索这个交叉点…': 'Explore this intersection…',
-  '点击星球 → 深入了解': 'Click a planet → explore it',
-  '金色回声 → 找回旧念头': 'Golden echo → revisit an old thought',
-  '蓝色碰撞 → 长出新方向': 'Blue collision → grow a new direction',
+  '黄色恒星 → 你展开的点子': 'Gold star → an idea you developed',
+  '白矮星 → 尚未展开或长期沉寂': 'White dwarf → undeveloped or long dormant',
+  '蓝色新星 → 碰撞产生的候选方向': 'Blue supernova → a collision-born candidate',
+  '黄色线 → 点子之间的潜在暗线': 'Gold line → a hidden thread between ideas',
+  '蓝色线 → 新星与母点子的生成血缘': 'Blue line → lineage from a new star to its parents',
   '核心点子': 'CORE IDEA',
   '点击重命名': 'Click to rename',
   '点子载入中...': 'Loading idea…',
@@ -147,6 +381,31 @@ const UI_COPY = {
 const UI_COPY_REVERSE = Object.fromEntries(Object.entries(UI_COPY).map(([zh, en]) => [en, zh]));
 
 function t(zh, en) { return currentLanguage === 'en' ? en : zh; }
+
+function refreshIconLabels() {
+  const universeModeSwitch = document.getElementById('universeModeSwitch');
+  if (universeModeSwitch) {
+    universeModeSwitch.setAttribute('aria-label', t('宇宙视图', 'Universe views'));
+  }
+
+  const labels = {
+    universeGravityModeBtn: ['星图', 'Star Map'],
+    universeAtlasModeBtn: ['年鉴', 'Atlas'],
+    universeWorldModeBtn: ['世界之窗', 'World Window'],
+    tabCard: ['点子卡片', 'Idea card'],
+    tabGraph: ['灵感图谱', 'Idea graph'],
+    universeInspectorOpenBtn: ['打开点子', 'Open idea'],
+    universeInspectorFocusBtn: ['以它为中心', 'Focus on this idea']
+  };
+  Object.entries(labels).forEach(([id, pair]) => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    const value = t(pair[0], pair[1]);
+    element.setAttribute('aria-label', value);
+    element.setAttribute('title', value);
+  });
+}
+
 function languageDirective() {
   return currentLanguage === 'en'
     ? 'Language requirement: Respond in natural, concise English. For JSON requests, keep every requested key exactly unchanged and write every human-readable string value in English. Do not mix in Chinese unless quoting the user.'
@@ -276,6 +535,8 @@ function applyLanguage() {
   const switcher = document.getElementById('languageSwitch');
   if (switcher) switcher.setAttribute('aria-label', t('切换中英文', 'Switch Chinese / English'));
   translateSubtree(document.body);
+  refreshIconLabels();
+  window.DrawerWorldWindow?.refreshLanguage();
   refreshCaptureGreeting();
   startCaptureQuestionRotation();
 }
@@ -342,30 +603,14 @@ function incrementMessageCount() {
 
 // ── Init ──
 window.addEventListener('load', () => {
-  // --- Simulating White Dwarf for the oldest ideas ---
-  if (ideas.length > 0) {
-    let modified = false;
-    const oldestIdea = ideas[ideas.length - 1];
-    if (oldestIdea && Date.now() - oldestIdea.updatedAt < 7 * 24 * 60 * 60 * 1000) {
-      oldestIdea.updatedAt = Date.now() - 10 * 24 * 60 * 60 * 1000; // 10 days ago
-      modified = true;
-    }
-    if (ideas.length > 1) {
-      const secondOldest = ideas[ideas.length - 2];
-      if (secondOldest && Date.now() - secondOldest.updatedAt < 7 * 24 * 60 * 60 * 1000) {
-        secondOldest.updatedAt = Date.now() - 8 * 24 * 60 * 60 * 1000; // 8 days ago
-        modified = true;
-      }
-    }
-    if (modified) saveIdeas();
-  }
-  // ----------------------------------------------------
-
   applyFontSize(fontSize);
   initLanguage();
   renderList();
   initTextarea();
   initQuickCapture();
+  if (['universe', 'atlas', 'world'].includes(new URLSearchParams(window.location.search).get('view'))) {
+    showUniverse();
+  }
 });
 
 // ── Modals ──
@@ -390,15 +635,28 @@ function saveApiKey() {
   const k = document.getElementById('apiKeyInput').value.trim();
   if (!k) return;
   apiKey = k; localStorage.setItem('drawer_api_key', k); closeModal('apiModal');
+  retryUniverseEmbeddingsAfterCredentialChange();
 }
 function saveSettings() {
   const k = document.getElementById('newApiKeyInput').value.trim();
   const fs = document.getElementById('fontSizeSel').value;
-  if (k) { apiKey = k; localStorage.setItem('drawer_api_key', k); }
+  if (k) {
+    apiKey = k;
+    localStorage.setItem('drawer_api_key', k);
+    retryUniverseEmbeddingsAfterCredentialChange();
+  }
   fontSize = fs;
   localStorage.setItem('drawer_font_size', fs);
   applyFontSize(fs);
   closeModal('settingsModal');
+}
+
+function retryUniverseEmbeddingsAfterCredentialChange() {
+  universeEmbeddingRetryAt = 0;
+  universeEmbeddingState = 'idle';
+  if (document.getElementById('universeView')?.style.display !== 'none') {
+    setTimeout(() => renderUniverse(), 0);
+  }
 }
 function applyFontSize(size) {
   document.body.classList.remove('size-small', 'size-medium', 'size-large');
@@ -518,7 +776,10 @@ async function handleQuickCapture() {
 }
 
 // ── Ideas ──
-function saveIdeas() { localStorage.setItem('drawer_ideas', JSON.stringify(ideas)); }
+function saveIdeas() {
+  localStorage.setItem('drawer_ideas', JSON.stringify(ideas));
+  window.DrawerAtlasView?.invalidate();
+}
 
 function exportDrawerBackup() {
   const universeChats = {};
@@ -658,7 +919,11 @@ function updateDrawerLabel(isOpen) {
   const ideaView = document.getElementById('ideaView');
   if (ideaView) ideaView.classList.toggle('chat-open', Boolean(isOpen));
   if (text) text.textContent = isOpen ? t('收起对话', 'Close chat') : t('展开对话', 'Open chat');
-  if (btn) btn.setAttribute('aria-label', isOpen ? t('收起对话', 'Close chat') : t('展开对话', 'Open chat'));
+  if (btn) {
+    const label = isOpen ? t('收起对话', 'Close chat') : t('展开对话', 'Open chat');
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
+  }
 }
 
 function updateIdeaHero(idea) {
@@ -668,7 +933,10 @@ function updateIdeaHero(idea) {
   const statusText = document.getElementById('ideaStatusText');
   const statusChip = document.getElementById('ideaStatusChip');
   const connectionChip = document.getElementById('ideaConnectionChip');
+  const connectionCount = document.getElementById('ideaConnectionCount');
   const createdChip = document.getElementById('ideaCreatedChip');
+  const createdDate = document.getElementById('ideaCreatedDate');
+  const statusSelect = document.getElementById('statusSel');
   const chatSubtitle = document.getElementById('chatIdeaSubtitle');
   const chatContext = document.getElementById('chatContextText');
   const statusLabels = currentLanguage === 'en'
@@ -681,12 +949,32 @@ function updateIdeaHero(idea) {
   if (number) number.textContent = `· Idea #${String(idea.id).slice(-3).padStart(3, '0')}`;
   if (statusText) statusText.textContent = statusLabels[idea.status] || statusLabels.seed;
   if (statusChip) statusChip.className = `idea-meta-chip is-active status-${idea.status || 'seed'}`;
-  if (connectionChip) connectionChip.textContent = currentLanguage === 'en' ? `${(idea.nodes || []).length} nodes connected` : `已连接 ${(idea.nodes || []).length} 个节点`;
+  const nodeCount = (idea.nodes || []).length;
+  const nodeLabel = currentLanguage === 'en' ? `${nodeCount} nodes connected` : `已连接 ${nodeCount} 个节点`;
+  if (connectionCount) connectionCount.textContent = nodeCount;
+  if (connectionChip) {
+    connectionChip.setAttribute('aria-label', nodeLabel);
+    connectionChip.setAttribute('title', nodeLabel);
+  }
   if (createdChip) {
     const created = new Date(idea.createdAt || Date.now());
-    createdChip.textContent = currentLanguage === 'en'
+    const fullCreatedLabel = currentLanguage === 'en'
       ? `Created ${created.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
       : `创建于 ${created.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}`;
+    createdChip.setAttribute('aria-label', fullCreatedLabel);
+    createdChip.setAttribute('title', fullCreatedLabel);
+    if (createdDate) {
+      createdDate.textContent = created.toLocaleDateString(currentLanguage === 'en' ? 'en-US' : 'zh-CN', {
+        month: currentLanguage === 'en' ? 'short' : 'numeric',
+        day: 'numeric'
+      });
+    }
+  }
+  if (statusSelect) {
+    const statusLabel = statusLabels[idea.status] || statusLabels.seed;
+    const accessibleStatus = `${t('点子状态', 'Idea status')}：${statusLabel}`;
+    statusSelect.setAttribute('aria-label', accessibleStatus);
+    statusSelect.setAttribute('title', accessibleStatus);
   }
   if (chatSubtitle) chatSubtitle.textContent = idea.name;
   if (chatContext) chatContext.textContent = idea.card?.tensions || idea.card?.next || idea.card?.core || t('当前点子的核心问题', 'the core question of this idea');
@@ -836,8 +1124,10 @@ function showIdeaView() {
   const u = document.getElementById('universeView');
   if (u) u.style.display = 'none';
   document.getElementById('universeSidebarBtn').classList.remove('active');
+  setCardPageScroll(document.getElementById('tabCard')?.classList.contains('active'));
 }
 function showNoSel() {
+  setCardPageScroll(false);
   const noSel = document.getElementById('noSel');
   if (noSel) noSel.style.display = 'block';
   renderHomePlanets();
@@ -855,6 +1145,7 @@ let inspectedUniverseIdeaId = null;
 let activeUniverseLinks = [];
 
 function showUniverse() {
+  setCardPageScroll(false);
   universeFocusId = currentId || universeFocusId || ideas.find(i => i.card && i.card.core)?.id || ideas[0]?.id || null;
   currentId = null;
   const noSel = document.getElementById('noSel');
@@ -874,7 +1165,8 @@ function showUniverse() {
   const panel = document.getElementById('listPanel');
   if (panel && panel.classList.contains('open')) toggleSidebar();
   closeUniverseInspector();
-  renderUniverse();
+  if (window.DrawerAtlasView) window.DrawerAtlasView.activate();
+  else renderUniverse();
 }
 
 function openUniverseInspector(id) {
@@ -898,8 +1190,15 @@ function openUniverseInspector(id) {
   if (id === universeFocusId) {
     reasonEl.textContent = t('这是当前的引力中心。周围的点子由它牵引进入视野。', 'This is the current center of gravity. Nearby ideas are pulled into view around it.');
   } else if (relation) {
-    const label = relation.relation === 'collision' ? t('碰撞', 'Collision') : t('回声', 'Echo');
-    reasonEl.textContent = `${label} · ${relation.aiReason || (currentLanguage === 'en' ? `Both touch “${relation.sharedChars}”` : `共同触及「${relation.sharedChars}」`)}`;
+    const label = relation.relation === 'collision'
+      ? t('生成血缘', 'Generative lineage')
+      : relation.sourceType === 'embedding'
+        ? t('潜在暗线', 'Hidden thread')
+        : t('回声', 'Echo');
+    const fallback = relation.sourceType === 'embedding'
+      ? t('把它们放在一起看，也许会出现第三种方向。', 'Put them side by side; a third direction may appear.')
+      : (currentLanguage === 'en' ? `Both touch “${relation.sharedChars}”` : `共同触及「${relation.sharedChars}」`);
+    reasonEl.textContent = `${label} · ${relation.aiReason || fallback}`;
   } else {
     reasonEl.textContent = t('它暂时没有与中心形成足够清晰的联系。', 'Its connection to the center is not clear enough yet.');
   }
@@ -908,10 +1207,10 @@ function openUniverseInspector(id) {
   nextEl.style.display = idea.card?.next ? 'block' : 'none';
   const nodeCount = (idea.nodes || []).length;
   const chatCount = (idea.chatHistory || []).filter(m => m.role === 'user').length;
-  const inspectorStatuses = currentLanguage === 'en' ? {seed:'Seed',grow:'Active',pause:'Parked'} : {seed:'萌芽',grow:'推进中',pause:'搁置'};
+  const cosmicTypeLabel = getCosmicTypeLabel(getIdeaCosmicType(idea));
   document.getElementById('universeInspectorMeta').textContent = currentLanguage === 'en'
-    ? `${chatCount} turns · ${nodeCount} growth nodes · ${inspectorStatuses[idea.status] || inspectorStatuses.seed}`
-    : `${chatCount} 轮对话 · ${nodeCount} 个生长节点 · ${inspectorStatuses[idea.status] || inspectorStatuses.seed}`;
+    ? `${chatCount} turns · ${nodeCount} growth nodes · ${cosmicTypeLabel}`
+    : `${chatCount} 轮对话 · ${nodeCount} 个生长节点 · ${cosmicTypeLabel}`;
   panel.classList.add('open');
   panel.setAttribute('aria-hidden', 'false');
 }
@@ -937,8 +1236,8 @@ function showUniverseNodePreview(event, node) {
   const rawY = event.clientY - rect.top;
   const placeBelow = rawY < 210;
   const y = placeBelow ? rawY + 34 : rawY - 28;
-  const statusLabels = currentLanguage === 'en' ? { seed:'Seed', grow:'Active', pause:'Parked' } : { seed: '萌芽', grow: '推进', pause: '搁置' };
-  const statusClass = `status-${idea.status || 'seed'}`;
+  const cosmicType = getIdeaCosmicType(idea);
+  const cosmicTypeLabel = getCosmicTypeLabel(cosmicType);
   const date = new Date(idea.updatedAt || idea.createdAt || Date.now()).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
   const userTurns = (idea.chatHistory || []).filter(message => message.role === 'user').length;
   const relationCount = activeUniverseLinks.filter(link => {
@@ -951,7 +1250,7 @@ function showUniverseNodePreview(event, node) {
   preview.style.left = `${x}px`;
   preview.style.top = `${y}px`;
   preview.innerHTML = `
-    <div class="universe-preview-row"><span class="universe-preview-status ${statusClass}"><i></i>${statusLabels[idea.status] || '萌芽'}</span><span class="universe-preview-date">${date}</span></div>
+    <div class="universe-preview-row"><span class="universe-preview-status cosmic-${cosmicType}"><i></i>${cosmicTypeLabel}</span><span class="universe-preview-date">${date}</span></div>
     <div class="universe-preview-title">${esc(idea.name)}</div>
     <div class="universe-preview-teaser">${esc(teaser)}</div>
     <div class="universe-preview-meta"><span>${userTurns} 轮对话</span><span>${(idea.nodes || []).length} 个节点</span><span>${relationCount} 条连接</span></div>
@@ -1006,10 +1305,10 @@ function openUChat(idA, idB) {
   // Show adopt/discard button if a supernova exists for this pair
   const adoptBtn = document.getElementById('uChatAdopt');
   const discardBtn = document.getElementById('uChatDiscard');
-  const pairKey = [idA, idB].sort().join(',');
+  const pairKey = stableIdeaPairKey(idA, idB);
   const supernova = ideas.find(i => 
     i.type === 'supernova' && i.parentIds && 
-    i.parentIds.sort().join(',') === pairKey
+    stableIdeaPairKey(i.parentIds[0], i.parentIds[1]) === pairKey
   );
   if (adoptBtn) adoptBtn.style.display = supernova ? 'inline-block' : 'none';
   if (discardBtn) discardBtn.style.display = supernova ? 'inline-block' : 'none';
@@ -1050,10 +1349,10 @@ function adoptSupernova() {
   if (!uChatContext) return;
   const { idA, idB, history } = uChatContext;
   
-  const pairKey = [idA, idB].sort().join(',');
+  const pairKey = stableIdeaPairKey(idA, idB);
   const supernova = ideas.find(i => 
     i.type === 'supernova' && i.parentIds && 
-    i.parentIds.sort().join(',') === pairKey
+    stableIdeaPairKey(i.parentIds[0], i.parentIds[1]) === pairKey
   );
   if (!supernova) return;
 
@@ -1095,15 +1394,20 @@ function discardSupernova() {
   if (!uChatContext) return;
   const { idA, idB, key } = uChatContext;
   
-  const pairKey = [idA, idB].sort().join(',');
+  const pairKey = stableIdeaPairKey(idA, idB);
   const supernovaIndex = ideas.findIndex(i => 
     i.type === 'supernova' && i.parentIds && 
-    i.parentIds.sort().join(',') === pairKey
+    stableIdeaPairKey(i.parentIds[0], i.parentIds[1]) === pairKey
   );
   if (supernovaIndex === -1) return;
 
   // Remove the supernova
+  const discardedSupernova = ideas[supernovaIndex];
+  const parentA = getIdea(idA);
+  const parentB = getIdea(idB);
+  if (parentA && parentB) rememberSupernovaPairReview(parentA, parentB, 'dismissed');
   ideas.splice(supernovaIndex, 1);
+  ideaEmbeddingCache.delete(String(discardedSupernova.id));
   saveIdeas();
   
   // Clear chat history for this pair
@@ -1232,7 +1536,59 @@ function compactUniverseLabel(idea) {
   return chars.slice(-Math.min(4, chars.length)).join('') || name.slice(0, 8);
 }
 
-function renderUniverse() {
+function updateUniverseSubtitle(ideaCount, starCount) {
+  const subtitle = document.getElementById('universeSubtitle');
+  if (!subtitle) return;
+  const status = universeEmbeddingState === 'syncing'
+    ? t(' · 正在计算语义距离…', ' · mapping semantic distance…')
+    : universeEmbeddingState === 'ready'
+      ? t(' · 向量空间已更新', ' · vector space ready')
+      : universeEmbeddingState === 'fallback'
+        ? t(' · 使用本地关系回退', ' · using local relation fallback')
+        : '';
+  subtitle.textContent = currentLanguage === 'en'
+    ? `${ideaCount} ideas · ${starCount} stars${status}`
+    : `${ideaCount} 个点子 · ${starCount} 颗恒星${status}`;
+  document.getElementById('universeView')?.setAttribute('data-embedding-state', universeEmbeddingState);
+}
+
+function scheduleUniverseEmbeddingRefresh(ideasWithCards) {
+  if (universeEmbeddingJob || Date.now() < universeEmbeddingRetryAt || !ideasWithCards.length) return;
+  if (embeddingCacheHydrated && ideasWithCards.every(idea => getCurrentIdeaEmbedding(idea))) {
+    universeEmbeddingState = 'ready';
+    updateUniverseSubtitle(ideas.length, ideasWithCards.length);
+    return;
+  }
+  universeEmbeddingState = 'syncing';
+  updateUniverseSubtitle(ideas.length, ideasWithCards.length);
+  universeEmbeddingJob = refreshIdeaEmbeddings(ideasWithCards)
+    .then(changed => {
+      universeEmbeddingState = 'ready';
+      universeEmbeddingRetryAt = 0;
+      if (changed && document.getElementById('universeView')?.style.display !== 'none') {
+        renderUniverse({ skipEmbeddingSync: true });
+      } else {
+        updateUniverseSubtitle(ideas.length, ideasWithCards.length);
+      }
+    })
+    .catch(error => {
+      console.warn('Embedding space is using the local fallback:', error.message);
+      universeEmbeddingState = 'fallback';
+      universeEmbeddingRetryAt = Date.now() + 60_000;
+      if (document.getElementById('universeView')?.style.display !== 'none') {
+        renderUniverse({ skipEmbeddingSync: true });
+      } else {
+        updateUniverseSubtitle(ideas.length, ideasWithCards.length);
+      }
+    })
+    .finally(() => {
+      universeEmbeddingJob = null;
+    });
+}
+
+function renderUniverse(options = {}) {
+  if (window.DrawerAtlasView && window.DrawerAtlasView.getMode() !== 'gravity') return;
+  const { skipEmbeddingSync = false } = options;
   const svg = d3.select('#universeSvg');
   svg.selectAll('*').remove();
   hideUniverseNodePreview();
@@ -1251,9 +1607,8 @@ function renderUniverse() {
   }
 
   const ideasWithCards = ideas.filter(i => i.card && i.card.core);
-  subtitle.textContent = currentLanguage === 'en'
-    ? `${ideas.length} ideas · ${ideasWithCards.length} stars`
-    : `${ideas.length} 个点子 · ${ideasWithCards.length} 颗恒星`;
+  updateUniverseSubtitle(ideas.length, ideasWithCards.length);
+  if (!skipEmbeddingSync) scheduleUniverseEmbeddingRefresh(ideasWithCards);
 
   emptyEl.style.display = 'none';
   svgWrap.style.display = 'block';
@@ -1262,16 +1617,17 @@ function renderUniverse() {
   const w = wrap.clientWidth || 400;
   const h = wrap.clientHeight || 500;
 
-  // Build nodes from ALL ideas
-  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+  // Build nodes from all ideas. Color represents origin/type, never workflow status.
+  const renderedAt = Date.now();
   const nodes = ideas.map((idea, i) => {
     const hasCard = idea.card && idea.card.core;
     const chatLen = (idea.chatHistory || []).length;
     const nodeCount = (idea.nodes || []).length;
-    const isDwarf = (Date.now() - idea.updatedAt) > SEVEN_DAYS;
-    
+    const cosmicType = getIdeaCosmicType(idea, renderedAt);
+    const isDwarf = cosmicType === 'dwarf';
+
     let baseSize = hasCard ? Math.max(10, Math.min(25, 6 + chatLen * 0.8 + nodeCount * 1.2)) : 4;
-    if (isDwarf && hasCard) baseSize = Math.max(8, baseSize * 0.6); // Shrink white dwarfs
+    if (isDwarf) baseSize = hasCard ? Math.max(7, baseSize * 0.58) : 5;
 
     return {
       id: idea.id,
@@ -1284,6 +1640,7 @@ function renderUniverse() {
       branches: hasCard ? (idea.card.branches || []) : [],
       tensions: hasCard ? (idea.card.tensions || '') : '',
       status: idea.status,
+      cosmicType,
       size: baseSize,
       isDwarf,
       chatLen,
@@ -1323,6 +1680,21 @@ function renderUniverse() {
   }
 
   const cardNodes = nodes.filter(n => n.hasCard);
+  const embeddingItems = cardNodes.map(node => {
+    const idea = ideas.find(candidate => candidate.id === node.id);
+    const record = idea ? getCurrentIdeaEmbedding(idea) : null;
+    return record ? { id: node.id, vector: record.vector } : null;
+  }).filter(Boolean);
+  const semanticEdges = DrawerSemanticSpace.buildNeighborGraph(embeddingItems, {
+    neighbors: cardNodes.length > 12 ? 3 : 2,
+    minSimilarity: 0.34
+  });
+  const semanticEdgeMap = new Map(semanticEdges.map(edge => [
+    [edge.source, edge.target].sort().join(':'),
+    edge
+  ]));
+  const hasCompleteEmbeddingSpace = embeddingItems.length === cardNodes.length;
+
   cardNodes.forEach((a, i) => {
     const aIdea = ideas.find(idea => idea.id === a.id);
     const aText = [a.name, a.core, ...a.branches, a.tensions, ...(aIdea.nodes || []).map(n => n.text)].join(' ');
@@ -1337,13 +1709,13 @@ function renderUniverse() {
                        (bIdea.parentIds && bIdea.parentIds.includes(a.id));
                        
       if (isParent) {
-        // If one is an active supernova, line is Blue (strength: 1)
-        // If both are normal ideas (adopted supernova), line cools down to Yellow (strength: 0.5)
+        // Generative lineage stays blue; adopted ideas keep their provenance with a calmer line.
         const isActiveSupernova = aIdea.type === 'supernova' || bIdea.type === 'supernova';
         const childName = aIdea.parentIds && aIdea.parentIds.includes(b.id) ? aIdea.name : bIdea.name;
         links.push({
           source: a.id, target: b.id,
-          strength: isActiveSupernova ? 1.0 : 0.5, 
+          strength: isActiveSupernova ? 1.0 : 0.5,
+          distance: isActiveSupernova ? 92 : 118,
           relation: 'collision',
           sharedChars: '星系纽带',
           aiReason: `血脉相连：「${childName}」的灵感源泉`
@@ -1356,6 +1728,28 @@ function renderUniverse() {
         return;
       }
 
+      const semanticKey = [a.id, b.id].sort().join(':');
+      const semanticEdge = semanticEdgeMap.get(semanticKey);
+      if (semanticEdge) {
+        links.push({
+          source: a.id,
+          target: b.id,
+          strength: semanticEdge.strength,
+          distance: semanticEdge.distance,
+          relation: 'echo',
+          sourceType: 'embedding',
+          similarity: semanticEdge.similarity,
+          semanticDistance: semanticEdge.semanticDistance,
+          sharedChars: t('尚未展开的暗线', 'an unexplored hidden thread'),
+          aiReason: null
+        });
+        return;
+      }
+
+      const bothHaveEmbeddings = embeddingItems.some(item => item.id === a.id)
+        && embeddingItems.some(item => item.id === b.id);
+      if (hasCompleteEmbeddingSpace || bothHaveEmbeddings) return;
+
       // Match against the full card and pinned nodes, in both Chinese and English.
       const bText = [b.name, b.core, ...b.branches, b.tensions, ...(bIdea.nodes || []).map(n => n.text)].join(' ');
       const bConcepts = extractConcepts(bText);
@@ -1366,7 +1760,9 @@ function renderUniverse() {
         links.push({ 
           source: a.id, target: b.id, 
           strength: Math.min(0.34 + (shared.length - 1) * 0.22, 1.0),
+          distance: 160,
           relation: 'echo',
+          sourceType: 'keyword',
           sharedChars: shared.slice(0, 3).join('、'),
           aiReason: null 
         });
@@ -1374,6 +1770,7 @@ function renderUniverse() {
     });
   });
   activeUniverseLinks = links;
+  reportLocalSemanticDiagnostics(embeddingItems, cardNodes.length);
 
   // Glow filter
   const defs = svg.append('defs');
@@ -1453,55 +1850,41 @@ function renderUniverse() {
       renderUniverse();
     });
 
-  // Planet / dark matter rendering
-  const statusColors = { seed: '#d7a454', grow: '#789365', pause: '#5a6a7a' };
+  // Planet rendering: gold = user's developed idea, silver = white dwarf, blue = candidate supernova.
+  const cosmicColors = {
+    idea: '#d7a454',
+    dwarf: '#c5c9cc',
+    supernova: '#7ec8e3'
+  };
   function getNodeColor(d) {
-    if (d.isFocus) return '#e0ad60';
-    if (d.isDwarf && d.hasCard) return '#5e6d78'; // White dwarf color
-    const idea = ideas.find(i => i.id === d.id);
-    if (idea && idea.type === 'supernova') return '#7ec8e3';
-    return statusColors[d.status] || '#d7a454';
+    return cosmicColors[d.cosmicType] || cosmicColors.idea;
   }
-  
-  // Outer glow circle (only for card ideas)
-  nodeSel.filter(d => d.hasCard).append('circle')
+
+  // Outer body
+  nodeSel.append('circle')
     .attr('r', d => d.size + (d.isFocus ? 8 : 0))
     .attr('fill', d => getNodeColor(d) + (d.isDwarf ? '11' : '22'))
     .attr('stroke', d => getNodeColor(d))
     .attr('stroke-width', d => d.isFocus ? 2.5 : (d.isDwarf ? 1 : 1.5))
+    .attr('stroke-dasharray', d => d.isDwarf && !d.hasCard ? '2,3' : null)
     .attr('filter', d => d.isDwarf ? null : 'url(#glow)');
 
-  // Inner bright core (only for card ideas)
-  nodeSel.filter(d => d.hasCard).append('circle')
+  // Inner core
+  nodeSel.append('circle')
     .attr('r', d => Math.max(2.5, (d.size + (d.isFocus ? 8 : 0)) * 0.3))
     .attr('fill', d => getNodeColor(d))
     .attr('opacity', d => d.isDwarf ? 0.6 : 0.9);
 
-  // Dark matter dots (no card)
-  nodeSel.filter(d => !d.hasCard).append('circle')
-    .attr('r', 4)
-    .attr('fill', '#1a1610')
-    .attr('stroke', '#a8987b')
-    .attr('stroke-width', 1)
-    .attr('stroke-dasharray', '2,2')
-    .attr('opacity', 0.8)
-    .attr('filter', 'url(#glow)');
-
   // Labels
   nodeSel.append('text')
-    .attr('y', d => (d.hasCard ? d.size + (d.isFocus ? 8 : 0) : 3) + 16)
+    .attr('y', d => d.size + (d.isFocus ? 8 : 0) + 16)
     .attr('text-anchor', 'middle')
     .attr('font-family', 'Noto Serif SC, serif')
-    .attr('font-size', d => d.hasCard ? '11px' : '9px')
+    .attr('font-size', d => d.isDwarf ? '9px' : '11px')
     .attr('font-weight', '300')
-    .attr('fill', d => {
-      if (!d.hasCard) return '#5a4e38';
-      if (d.isDwarf) return '#5e6d78';
-      return '#c8b89a';
-    })
+    .attr('fill', d => d.isDwarf ? cosmicColors.dwarf : '#c8b89a')
     .attr('opacity', d => {
       if (d.isFocus) return 1;
-      if (!d.hasCard) return 0.22;
       if (d.isDwarf) return 0.42;
       return d.size >= 16 ? 0.82 : 0.58;
     })
@@ -1519,7 +1902,7 @@ function renderUniverse() {
     })
     .on('mouseleave', function(e, d) {
       hideUniverseNodePreview();
-      const baseOpacity = d.isFocus ? 1 : (!d.hasCard ? 0.22 : (d.isDwarf ? 0.42 : (d.size >= 16 ? 0.82 : 0.58)));
+      const baseOpacity = d.isFocus ? 1 : (d.isDwarf ? 0.42 : (d.size >= 16 ? 0.82 : 0.58));
       d3.select(this).select('text').attr('opacity', baseOpacity);
     });
 
@@ -1531,7 +1914,7 @@ function renderUniverse() {
     const tgtNode = nodes.find(n => n.id === (d.target.id || d.target));
     if (!srcNode || !tgtNode) return;
     try {
-      const headers = { 'Content-Type': 'application/json' };
+      const headers = { 'Content-Type': 'application/json', 'X-Drawer-Purpose': 'link-insight' };
       if (apiKey) {
         headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
       }
@@ -1540,7 +1923,9 @@ function renderUniverse() {
         body: JSON.stringify({
           model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 60,
           messages: [
-            { role: 'system', content: '用一句话（15-25字）解释这两个想法之间的隐藏联系。像一句诗一样简洁。不要说"它们都"开头。' },
+            { role: 'system', content: `从两个想法中各取一个具体元素，写一句让人突然看见它们之间暗线的话。
+15-35字，具体、有启发，但不要故作诗意。不要报告相似度，不要用“它们都 / 两者都是 / 都关于”开头，也不要只复述共同主题。
+理想效果是让用户想继续追问：把这两个点子放在一起，会不会长出第三个方向？` },
             { role: 'user', content: `「${srcNode.name}」: ${srcNode.core}\n「${tgtNode.name}」: ${tgtNode.core}` }
           ]
         })
@@ -1548,7 +1933,9 @@ function renderUniverse() {
       const data = await res.json();
       d.aiReason = data.choices[0].message.content.trim().replace(/^["「『]|["」』。]$/g, '');
     } catch(err) {
-      d.aiReason = '文字回声：' + d.sharedChars;
+      d.aiReason = d.sourceType === 'embedding'
+        ? t('把它们放在一起看，也许会出现第三种方向', 'Put them side by side; a third direction may appear')
+        : t('文字回声：', 'Textual echo: ') + d.sharedChars;
     }
     d.aiFetching = false;
   }
@@ -1558,14 +1945,18 @@ function renderUniverse() {
     const tgtNode = nodes.find(n => n.id === (d.target.id || d.target));
     if (!srcNode || !tgtNode) return;
 
-    const relationLabel = d.relation === 'collision' ? '碰撞' : '回声';
+    const relationLabel = d.relation === 'collision'
+      ? t('生成血缘', 'Generative lineage')
+      : d.sourceType === 'embedding'
+        ? t('潜在暗线', 'Hidden thread')
+        : t('回声', 'Echo');
     const names = `<div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-family:'Space Mono',monospace;letter-spacing:.05em">${relationLabel} · ${srcNode.name} × ${tgtNode.name}</div>`;
     const tipColor = d.relation === 'collision' ? '#7ec8e3' : '#d7a454';
     
     if (d.aiReason) {
       tip.innerHTML = `${names}<div style="color:${tipColor};font-size:14px;line-height:1.6;font-style:italic">✦ ${d.aiReason}</div><div style="margin-top:6px;font-size:9px;color:#5a7a8a;font-family:'Space Mono',monospace;letter-spacing:.05em">CLICK TO EXPLORE ↗</div>`;
     } else {
-      tip.innerHTML = `${names}<div style="color:#5a7a8a;font-size:12px">✦ 正在解读…</div>`;
+      tip.innerHTML = `${names}<div style="color:#5a7a8a;font-size:12px">✦ ${t('正在寻找它们之间的暗线…', 'Tracing the hidden thread…')}</div>`;
     }
     tip.classList.add('show');
     tip.style.left = (e.clientX + 12) + 'px';
@@ -1619,8 +2010,10 @@ function renderUniverse() {
 
   // Simulation
   universeSim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(160).strength(d => d.strength * 0.15))
-    .force('charge', d3.forceManyBody().strength(d => d.hasCard ? -500 : -100))
+    .force('link', d3.forceLink(links).id(d => d.id)
+      .distance(d => d.distance || 160)
+      .strength(d => d.relation === 'collision' ? 0.72 : 0.2 + d.strength * 0.42))
+    .force('charge', d3.forceManyBody().strength(d => d.hasCard ? -380 : -100))
     .force('center', d3.forceCenter(w / 2, h / 2))
     .force('x', d3.forceX(w / 2).strength(.04))
     .force('y', d3.forceY(h / 2).strength(.04))
@@ -1647,7 +2040,7 @@ function renderUniverse() {
   });
 
   // Generate AI narration
-  if (links.length > 0) {
+  if (links.length > 0 && universeEmbeddingState !== 'syncing') {
     generateUniverseNarration(ideasWithCards, links);
   } else if (ideasWithCards.length >= 2) {
     narration.style.display = 'block';
@@ -1657,20 +2050,21 @@ function renderUniverse() {
   } else {
     narration.style.display = 'block';
     document.getElementById('narrationText').textContent = currentLanguage === 'en'
-      ? `✦ ${ideas.length} pieces of dark matter are waiting to be lit. Talk with them and turn them into stars.`
-      : `✦ ${ideas.length} 颗暗物质等待被点亮。和它们聊几句，让它们变成恒星。`;
+      ? `✦ ${ideas.length} white dwarfs are waiting to grow. Revisit one and let it brighten.`
+      : `✦ ${ideas.length} 颗白矮星还没有充分展开。回到其中一颗，让它慢慢亮起来。`;
   }
 
-  // Auto-discover supernovae (runs in background)
-  autoDiscoverSupernovae(ideasWithCards);
+  // Auto-discover supernovae only after the real vector space is ready.
+  if (universeEmbeddingState === 'ready') autoDiscoverSupernovae(ideasWithCards);
 
   // First-visit guide
   const guideEl = document.getElementById('universeGuide');
   if (guideEl && links.length > 0) {
-    const hasVisited = localStorage.getItem('drawer_universe_visited');
+    const guideStorageKey = 'drawer_universe_guide_v2';
+    const hasVisited = localStorage.getItem(guideStorageKey);
     if (!hasVisited) {
       guideEl.style.display = 'flex';
-      localStorage.setItem('drawer_universe_visited', '1');
+      localStorage.setItem(guideStorageKey, '1');
       // Fade out after 8 seconds or on first interaction
       const fadeGuide = () => {
         guideEl.classList.add('fade-out');
@@ -1699,7 +2093,7 @@ async function generateUniverseNarration(ideasWithCards, links) {
   }).filter(Boolean).join(', ');
 
   try {
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = { 'Content-Type': 'application/json', 'X-Drawer-Purpose': 'universe-narration' };
     if (apiKey) {
       headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
     }
@@ -1756,145 +2150,325 @@ function getIdeaFullContext(idea) {
 // ── Supernova: AI auto-discovers deep synthesis ──
 let _isDiscoveringSupernova = false;
 
-async function autoDiscoverSupernovae(ideasWithCards) {
-  if (_isDiscoveringSupernova) return;
-  _isDiscoveringSupernova = true;
+function stableIdeaPairKey(idA, idB) {
+  return [String(idA), String(idB)].sort().join(',');
+}
 
-  // Don't discover if fewer than 2 ideas
-  const richIdeas = ideasWithCards.filter(i => {
-    const chatLen = (i.chatHistory || []).length;
-    return chatLen >= 1 || (i.nodes && i.nodes.length >= 0); // currently taking all ideas with cards
+function getSupernovaPairFingerprint(ideaA, ideaB) {
+  const parts = [ideaA, ideaB].map(idea => {
+    const descriptor = getIdeaSemanticDescriptor(idea);
+    return `${String(idea.id)}:${descriptor.fingerprint}`;
   });
-  if (richIdeas.length < 2) {
-    console.log('Not enough rich ideas for supernova.', richIdeas.length);
-    return;
-  }
+  return parts.sort().join('|');
+}
 
-  // Limit: Up to 3 active supernovae at a time
-  const activeSupernovae = ideas.filter(i => i.type === 'supernova');
-  if (activeSupernovae.length >= 3) {
-    console.log(`Already ${activeSupernovae.length} active supernovae. Waiting for user resolution.`);
-    return;
+function loadSupernovaPairReviews() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SUPERNOVA_REVIEW_STORAGE_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
   }
-  
-  // Exclude pairs that already have supernovae (even if they were adopted into normal ideas)
-  const existingPairs = ideas
-    .filter(i => i.parentIds)
-    .map(i => i.parentIds.sort().join(','));
+}
 
+function rememberSupernovaPairReview(ideaA, ideaB, status) {
+  const reviews = loadSupernovaPairReviews();
+  const pairKey = stableIdeaPairKey(ideaA.id, ideaB.id);
+  reviews[pairKey] = {
+    fingerprint: getSupernovaPairFingerprint(ideaA, ideaB),
+    status,
+    reviewedAt: Date.now()
+  };
+  const trimmed = Object.fromEntries(
+    Object.entries(reviews)
+      .sort((left, right) => (right[1]?.reviewedAt || 0) - (left[1]?.reviewedAt || 0))
+      .slice(0, 200)
+  );
+  localStorage.setItem(SUPERNOVA_REVIEW_STORAGE_KEY, JSON.stringify(trimmed));
+}
+
+function hasCurrentSupernovaPairReview(ideaA, ideaB) {
+  const review = loadSupernovaPairReviews()[stableIdeaPairKey(ideaA.id, ideaB.id)];
+  return review?.fingerprint === getSupernovaPairFingerprint(ideaA, ideaB);
+}
+
+function getSupernovaUniverseSignature(ideasWithCards) {
+  return ideasWithCards
+    .filter(idea => idea.type !== 'supernova')
+    .map(idea => `${String(idea.id)}:${getIdeaSemanticDescriptor(idea).fingerprint}:${idea.type || 'idea'}`)
+    .sort()
+    .join('|');
+}
+
+function canRunSupernovaReview(ideasWithCards) {
+  try {
+    const previous = JSON.parse(localStorage.getItem(SUPERNOVA_LAST_REVIEW_STORAGE_KEY) || '{}');
+    const signature = getSupernovaUniverseSignature(ideasWithCards);
+    return previous.signature !== signature || Date.now() - Number(previous.at || 0) >= SUPERNOVA_REVIEW_COOLDOWN;
+  } catch {
+    return true;
+  }
+}
+
+function markSupernovaReviewAttempt(ideasWithCards) {
+  localStorage.setItem(SUPERNOVA_LAST_REVIEW_STORAGE_KEY, JSON.stringify({
+    signature: getSupernovaUniverseSignature(ideasWithCards),
+    at: Date.now()
+  }));
+}
+
+function getIdeaGenerativeRichness(idea) {
+  const card = idea.card || {};
+  const branches = Array.isArray(card.branches) ? card.branches.filter(Boolean) : [];
+  const userTurns = (idea.chatHistory || []).filter(message => message.role === 'user').length;
+  const nodeCount = (idea.nodes || []).length;
+  const specificPieces = branches.length
+    + (card.tensions ? 1 : 0)
+    + (card.next ? 1 : 0)
+    + Math.min(userTurns, 2)
+    + Math.min(nodeCount, 2);
+  const textLength = getIdeaSemanticDescriptor(idea).text.length;
+  return {
+    eligible: Boolean(card.core) && textLength >= 40 && specificPieces >= 2,
+    score: Math.min(1, textLength / 700) * 0.45 + Math.min(1, specificPieces / 6) * 0.55
+  };
+}
+
+function buildSupernovaCandidatePairs(ideasWithCards) {
+  const existingPairs = new Set(
+    ideas
+      .filter(idea => Array.isArray(idea.parentIds) && idea.parentIds.length === 2)
+      .map(idea => stableIdeaPairKey(idea.parentIds[0], idea.parentIds[1]))
+  );
+  const eligible = ideasWithCards.map(idea => {
+    const record = getCurrentIdeaEmbedding(idea);
+    const richness = getIdeaGenerativeRichness(idea);
+    return idea.type !== 'supernova' && record && richness.eligible
+      ? { idea, record, richness: richness.score }
+      : null;
+  }).filter(Boolean);
+
+  const allPairs = [];
+  eligible.forEach((left, leftIndex) => {
+    eligible.slice(leftIndex + 1).forEach(right => {
+      const similarity = DrawerSemanticSpace.cosineSimilarity(left.record.vector, right.record.vector);
+      if (!Number.isFinite(similarity)) return;
+      allPairs.push({ left, right, similarity });
+    });
+  });
+  if (!allPairs.length) return [];
+
+  const sortedSimilarities = allPairs.map(pair => pair.similarity).sort((a, b) => a - b);
+  const relativeFloor = sortedSimilarities[Math.floor((sortedSimilarities.length - 1) * 0.65)];
+  const minimumSimilarity = Math.max(0.48, relativeFloor || 0);
+  const oneDay = 24 * 60 * 60 * 1000;
+
+  return allPairs
+    .filter(pair => pair.similarity >= minimumSimilarity && pair.similarity <= 0.92)
+    .filter(pair => !existingPairs.has(stableIdeaPairKey(pair.left.idea.id, pair.right.idea.id)))
+    .filter(pair => !hasCurrentSupernovaPairReview(pair.left.idea, pair.right.idea))
+    .map(pair => {
+      const leftTime = Number(pair.left.idea.createdAt || pair.left.idea.updatedAt || 0);
+      const rightTime = Number(pair.right.idea.createdAt || pair.right.idea.updatedAt || 0);
+      const gapDays = leftTime && rightTime ? Math.abs(leftTime - rightTime) / oneDay : 0;
+      const temporalSurprise = Math.min(1, Math.log1p(gapDays) / Math.log(91));
+      return {
+        ideaA: pair.left.idea,
+        ideaB: pair.right.idea,
+        similarity: pair.similarity,
+        score: pair.similarity
+          + ((pair.left.richness + pair.right.richness) / 2) * 0.04
+          + temporalSurprise * 0.06
+      };
+    })
+    .sort((left, right) => right.score - left.score);
+}
+
+async function validateSupernovaDraft(candidate, draftIdea) {
+  const parentARecord = getCurrentIdeaEmbedding(candidate.ideaA);
+  const parentBRecord = getCurrentIdeaEmbedding(candidate.ideaB);
+  if (!parentARecord || !parentBRecord) throw new Error('Parent embedding is unavailable');
+
+  const descriptor = getIdeaSemanticDescriptor(draftIdea);
+  const [draftRecord] = await requestIdeaEmbeddings([descriptor], 'supernova-validation');
+  const similarityA = DrawerSemanticSpace.cosineSimilarity(draftRecord.vector, parentARecord.vector);
+  const similarityB = DrawerSemanticSpace.cosineSimilarity(draftRecord.vector, parentBRecord.vector);
+  const otherSimilarities = ideas
+    .filter(idea => idea.id !== candidate.ideaA.id && idea.id !== candidate.ideaB.id)
+    .map(idea => getCurrentIdeaEmbedding(idea))
+    .filter(Boolean)
+    .map(record => DrawerSemanticSpace.cosineSimilarity(draftRecord.vector, record.vector))
+    .filter(Number.isFinite);
+
+  const parentMinimum = Math.min(similarityA, similarityB);
+  const parentMaximum = Math.max(similarityA, similarityB);
+  const nearestOther = otherSimilarities.length ? Math.max(...otherSimilarities) : -1;
+  const minimumAnchor = Math.max(0.46, candidate.similarity - 0.18);
+  const accepted = parentMinimum >= minimumAnchor
+    && parentMaximum <= 0.94
+    && Math.abs(similarityA - similarityB) <= 0.22
+    && nearestOther <= 0.94;
+
+  return {
+    accepted,
+    record: draftRecord,
+    similarityA,
+    similarityB,
+    nearestOther
+  };
+}
+
+function numericDiscoveryScore(value) {
+  const score = Number(value);
+  return Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : 0;
+}
+
+async function autoDiscoverSupernovae(ideasWithCards) {
+  if (_isDiscoveringSupernova || supernovaReviewAttemptedThisSession) return;
+  const activeSupernovae = ideas.filter(idea => idea.type === 'supernova');
+  if (activeSupernovae.length >= SUPERNOVA_MAX_ACTIVE) return;
+  if (!canRunSupernovaReview(ideasWithCards)) return;
+
+  const [candidate] = buildSupernovaCandidatePairs(ideasWithCards);
+  if (!candidate) return;
+
+  _isDiscoveringSupernova = true;
+  supernovaReviewAttemptedThisSession = true;
+  markSupernovaReviewAttempt(ideasWithCards);
   const narrationEl = document.getElementById('narrationText');
 
-  console.log('Starting auto-discovery for supernovae... Rich ideas count:', richIdeas.length);
-
   try {
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = { 'Content-Type': 'application/json', 'X-Drawer-Purpose': 'supernova-gate' };
     if (apiKey) {
       headers[apiKey.startsWith('sk-') ? 'Authorization' : 'X-Access-Code'] = apiKey.startsWith('sk-') ? `Bearer ${apiKey}` : apiKey;
     }
 
-    // Build full context for each idea
-    const fullContexts = richIdeas.map(i => getIdeaFullContext(i)).join('\n---\n');
-    
-    // Collect existing supernova names to avoid duplicates
-    const existingSupernovaNames = ideas.filter(i => i.parentIds).map(i => i.name).join('，');
-    const duplicatePrompt = existingSupernovaNames ? `\n注意：绝对不能生成与以下已存在的点子名字或概念高度重复的内容：${existingSupernovaNames}` : '';
-
-    const res = await fetch('/api/chat', {
-      method: 'POST', headers,
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 650,
+        model: 'Qwen/Qwen2.5-72B-Instruct',
+        max_tokens: 700,
         messages: [
-          { role: 'system', content: `你是"抽屉"的思维合成器。分析用户的多个想法，找出最有深度和潜力的交叉点。
-不是简单的"都提到了X"，而是"A的某个方向 + B的某个张力 = 一个全新的、用户没想到的方向"。${duplicatePrompt}
-选择最有爆发力的一对，返回JSON（不要markdown包裹）：
-{"ideaA":"点子A的名字","ideaB":"点子B的名字","name":"新方向的名字（5-10字，必须有新意）","core":"一句话描述这个全新方向（20-40字）","branches":["方向1","方向2","方向3"],"tensions":"这个合成方向最大的未知是什么（一句话）","why":"为什么这两个点子放在一起会产生化学反应（一句话）"}` },
-          { role: 'user', content: fullContexts }
+          {
+            role: 'system',
+            content: `你是“抽屉”的新星门槛判断器。两条想法有联系，不代表它们值得生成第三条想法。
+
+只有同时满足以下条件才允许 shouldCreate=true：
+1. 新方向必须同时依赖 A 和 B；拿走任何一边，它就不再成立。
+2. 它不是共同主题、同义改写、折中总结或漂亮但空泛的比喻。
+3. 它提出了一个此前不存在的具体命题、对象、场景或可探索行动。
+4. 用户看到后会想继续追问，而不只是点头说“确实很像”。
+
+分别给 synergy、novelty、specificity 打 0-100 分。只有 synergy≥72、novelty≥70、specificity≥60 才能 shouldCreate=true。
+严格返回 JSON，不要 markdown：
+{"shouldCreate":false,"synergy":0,"novelty":0,"specificity":0,"name":"","core":"","branches":[],"tensions":"","next":"","why":"未通过时简述原因；通过时说明A的什么与B的什么产生了什么新方向"}`
+          },
+          {
+            role: 'user',
+            content: `想法 A：\n${getIdeaFullContext(candidate.ideaA)}\n\n想法 B：\n${getIdeaFullContext(candidate.ideaB)}`
+          }
         ]
       })
     });
+    const payload = await response.json();
+    if (!response.ok || !payload.choices?.[0]?.message?.content) {
+      throw new Error(payload.error || `Supernova review failed (${response.status})`);
+    }
 
-    const data = await res.json();
-    let raw = data.choices[0].message.content;
-    
-    // Robust JSON extraction
+    let raw = payload.choices[0].message.content;
     const firstBrace = raw.indexOf('{');
     const lastBrace = raw.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      raw = raw.slice(firstBrace, lastBrace + 1);
+    if (firstBrace !== -1 && lastBrace !== -1) raw = raw.slice(firstBrace, lastBrace + 1);
+    const proposal = JSON.parse(raw);
+    const synergy = numericDiscoveryScore(proposal.synergy);
+    const novelty = numericDiscoveryScore(proposal.novelty);
+    const specificity = numericDiscoveryScore(proposal.specificity);
+    const branches = Array.isArray(proposal.branches) ? proposal.branches.filter(Boolean).slice(0, 3) : [];
+    const passesJudgement = proposal.shouldCreate === true
+      && synergy >= 72
+      && novelty >= 70
+      && specificity >= 60
+      && String(proposal.name || '').trim()
+      && String(proposal.core || '').trim()
+      && branches.length >= 2;
+
+    if (!passesJudgement) {
+      rememberSupernovaPairReview(candidate.ideaA, candidate.ideaB, 'not-generative');
+      return;
     }
-    
-    const parsed = JSON.parse(raw);
-    console.log('Parsed supernova:', parsed);
 
-    // Find the parent ideas
-    const srcIdea = richIdeas.find(i => i.name === parsed.ideaA);
-    const tgtIdea = richIdeas.find(i => i.name === parsed.ideaB);
-    if (!srcIdea || !tgtIdea) return;
-
-    // Check if this pair already exists
-    const pairKey = [srcIdea.id, tgtIdea.id].sort().join(',');
-    if (existingPairs.includes(pairKey)) return;
-
-    // Create the supernova
-    const idea = {
-      id: Date.now(),
-      name: parsed.name || `${srcIdea.name} × ${tgtIdea.name}`,
+    const createdAt = Date.now();
+    const draftIdea = {
+      id: createdAt,
+      name: String(proposal.name).trim(),
       type: 'supernova',
       status: 'seed',
-      parentIds: [srcIdea.id, tgtIdea.id],
+      parentIds: [candidate.ideaA.id, candidate.ideaB.id],
       nodes: [],
       chatHistory: [
-        { role: 'assistant', content: `✦ 这颗超新星来自「${srcIdea.name}」和「${tgtIdea.name}」的深层交汇。\n\n**${parsed.core}**\n\n${parsed.why}\n\n可以探索的方向：${parsed.branches.join('、')}\n\n最大的未知：${parsed.tensions}\n\n你觉得这个方向有意思吗？` }
+        {
+          role: 'assistant',
+          content: `✦ 这颗候选新星来自「${candidate.ideaA.name}」和「${candidate.ideaB.name}」的碰撞。\n\n**${proposal.core}**\n\n${proposal.why}\n\n可以探索的方向：${branches.join('、')}\n\n最大的未知：${proposal.tensions}\n\n你觉得这个方向值得留下吗？`
+        }
       ],
       card: {
-        core: parsed.core,
-        branches: parsed.branches,
-        tensions: parsed.tensions
+        core: String(proposal.core).trim(),
+        branches,
+        tensions: String(proposal.tensions || '').trim(),
+        next: String(proposal.next || '').trim()
       },
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      discovery: {
+        kind: 'generative-collision',
+        synergy,
+        novelty,
+        specificity
+      },
+      createdAt,
+      updatedAt: createdAt
     };
 
-    ideas.push(idea); // push to end, not unshift - let it appear naturally
-    saveIdeas();
-
-    // Update narration
-    if (narrationEl) {
-      narrationEl.textContent = `✦ 发现了一颗新星：「${idea.name}」—— ${parsed.why}`;
+    const vectorValidation = await validateSupernovaDraft(candidate, draftIdea);
+    if (!vectorValidation.accepted) {
+      rememberSupernovaPairReview(candidate.ideaA, candidate.ideaB, 'embedding-rejected');
+      return;
     }
 
-    // Birth flash animation
+    ideas.push(draftIdea);
+    ideaEmbeddingCache.set(String(draftIdea.id), vectorValidation.record);
+    await persistEmbeddingRecords([vectorValidation.record]);
+    rememberSupernovaPairReview(candidate.ideaA, candidate.ideaB, 'created');
+    saveIdeas();
+
+    if (narrationEl) {
+      narrationEl.textContent = `✦ 一条暗线正在长成候选新星：「${draftIdea.name}」—— ${proposal.why}`;
+    }
+
     const svgWrap = document.getElementById('universeSvgWrap');
     if (svgWrap) {
       const rect = svgWrap.getBoundingClientRect();
-      const cx = rect.width / 2;
-      const cy = rect.height / 2;
-      
-      // Central flash
       const flash = document.createElement('div');
       flash.className = 'supernova-birth-flash';
-      flash.style.left = cx + 'px';
-      flash.style.top = cy + 'px';
+      flash.style.left = `${rect.width / 2}px`;
+      flash.style.top = `${rect.height / 2}px`;
       svgWrap.appendChild(flash);
       setTimeout(() => flash.remove(), 1800);
-      
-      // Blue confetti burst
       if (typeof confetti === 'function') {
         confetti({
-          particleCount: 35, spread: 90, startVelocity: 20,
+          particleCount: 35,
+          spread: 90,
+          startVelocity: 20,
           colors: ['#7ec8e3', '#5aa8c3', '#aedff5', '#ffffff'],
           origin: { x: 0.5, y: 0.4 },
-          gravity: 0.4, ticks: 80
+          gravity: 0.4,
+          ticks: 80
         });
       }
     }
 
-    // Re-render universe to show the new star
     setTimeout(() => renderUniverse(), 800);
-
-  } catch(err) {
-    // Silent fail - supernovae are a bonus, not critical
-    console.log('Supernova discovery failed:', err);
+  } catch (error) {
+    console.log('Supernova discovery paused:', error);
   } finally {
     _isDiscoveringSupernova = false;
   }
@@ -1911,9 +2485,9 @@ function renderHomePlanets() {
   ];
   host.innerHTML = ideas.slice(0, positions.length).map((idea, index) => {
     const position = positions[index];
-    const status = ['seed','grow','pause'].includes(idea.status) ? idea.status : 'seed';
+    const cosmicType = getIdeaCosmicType(idea);
     const returnText = t('回到这颗 →', 'Return to this →');
-    return `<button class="home-planet-node status-${status} size-${position.size}" style="left:${position.left}%;top:${position.top}%" onclick="selectIdea(${idea.id})" aria-label="${esc(returnText + ' ' + idea.name)}">
+    return `<button class="home-planet-node cosmic-${cosmicType} size-${position.size}" style="left:${position.left}%;top:${position.top}%" onclick="selectIdea(${idea.id})" aria-label="${esc(returnText + ' ' + idea.name)}">
       <span class="home-planet-enter">${returnText}</span>
       <span class="home-planet-visual" aria-hidden="true"><i class="home-planet-ring r2"></i><i class="home-planet-ring r1"></i><i class="home-planet-core"></i></span>
       <span class="home-planet-label">${esc(idea.name)}</span>
@@ -1958,8 +2532,12 @@ function renderList() {
       freshClass = ''; // always fully visible when active
       controls = `
         <div class="idea-item-controls">
-          <button class="list-del-btn" onclick="event.stopPropagation(); clearCurrentChat()">清空对话</button>
-          <button class="list-del-btn danger" onclick="event.stopPropagation(); deleteCurrentIdea()">删除点子</button>
+          <button class="list-del-btn icon-only-btn" onclick="event.stopPropagation(); clearCurrentChat()" aria-label="${t('清空对话', 'Clear chat')}" title="${t('清空对话', 'Clear chat')}">
+            <svg class="ui-icon" aria-hidden="true"><use href="#ui-clear"></use></svg>
+          </button>
+          <button class="list-del-btn danger icon-only-btn" onclick="event.stopPropagation(); deleteCurrentIdea()" aria-label="${t('删除点子', 'Delete idea')}" title="${t('删除点子', 'Delete idea')}">
+            <svg class="ui-icon" aria-hidden="true"><use href="#ui-trash"></use></svg>
+          </button>
         </div>
       `;
     }
@@ -2288,11 +2866,18 @@ const cx = (v, w) => Math.max(12, Math.min(w - 12, v));
 const cy = (v, h) => Math.max(10, Math.min(h - 10, v));
 
 // ── Tab & Card ──
+function setCardPageScroll(enabled) {
+  const wasEnabled = document.body.classList.contains('card-page-scroll');
+  document.body.classList.toggle('card-page-scroll', Boolean(enabled));
+  if (wasEnabled && !enabled) window.scrollTo(0, 0);
+}
+
 function switchTab(tab) {
   document.getElementById('tabCard').classList.toggle('active', tab === 'card');
   document.getElementById('tabGraph').classList.toggle('active', tab === 'graph');
   document.getElementById('cardPanel').style.display = tab === 'card' ? 'flex' : 'none';
   document.getElementById('graphSvgWrap').style.display = tab === 'graph' ? 'block' : 'none';
+  setCardPageScroll(tab === 'card');
   if (tab === 'graph') renderGraph();
 }
 

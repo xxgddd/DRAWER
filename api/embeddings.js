@@ -1,0 +1,68 @@
+export const config = {
+  runtime: 'edge'
+};
+
+const MODEL = 'BAAI/bge-m3';
+const MAX_BATCH_SIZE = 24;
+const MAX_INPUT_LENGTH = 6000;
+
+export default async function handler(request) {
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  let apiKey = process.env.SILICONFLOW_API_KEY;
+  if (authHeader?.startsWith('Bearer ')) apiKey = authHeader.slice(7);
+
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: 'API Key not configured' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  try {
+    const body = await request.json();
+    const input = Array.isArray(body.input) ? body.input : [body.input];
+    const validInput = input.length > 0
+      && input.length <= MAX_BATCH_SIZE
+      && input.every(value => typeof value === 'string' && value.trim() && value.length <= MAX_INPUT_LENGTH);
+
+    if (!validInput || (body.model && body.model !== MODEL)) {
+      return new Response(JSON.stringify({ error: 'Invalid embedding request' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const response = await fetch('https://api.siliconflow.cn/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        input,
+        encoding_format: 'float'
+      })
+    });
+
+    return new Response(response.body, {
+      status: response.status,
+      headers: {
+        'Content-Type': response.headers.get('Content-Type') || 'application/json',
+        'Cache-Control': 'no-store'
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: `Embedding proxy failed: ${error.message}` }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
