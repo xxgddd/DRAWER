@@ -11,19 +11,17 @@ export default async request => {
   }
 
   const clientKey = request.headers.get('Authorization');
-  const accessCode = request.headers.get('X-Access-Code');
   const serverKey = Deno.env.get('SILICONFLOW_API_KEY');
-  const serverAccessCode = Deno.env.get('ACCESS_CODE');
 
   let activeKey = null;
   if (clientKey?.startsWith('Bearer ')) {
     activeKey = clientKey;
-  } else if (serverKey && (!serverAccessCode || accessCode === serverAccessCode)) {
+  } else if (serverKey) {
     activeKey = `Bearer ${serverKey}`;
   }
 
   if (!activeKey) {
-    return new Response(JSON.stringify({ error: '请提供有效的 API Key 或访问码' }), {
+    return new Response(JSON.stringify({ error: '未配置 API Key' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }
     });
