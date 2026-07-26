@@ -789,7 +789,6 @@ function toggleSidebar() {
 
 function toggleDrawer() {
   const drawer = document.getElementById('drawerPanel');
-  const btn = document.getElementById('drawerToggleBtn');
   if (drawer.classList.contains('closed')) {
     drawer.classList.remove('closed');
     drawer.classList.add('open');
@@ -804,6 +803,14 @@ function toggleDrawer() {
     drawer.classList.remove('open');
     updateDrawerLabel(false);
   }
+}
+
+function closeDrawer() {
+  const drawer = document.getElementById('drawerPanel');
+  if (!drawer || drawer.classList.contains('closed')) return;
+  drawer.classList.add('closed');
+  drawer.classList.remove('open');
+  updateDrawerLabel(false);
 }
 
 function expandDrawerIfNot() {

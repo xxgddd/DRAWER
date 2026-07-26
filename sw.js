@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v81-settled-guide-transitions';
+const CACHE_NAME = 'drawer-v83-mobile-layout-audit';
 const ASSETS = [
   '/',
   '/index.html',

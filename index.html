@@ -22,10 +22,10 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=80">
-  <link rel="stylesheet" href="card-redesign.css?v=69">
+  <link rel="stylesheet" href="style.css?v=81">
+  <link rel="stylesheet" href="card-redesign.css?v=70">
   <link rel="stylesheet" href="card-reference.css">
-  <link rel="stylesheet" href="chat-calm.css?v=70">
+  <link rel="stylesheet" href="chat-calm.css?v=72">
   <link rel="stylesheet" href="sidebar-calm.css?v=69">
   <link rel="stylesheet" href="universe-interactions.css?v=69">
   <link rel="stylesheet" href="atlas-view.css?v=69">
@@ -34,7 +34,7 @@
   <link rel="stylesheet" href="capture-modal.css">
   <link rel="stylesheet" href="localization.css">
   <link rel="stylesheet" href="home-universe.css?v=55">
-  <link rel="stylesheet" href="idea-graph.css?v=37">
+  <link rel="stylesheet" href="idea-graph.css?v=38">
   <link rel="stylesheet" href="card-density.css?v=40">
 </head>
 
@@ -538,6 +538,8 @@
         </div>
 
         <!-- Drawer (Chat Interface) -->
+        <button class="chat-dismiss-layer" id="chatDismissLayer" type="button"
+          aria-label="收起对话" onclick="closeDrawer()"></button>
         <div class="drawer-panel closed" id="drawerPanel">
           <div class="drawer-header" onclick="toggleDrawer()">
             <div class="chat-head-main">
@@ -627,7 +629,7 @@
 
   <script src="semantic-space.js?v=55"></script>
   <script src="atlas-space.js?v=61"></script>
-  <script src="script.js?v=78"></script>
+  <script src="script.js?v=79"></script>
   <script src="atlas-view.js?v=67"></script>
   <script src="world-window.js?v=73"></script>
   <script>

@@ -12,6 +12,17 @@
   animation:drawerBackdropIn .24s ease-out both;
 }
 
+.idea-view .chat-dismiss-layer {
+  display:none;
+  position:absolute;
+  inset:0;
+  z-index:75;
+  padding:0;
+  border:0;
+  background:transparent;
+  cursor:default;
+}
+
 .idea-view .drawer-panel,
 .idea-view .drawer-panel.open,
 .idea-view .drawer-panel.closed {
@@ -182,13 +193,25 @@
 }
 
 @media (max-width:768px) {
+  body .idea-view.chat-open .chat-dismiss-layer {
+    display:block;
+    position:fixed;
+  }
+  body .idea-view.chat-open::after { position:fixed; }
   body .idea-view .drawer-panel,
   body .idea-view .drawer-panel.open,
   body .idea-view .drawer-panel.closed {
+    position:fixed;
     left:0; right:0; width:100%; transform:none; border-radius:18px 18px 0 0;
   }
-  body .idea-view .drawer-panel.open { height:min(82dvh,680px); }
-  body .idea-view .drawer-panel.closed { height:108px; }
+  body .idea-view .drawer-panel.open {
+    height:min(calc(82dvh - env(safe-area-inset-bottom, 0px)),680px);
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  body .idea-view .drawer-panel.closed {
+    height:calc(108px + env(safe-area-inset-bottom, 0px));
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
   body .idea-view .drawer-header { min-height:58px; padding:11px 13px; }
   body .idea-view .chat-head-title { font-size:14px; }
   body .idea-view .drawer-toggle-btn { padding:0 9px; }
@@ -197,5 +220,21 @@
   body .idea-view .messages { padding:14px 13px; }
   body .idea-view .msg-stack { max-width:86%; }
   body .idea-view .msg-bubble,body .idea-view .msg.ai .msg-bubble,body .idea-view .msg.user .msg-bubble { font-size:13px; }
-  body .idea-view .chat-input-area { padding:8px 10px 12px; }
+  body .idea-view .chat-input-area {
+    position:relative;
+    z-index:5;
+    padding:8px 10px max(12px, env(safe-area-inset-bottom, 0px));
+    pointer-events:auto;
+  }
+  body .idea-view .input-row,
+  body .idea-view .chat-input,
+  body .idea-view .send-btn {
+    position:relative;
+    pointer-events:auto;
+    touch-action:manipulation;
+  }
+  body .idea-view .chat-input {
+    -webkit-user-select:text;
+    user-select:text;
+  }
 }
