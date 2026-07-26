@@ -202,10 +202,15 @@
   body .idea-view .drawer-panel.open,
   body .idea-view .drawer-panel.closed {
     position:fixed;
-    left:0; right:0; width:100%; transform:none; border-radius:18px 18px 0 0;
+    left:0;
+    right:0;
+    bottom:var(--chat-keyboard-inset, 0px);
+    width:100%;
+    transform:none;
+    border-radius:18px 18px 0 0;
   }
   body .idea-view .drawer-panel.open {
-    height:min(calc(82dvh - env(safe-area-inset-bottom, 0px)),680px);
+    height:var(--chat-open-height, min(calc(82dvh - env(safe-area-inset-bottom, 0px)),680px));
     padding-bottom:env(safe-area-inset-bottom, 0px);
   }
   body .idea-view .drawer-panel.closed {

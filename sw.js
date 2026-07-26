@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v83-mobile-layout-audit';
+const CACHE_NAME = 'drawer-v84-mobile-keyboard-dock';
 const ASSETS = [
   '/',
   '/index.html',
