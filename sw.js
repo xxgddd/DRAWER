@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v69-icon-language';
+const CACHE_NAME = 'drawer-v76-light-frost';
 const ASSETS = [
   '/',
   '/index.html',

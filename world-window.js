@@ -2,6 +2,8 @@
   const DAILY_STORAGE_KEY = 'drawer_world_window_daily_v1';
   const HISTORY_STORAGE_KEY = 'drawer_world_window_history_v1';
   const FEEDBACK_STORAGE_KEY = 'drawer_world_window_feedback_v1';
+  const GUIDE_STORAGE_KEY = 'drawer_world_window_guide_dismissed_v1';
+  const GUIDE_DURATIONS = { 1: 3200, 2: 4600, 3: 5600 };
   const WORLD_VERSION = 1;
   const ROLE_LABELS = {
     border: ['贴边星', 'BORDER LIGHT'],
@@ -20,6 +22,9 @@
   let selectedLightId = null;
   let lastCollision = null;
   let resizeObserver = null;
+  let worldGuideActive = false;
+  let worldGuidePhase = 0;
+  let worldGuideTimer = null;
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const label = pair => currentLanguage === 'en' ? pair[1] : pair[0];
@@ -69,6 +74,173 @@
     const text = document.getElementById('worldWindowLoadingText');
     if (text) text.textContent = message;
     loading?.classList.toggle('hidden', !visible);
+  }
+
+  function shouldOfferGuide() {
+    const forced = new URLSearchParams(window.location.search).get('concept') === '1';
+    if (forced) return true;
+    if (localStorage.getItem(GUIDE_STORAGE_KEY)) return false;
+    return !ideas.some(idea => idea.card?.core);
+  }
+
+  function buildConceptGuideData(phase = worldGuidePhase || 1) {
+    const sourceIdeas = typeof buildConceptUniverseIdeas === 'function'
+      ? buildConceptUniverseIdeas(false).slice(0, 4)
+      : [];
+    const coordinates = [
+      [-0.78, -0.38],
+      [-0.5, 0.18],
+      [-0.18, -0.02],
+      [-0.42, 0.58]
+    ];
+    const points = sourceIdeas.map((idea, index) => ({
+      id: idea.id,
+      idea,
+      x: coordinates[index][0],
+      y: coordinates[index][1],
+      rawX: coordinates[index][0],
+      rawY: coordinates[index][1]
+    }));
+    const anchors = [
+      { role: 'recent', idea: sourceIdeas[1], point: points[1] },
+      { role: 'frontier', idea: sourceIdeas[2], point: points[2] },
+      { role: 'old', idea: sourceIdeas[0], point: points[0] }
+    ].filter(anchor => anchor.idea && anchor.point);
+    const lights = phase >= 2 ? [
+      {
+        id: 'concept-light-embodied',
+        name: '具身认知',
+        nameEn: 'Embodied Cognition',
+        type: 'concept',
+        role: 'border',
+        description: '身体经验如何参与思考、判断与记忆的研究方向。',
+        descriptionEn: 'A research direction on how bodily experience participates in thought, judgment, and memory.',
+        relation: '它贴着「情绪价值饮食顾问」的边缘，把情绪与饮食接向身体经验。',
+        relationEn: 'It sits beside the emotional eating idea, connecting mood and food to bodily experience.',
+        anchorId: sourceIdeas[1]?.id,
+        nearestIdeaId: sourceIdeas[1]?.id,
+        x: 0.22,
+        y: -0.05,
+        semanticDistance: 0.32
+      },
+      {
+        id: 'concept-light-narrative',
+        name: '叙事身份',
+        nameEn: 'Narrative Identity',
+        type: 'concept',
+        role: 'echo',
+        description: '人如何通过讲述经历，形成持续身份感的一种理解框架。',
+        descriptionEn: 'A framework for how people form a continuous sense of self by narrating experience.',
+        relation: '它回应「被需要感」：我们如何通过讲述自己与他人的关系，确认自身位置。',
+        relationEn: 'It echoes the need to feel needed through the stories we tell about our place among others.',
+        anchorId: sourceIdeas[0]?.id,
+        nearestIdeaId: sourceIdeas[0]?.id,
+        x: 0.52,
+        y: 0.28,
+        semanticDistance: 0.72
+      },
+      {
+        id: 'concept-light-phenomenology',
+        name: '现象学',
+        nameEn: 'Phenomenology',
+        type: 'field',
+        role: 'far',
+        description: '从第一人称经验出发理解感知、身体与世界的哲学传统。',
+        descriptionEn: 'A philosophical tradition studying perception, embodiment, and the world from first-person experience.',
+        relation: '它故意离日常点子更远，用另一套语言重新提问“感受是怎样出现的”。',
+        relationEn: 'It stays farther away, offering another language for asking how a feeling appears.',
+        anchorId: sourceIdeas[2]?.id,
+        nearestIdeaId: sourceIdeas[2]?.id,
+        x: 1.18,
+        y: 0.72,
+        semanticDistance: 1.34
+      }
+    ] : [];
+    return {
+      context: { points, items: [], anchorMeans: null, rawBounds: { xMin: -1, xMax: 1, yMin: -1, yMax: 1 }, vectorDimension: 0 },
+      anchors,
+      lights,
+      date: localDateKey(),
+      preview: true,
+      conceptPreview: true,
+      conceptPhase: phase
+    };
+  }
+
+  function updateGuide() {
+    const guide = document.getElementById('worldConceptGuide');
+    if (!guide) return;
+    const title = document.getElementById('worldConceptGuideTitle');
+    const body = document.getElementById('worldConceptGuideBody');
+    const steps = [...guide.querySelectorAll('.concept-guide-step')];
+    const timeline = document.getElementById('worldConceptTimelineFill');
+    guide.classList.add('show');
+    guide.setAttribute('aria-hidden', 'false');
+    steps.forEach((step, index) => {
+      step.classList.toggle('active', index < worldGuidePhase);
+      step.classList.toggle('current', index === worldGuidePhase - 1);
+      if (index === worldGuidePhase - 1) step.setAttribute('aria-current', 'step');
+      else step.removeAttribute('aria-current');
+    });
+    if (timeline) {
+      timeline.classList.remove('playing');
+      timeline.style.setProperty('--concept-phase-duration', `${GUIDE_DURATIONS[worldGuidePhase]}ms`);
+      void timeline.offsetWidth;
+      timeline.classList.add('playing');
+    }
+    if (worldGuidePhase === 1) {
+      title.textContent = t('这里是你的已知内海', 'This is your known inner sea');
+      body.textContent = t('橙色星光来自你已经留下的念头，海岸线是此刻认知的边界。', 'The orange stars are thoughts you have kept; the shoreline is the edge of what you know today.');
+    } else if (worldGuidePhase === 2) {
+      title.textContent = t('窗口从你的边缘向外打开', 'The window opens from your frontier');
+      body.textContent = t('青色灯塔不是随机推荐。每一盏都从某颗旧星出发，通向边界外的真实概念。', 'The cyan lights are not random. Each begins at one of your stars and points toward a real idea beyond the edge.');
+    } else {
+      title.textContent = t('把一束外部光带回抽屉', 'Bring one outside light home');
+      body.textContent = t('打开来信，看看它为何与你有关。你可以收藏它，也可以让它和旧点子发生一次碰撞。', 'Open the letter to see why it found you. Save it, or let it collide with an older idea.');
+    }
+  }
+
+  function scheduleGuideAdvance() {
+    if (worldGuideTimer) clearTimeout(worldGuideTimer);
+    worldGuideTimer = null;
+    if (!worldGuideActive || worldGuidePhase >= 3 || !isActive()) return;
+    worldGuideTimer = setTimeout(() => goToGuidePhase(worldGuidePhase + 1), GUIDE_DURATIONS[worldGuidePhase]);
+  }
+
+  function goToGuidePhase(phase) {
+    worldGuideActive = true;
+    worldGuidePhase = Math.max(1, Math.min(3, Number(phase) || 1));
+    selectedLightId = worldGuidePhase >= 3 ? 'concept-light-embodied' : null;
+    worldData = buildConceptGuideData(worldGuidePhase);
+    updateGuide();
+    setLoading('', false);
+    updateSummary(worldData);
+    updateDailyNudge(worldData);
+    document.getElementById('worldWindowEmpty').hidden = true;
+    if (isActive()) {
+      renderSvg();
+      renderLetter(selectedLight());
+    }
+    scheduleGuideAdvance();
+  }
+
+  function startGuide() {
+    goToGuidePhase(1);
+  }
+
+  function finishGuide() {
+    localStorage.setItem(GUIDE_STORAGE_KEY, '1');
+    if (worldGuideTimer) clearTimeout(worldGuideTimer);
+    worldGuideTimer = null;
+    worldGuideActive = false;
+    worldGuidePhase = 0;
+    selectedLightId = null;
+    worldData = null;
+    const guide = document.getElementById('worldConceptGuide');
+    guide?.classList.remove('show');
+    guide?.setAttribute('aria-hidden', 'true');
+    renderLetter(null);
+    render(true);
   }
 
   function updateSummary(data = worldData) {
@@ -695,6 +867,7 @@
   function renderSvg() {
     const frame = document.querySelector('.world-window-frame');
     if (!frame || !worldData || typeof d3 === 'undefined') return;
+    frame.classList.toggle('world-concept-preview', Boolean(worldData.conceptPreview));
     const width = frame.clientWidth || 1000;
     const height = frame.clientHeight || 680;
     const svg = d3.select('#worldWindowSvg');
@@ -829,6 +1002,7 @@
       .selectAll('g')
       .data(positioned)
       .join('g')
+      .attr('class', 'world-lighthouse')
       .attr('transform', light => `translate(${light.screen.x},${light.screen.y})`)
       .attr('cursor', 'pointer')
       .on('mouseenter', (event, light) => showTooltip(event, light))
@@ -905,6 +1079,10 @@
     saveCollisionButton.hidden = true;
     card.classList.add('open');
     card.setAttribute('aria-hidden', 'false');
+    ['worldCaptureBtn', 'worldCollideBtn', 'worldIgnoreBtn'].forEach(id => {
+      const button = document.getElementById(id);
+      if (button) button.disabled = worldGuideActive;
+    });
     updateCoordinate(light);
   }
 
@@ -925,6 +1103,7 @@
   }
 
   function captureSelected() {
+    if (worldGuideActive) return;
     const light = selectedLight();
     if (!light) return;
     const now = Date.now();
@@ -957,6 +1136,7 @@
   }
 
   async function collideSelected() {
+    if (worldGuideActive) return;
     const light = selectedLight();
     if (!light) return;
     const collision = document.getElementById('worldLetterCollision');
@@ -1052,6 +1232,7 @@
   }
 
   function ignoreSelected() {
+    if (worldGuideActive) return;
     const light = selectedLight();
     if (!light || !worldData) return;
     recordFeedback(light, 'ignore');
@@ -1091,6 +1272,16 @@
     updateSummary();
     updateDailyNudge();
     if (!isActive()) return;
+    if (worldGuideActive) {
+      worldData = buildConceptGuideData(worldGuidePhase || 1);
+      setLoading('', false);
+      updateSummary(worldData);
+      updateDailyNudge(worldData);
+      document.getElementById('worldWindowEmpty').hidden = true;
+      renderSvg();
+      renderLetter(selectedLight());
+      return worldData;
+    }
     if (worldData && !force) {
       setLoading('', false);
       updateSummary(worldData);
@@ -1128,10 +1319,14 @@
   }
 
   function activate() {
+    if (shouldOfferGuide() && !worldGuideActive) startGuide();
+    else if (worldGuideActive) scheduleGuideAdvance();
     render();
   }
 
   function deactivate() {
+    if (worldGuideTimer) clearTimeout(worldGuideTimer);
+    worldGuideTimer = null;
     hideTooltip();
     closeLetter();
   }
@@ -1155,6 +1350,8 @@
     closeLetter,
     collideSelected,
     deactivate,
+    finishGuide,
+    goToGuidePhase,
     ignoreSelected,
     invalidate,
     isActive,

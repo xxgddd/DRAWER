@@ -13,6 +13,115 @@ let universeLabelFetchPending = false;
 let cardGenerating = false;
 let currentLanguage = localStorage.getItem('drawer_language') || 'zh';
 
+const CONCEPT_UNIVERSE_DISMISSED_KEY = 'drawer_concept_universe_dismissed_v1';
+const CARD_BIRTH_SEEN_KEY = 'drawer_card_birth_seen_v1';
+const CONCEPT_UNIVERSE_PHASE_DURATIONS = { 1: 2800, 2: 4400, 3: 5200 };
+let conceptUniverseActive = false;
+let conceptUniversePhase = 0;
+let conceptUniverseIdeas = [];
+let conceptUniverseTimers = [];
+
+function buildConceptUniverseIdeas(includeSupernova = false) {
+  const createdAt = Date.now() - 8 * 24 * 60 * 60 * 1000;
+  const base = [
+    {
+      id: 'concept-needed', isConcept: true, name: '未来职业失去，稀缺的是被需要感', status: 'grow',
+      card: {
+        core: '真正稀缺的不是工作，而是让人感到自己仍然有用、有连接的位置。',
+        origin: '如果职业不再稳定，人靠什么确认自己仍然被世界需要？',
+        turningPoint: '问题从“如何不被替代”转向了“如何继续与别人发生关系”。',
+        branches: ['记录三个非职业的被需要场景', '观察照顾、陪伴与小社群里的价值感'],
+        tensions: '如果不再用职业衡量价值，还有什么能让这种感觉持续？',
+        next: '写下三个场景',
+        actions: { deeper: '回到一次被需要的现场', outline: '写成未来生活短文', echo: '寻找非职业身份', rest: '等下次价值焦虑' },
+        seed: '最初种子：担心未来失去的也许不是职业，而是被需要感。'
+      },
+      nodes: [{ id: createdAt + 101, text: '被需要与被认可，也许根本是两件事。', keyword: '被需要', type: 'ai', time: '7/18 21:10', tasks: [] }],
+      chatHistory: [
+        { role: 'user', content: '未来职业消失后，人最怕失去什么？' },
+        { role: 'assistant', content: '也许不是收入，而是被别人需要的位置。' }
+      ],
+      createdAt, updatedAt: createdAt + 7000
+    },
+    {
+      id: 'concept-food', isConcept: true, name: '情绪价值饮食顾问', status: 'seed',
+      card: {
+        core: '先理解一个人为什么吃，而不只是吃了什么。',
+        origin: '同一块蛋糕，在庆祝与孤独时承担的是两种完全不同的功能。',
+        turningPoint: '饮食记录应该先记录情境和感受，再记录热量。',
+        branches: ['识别压力进食前十分钟发生的事', '把建议改成温和的小替代'],
+        tensions: '理解情绪会不会反而变成另一种规训？',
+        next: '记录三次想吃的时刻',
+        actions: { deeper: '追问想吃前十分钟', outline: '设计情绪记录卡', echo: '连接情绪天气', rest: '等真实触发出现' },
+        seed: '最初种子：饮食建议很少问，那一口东西当时安慰了什么。'
+      },
+      nodes: [{ id: createdAt + 201, text: '食物也可能是一种情绪天气的读数。', keyword: '情绪读数', type: 'ai', time: '7/19 20:20', tasks: [] }],
+      chatHistory: [
+        { role: 'user', content: '如果饮食顾问先理解情绪价值呢？' },
+        { role: 'assistant', content: '那第一句不该问吃了什么，而该问刚才发生了什么。' }
+      ],
+      createdAt: createdAt + 1000, updatedAt: createdAt + 8000
+    },
+    {
+      id: 'concept-weather', isConcept: true, name: '情绪天气预报', status: 'pause',
+      card: {
+        core: '用一周的照片生成一张心情走势。',
+        origin: '相册留下了许多情绪线索，却从来没有被放在一起看。',
+        turningPoint: '照片不必判断情绪，只需要成为重新命名它的入口。',
+        branches: ['从光线与拍摄对象回看一周', '让用户修正系统的情绪猜测'],
+        tensions: '从照片推断心情，会不会显得武断甚至冒犯？',
+        next: '选出一周七张照片',
+        actions: { deeper: '对照照片与真实心情', outline: '画出一周天气卡', echo: '连接饮食情绪', rest: '攒满一周照片' },
+        seed: '最初种子：如果相册能像天气图一样显出这一周的心情。'
+      },
+      nodes: [{ id: createdAt + 301, text: '重点不是识别准确，而是让人愿意回看并重新命名。', keyword: '重新命名', type: 'ai', time: '7/20 22:10', tasks: [] }],
+      chatHistory: [
+        { role: 'user', content: '我想用一周照片生成心情走势。' },
+        { role: 'assistant', content: '它应该解释你，还是邀请你解释自己？' }
+      ],
+      createdAt: createdAt + 2000, updatedAt: createdAt + 9000
+    },
+    {
+      id: 'concept-drawer', isConcept: true, name: '一个想法抽屉', status: 'grow',
+      card: {
+        core: '聊天只是抽屉，真正留下来的是会继续生长的点子卡。',
+        origin: '想法聊完以后，如果只剩聊天记录，它还是很容易落灰。',
+        turningPoint: '把聊天降到底部之后，思考的产物终于成为主角。',
+        branches: ['让卡片在对话后自动结晶', '让旧点子在宇宙中重新相遇'],
+        tensions: '结构是在照亮想法，还是过早替想法定型？',
+        next: '验证第一次结晶',
+        actions: { deeper: '观察第一次结晶', outline: '梳理三层宇宙', echo: '连接旧点子', rest: '等真实使用反馈' },
+        seed: '最初种子：给一闪而过的念头一个能回来找到的地方。'
+      },
+      nodes: [{ id: createdAt + 401, text: '思考的产物应该比思考的过程占据更多视觉重心。', keyword: '产物大于过程', type: 'ai', time: '7/21 19:28', tasks: [] }],
+      chatHistory: [
+        { role: 'user', content: '聊天只是辅助，点子卡才是核心资产。' },
+        { role: 'assistant', content: '那聊天应该像真正的抽屉，用完后把空间还给点子。' }
+      ],
+      createdAt: createdAt + 3000, updatedAt: createdAt + 10000
+    }
+  ];
+  if (!includeSupernova) return base;
+  return [...base, {
+    id: 'concept-climate-menu', isConcept: true, type: 'supernova', status: 'seed',
+    name: '情绪气候食谱', parentIds: ['concept-food', 'concept-weather'],
+    card: {
+      core: '把照片里的情绪天气与饮食选择放在一起，生成一份只属于个人的“气候食谱”。',
+      origin: '从「情绪价值饮食顾问」与「情绪天气预报」的交叉处长出来。',
+      turningPoint: '食物不再只是记录对象，而成为情绪变化的一种温柔回应。',
+      branches: ['寻找天气变化与饮食选择的对应', '设计不带规训感的情绪食谱'],
+      tensions: '怎样提供帮助，同时不把情绪简化成算法标签？',
+      next: '画一张气候食谱',
+      actions: { deeper: '找一次天气与食欲变化', outline: '画气候食谱原型', echo: '寻找情绪日记案例', rest: '保留为候选新星' },
+      seed: '碰撞种子：照片里的情绪天气 × 食物承担的安慰功能。'
+    },
+    discovery: { kind: 'generative-collision', synergy: 88, novelty: 82, specificity: 76 },
+    nodes: [],
+    chatHistory: [{ role: 'assistant', content: '✦ 这颗候选新星来自两个旧点子的碰撞。它不是总结，而是一个此前不存在的新方向。' }],
+    createdAt: Date.now(), updatedAt: Date.now()
+  }];
+}
+
 const EMBEDDING_MODEL = 'BAAI/bge-m3';
 const EMBEDDING_CACHE_VERSION = 2;
 const EMBEDDING_DB_NAME = 'drawer-semantic-index';
@@ -38,6 +147,7 @@ function getIdeaUserTurnCount(idea) {
 
 function getIdeaCosmicType(idea, now = Date.now()) {
   if (idea?.type === 'supernova') return 'supernova';
+  if (idea?.isConcept) return 'idea';
   const hasCard = Boolean(idea?.card?.core);
   const lastActivityAt = Number(idea?.updatedAt || idea?.createdAt || now);
   const inactiveFor = Math.max(0, now - lastActivityAt);
@@ -873,7 +983,10 @@ async function importDrawerBackup(event) {
     input.value = '';
   }
 }
-function getIdea(id) { return ideas.find(i => i.id === id); }
+function getIdea(id) {
+  return ideas.find(i => i.id === id)
+    || (conceptUniverseActive ? conceptUniverseIdeas.find(i => i.id === id) : null);
+}
 
 function createIdea() {
   const name = document.getElementById('newIdeaInput').value.trim();
@@ -1144,9 +1257,156 @@ let universeFocusId = null;
 let inspectedUniverseIdeaId = null;
 let activeUniverseLinks = [];
 
+function shouldOfferConceptUniverse() {
+  const hasRealUniverseIdea = ideas.some(idea => idea.card?.core);
+  if (hasRealUniverseIdea) return false;
+  const forced = new URLSearchParams(window.location.search).get('concept') === '1';
+  if (forced) return true;
+  if (localStorage.getItem(CONCEPT_UNIVERSE_DISMISSED_KEY)) return false;
+  return true;
+}
+
+function clearConceptUniverseTimers() {
+  conceptUniverseTimers.forEach(timer => clearTimeout(timer));
+  conceptUniverseTimers = [];
+}
+
+function updateConceptUniverseGuide(phase) {
+  const guide = document.getElementById('conceptUniverseGuide');
+  if (!guide) return;
+  const title = document.getElementById('conceptGuideTitle');
+  const body = document.getElementById('conceptGuideBody');
+  const progress = [...guide.querySelectorAll('.concept-guide-step')];
+  const timeline = document.getElementById('conceptGuideTimelineFill');
+  guide.classList.add('show');
+  guide.setAttribute('aria-hidden', 'false');
+  progress.forEach((item, index) => {
+    item.classList.toggle('active', index <= phase - 1);
+    item.classList.toggle('current', index === phase - 1);
+    if (index === phase - 1) item.setAttribute('aria-current', 'step');
+    else item.removeAttribute('aria-current');
+  });
+  if (timeline) {
+    timeline.classList.remove('playing');
+    timeline.style.setProperty('--concept-phase-duration', `${CONCEPT_UNIVERSE_PHASE_DURATIONS[phase]}ms`);
+    void timeline.offsetWidth;
+    timeline.classList.add('playing');
+  }
+  if (phase === 1) {
+    title.textContent = t('先借你四颗星', 'Borrow four stars for a moment');
+    body.textContent = t(
+      '它们和真正的点子一样，会在同一片力场里漂浮，也可以被你拖着走。',
+      'They float in the same force field as real ideas, and you can drag them around.'
+    );
+  } else if (phase === 2) {
+    title.textContent = t('暗线正在显形', 'A hidden thread is appearing');
+    body.textContent = t(
+      '点子不需要被手动归类。它们靠近时，宇宙会把藏着的联系慢慢画出来。',
+      'Ideas do not need manual filing. As they draw near, the universe reveals their hidden thread.'
+    );
+  } else {
+    title.textContent = t('第三个方向出现了', 'A third direction appeared');
+    body.textContent = t(
+      '「情绪价值饮食顾问」与「情绪天气预报」碰撞后，长出了一颗候选新星。',
+      '“Emotional Eating Guide” and “Mood Weather” collided and grew a candidate supernova.'
+    );
+  }
+}
+
+function showConceptSupernovaBirth() {
+  const wrap = document.getElementById('universeSvgWrap');
+  if (!wrap) return;
+  const flash = document.createElement('div');
+  flash.className = 'supernova-birth-flash concept-supernova-flash';
+  flash.style.left = '68%';
+  flash.style.top = '44%';
+  wrap.appendChild(flash);
+  setTimeout(() => flash.remove(), 1800);
+  if (typeof confetti === 'function') {
+    confetti({
+      particleCount: 34,
+      spread: 88,
+      startVelocity: 18,
+      colors: ['#7ec8e3', '#5aa8c3', '#aedff5', '#ffffff'],
+      origin: { x: 0.68, y: 0.44 },
+      gravity: 0.38,
+      ticks: 80
+    });
+  }
+}
+
+function scheduleConceptUniverseAdvance() {
+  clearConceptUniverseTimers();
+  if (!conceptUniverseActive || conceptUniversePhase >= 3) return;
+  conceptUniverseTimers.push(setTimeout(() => {
+    if (!conceptUniverseActive || document.getElementById('universeView')?.style.display === 'none') return;
+    goToConceptUniversePhase(conceptUniversePhase + 1);
+  }, CONCEPT_UNIVERSE_PHASE_DURATIONS[conceptUniversePhase]));
+}
+
+function goToConceptUniversePhase(phase, options = {}) {
+  const nextPhase = Math.max(1, Math.min(3, Number(phase) || 1));
+  const previousPhase = conceptUniversePhase;
+  clearConceptUniverseTimers();
+  conceptUniverseActive = true;
+  conceptUniversePhase = nextPhase;
+  conceptUniverseIdeas = buildConceptUniverseIdeas(nextPhase >= 3);
+  universeFocusId = conceptUniverseIdeas[0].id;
+  updateConceptUniverseGuide(nextPhase);
+
+  if (options.render !== false) {
+    renderUniverse({
+      skipEmbeddingSync: true,
+      conceptTransition: nextPhase === 2 ? 'links' : nextPhase === 3 ? 'supernova' : 'stars'
+    });
+  }
+  if (nextPhase === 3 && previousPhase !== 3) {
+    showConceptSupernovaBirth();
+  }
+  scheduleConceptUniverseAdvance();
+}
+
+function startConceptUniverseTour() {
+  goToConceptUniversePhase(1, { render: false });
+}
+
+function dismissConceptUniverseForRealIdea() {
+  if (!ideas.some(idea => idea.card?.core)) return;
+  localStorage.setItem(CONCEPT_UNIVERSE_DISMISSED_KEY, '1');
+  clearConceptUniverseTimers();
+  conceptUniverseActive = false;
+  conceptUniversePhase = 0;
+  conceptUniverseIdeas = [];
+  const guide = document.getElementById('conceptUniverseGuide');
+  guide?.classList.remove('show');
+  guide?.setAttribute('aria-hidden', 'true');
+}
+
+function finishConceptUniverseTour() {
+  localStorage.setItem(CONCEPT_UNIVERSE_DISMISSED_KEY, '1');
+  clearConceptUniverseTimers();
+  conceptUniverseActive = false;
+  conceptUniversePhase = 0;
+  conceptUniverseIdeas = [];
+  const guide = document.getElementById('conceptUniverseGuide');
+  guide?.classList.remove('show');
+  guide?.setAttribute('aria-hidden', 'true');
+  if (ideas.length >= 1) {
+    universeFocusId = ideas.find(idea => idea.card?.core)?.id || ideas[0]?.id || null;
+    renderUniverse();
+    return;
+  }
+  showNoSel();
+  setTimeout(() => document.getElementById('quickCaptureInput')?.focus(), 120);
+}
+
 function showUniverse() {
   setCardPageScroll(false);
-  universeFocusId = currentId || universeFocusId || ideas.find(i => i.card && i.card.core)?.id || ideas[0]?.id || null;
+  const launchConceptTour = shouldOfferConceptUniverse();
+  if (launchConceptTour && !conceptUniverseActive) startConceptUniverseTour();
+  universeFocusId = conceptUniverseActive
+    ? conceptUniverseIdeas[0]?.id || null
+    : currentId || universeFocusId || ideas.find(i => i.card && i.card.core)?.id || ideas[0]?.id || null;
   currentId = null;
   const noSel = document.getElementById('noSel');
   if (noSel) noSel.style.display = 'none';
@@ -1165,7 +1425,8 @@ function showUniverse() {
   const panel = document.getElementById('listPanel');
   if (panel && panel.classList.contains('open')) toggleSidebar();
   closeUniverseInspector();
-  if (window.DrawerAtlasView) window.DrawerAtlasView.activate();
+  if (window.DrawerAtlasView && conceptUniverseActive) window.DrawerAtlasView.switchMode('gravity');
+  else if (window.DrawerAtlasView) window.DrawerAtlasView.activate();
   else renderUniverse();
 }
 
@@ -1294,10 +1555,11 @@ function openUChat(idA, idB) {
   closeUniverseInspector();
 
   const key = getUChatKey(idA, idB);
-  const saved = localStorage.getItem(key);
+  const isConceptPair = Boolean(ideaA.isConcept || ideaB.isConcept);
+  const saved = isConceptPair ? null : localStorage.getItem(key);
   const history = saved ? JSON.parse(saved) : [];
 
-  uChatContext = { idA, idB, key, history };
+  uChatContext = { idA, idB, key, history, transient: isConceptPair };
 
   // Set title
   document.getElementById('uChatTitle').textContent = `✦ ${ideaA.name} × ${ideaB.name}`;
@@ -1327,7 +1589,7 @@ function openUChat(idA, idB) {
     appendUMsg('ai', opener);
     history.push({ role: 'assistant', content: opener });
     uChatContext.history = history;
-    localStorage.setItem(key, JSON.stringify(history));
+    if (!isConceptPair) localStorage.setItem(key, JSON.stringify(history));
   } else {
     history.forEach(m => appendUMsg(m.role === 'user' ? 'user' : 'ai', m.content));
   }
@@ -1496,7 +1758,9 @@ ${ctxB}
     appendUMsg('ai', t('连接出了点问题，再试一次？', 'The connection slipped. Try again?'));
   }
 
-  localStorage.setItem(uChatContext.key, JSON.stringify(uChatContext.history));
+  if (!uChatContext.transient) {
+    localStorage.setItem(uChatContext.key, JSON.stringify(uChatContext.history));
+  }
 }
 
 // Wire up input
@@ -1588,7 +1852,10 @@ function scheduleUniverseEmbeddingRefresh(ideasWithCards) {
 
 function renderUniverse(options = {}) {
   if (window.DrawerAtlasView && window.DrawerAtlasView.getMode() !== 'gravity') return;
-  const { skipEmbeddingSync = false } = options;
+  const { skipEmbeddingSync = false, conceptTransition = '' } = options;
+  const effectiveConceptTransition = conceptTransition
+    || (conceptUniverseActive && conceptUniversePhase === 1 ? 'stars' : '');
+  const universeIdeas = conceptUniverseActive ? conceptUniverseIdeas : ideas;
   const svg = d3.select('#universeSvg');
   svg.selectAll('*').remove();
   hideUniverseNodePreview();
@@ -1599,16 +1866,23 @@ function renderUniverse(options = {}) {
   const narration = document.getElementById('universeNarration');
   const subtitle = document.getElementById('universeSubtitle');
 
-  if (ideas.length < 2) {
+  if (universeIdeas.length < 2) {
     emptyEl.style.display = 'flex';
     svgWrap.style.display = 'none';
     narration.style.display = 'none';
     return;
   }
 
-  const ideasWithCards = ideas.filter(i => i.card && i.card.core);
-  updateUniverseSubtitle(ideas.length, ideasWithCards.length);
-  if (!skipEmbeddingSync) scheduleUniverseEmbeddingRefresh(ideasWithCards);
+  const ideasWithCards = universeIdeas.filter(i => i.card && i.card.core);
+  if (conceptUniverseActive) {
+    subtitle.textContent = t(
+      `${universeIdeas.length} 颗概念星 · 不会写入你的抽屉`,
+      `${universeIdeas.length} concept stars · nothing is saved`
+    );
+  } else {
+    updateUniverseSubtitle(universeIdeas.length, ideasWithCards.length);
+  }
+  if (!conceptUniverseActive && !skipEmbeddingSync) scheduleUniverseEmbeddingRefresh(ideasWithCards);
 
   emptyEl.style.display = 'none';
   svgWrap.style.display = 'block';
@@ -1619,7 +1893,7 @@ function renderUniverse(options = {}) {
 
   // Build nodes from all ideas. Color represents origin/type, never workflow status.
   const renderedAt = Date.now();
-  const nodes = ideas.map((idea, i) => {
+  const nodes = universeIdeas.map((idea, i) => {
     const hasCard = idea.card && idea.card.core;
     const chatLen = (idea.chatHistory || []).length;
     const nodeCount = (idea.nodes || []).length;
@@ -1681,7 +1955,7 @@ function renderUniverse(options = {}) {
 
   const cardNodes = nodes.filter(n => n.hasCard);
   const embeddingItems = cardNodes.map(node => {
-    const idea = ideas.find(candidate => candidate.id === node.id);
+    const idea = universeIdeas.find(candidate => candidate.id === node.id);
     const record = idea ? getCurrentIdeaEmbedding(idea) : null;
     return record ? { id: node.id, vector: record.vector } : null;
   }).filter(Boolean);
@@ -1696,13 +1970,13 @@ function renderUniverse(options = {}) {
   const hasCompleteEmbeddingSpace = embeddingItems.length === cardNodes.length;
 
   cardNodes.forEach((a, i) => {
-    const aIdea = ideas.find(idea => idea.id === a.id);
+    const aIdea = universeIdeas.find(idea => idea.id === a.id);
     const aText = [a.name, a.core, ...a.branches, a.tensions, ...(aIdea.nodes || []).map(n => n.text)].join(' ');
     const aConcepts = extractConcepts(aText);
     
     cardNodes.forEach((b, j) => {
       if (j <= i) return;
-      const bIdea = ideas.find(idea => idea.id === b.id);
+      const bIdea = universeIdeas.find(idea => idea.id === b.id);
       
       // Check if one is a direct parent of the other (Supernova relationship)
       const isParent = (aIdea.parentIds && aIdea.parentIds.includes(b.id)) || 
@@ -1727,6 +2001,10 @@ function renderUniverse(options = {}) {
       if (aIdea.type === 'supernova' || bIdea.type === 'supernova') {
         return;
       }
+
+      // The concept tour reveals only its planned threads, but renders them
+      // through the same links and force simulation as real ideas.
+      if (conceptUniverseActive) return;
 
       const semanticKey = [a.id, b.id].sort().join(':');
       const semanticEdge = semanticEdgeMap.get(semanticKey);
@@ -1769,8 +2047,40 @@ function renderUniverse(options = {}) {
       }
     });
   });
+  if (conceptUniverseActive && conceptUniversePhase >= 2) {
+    const conceptLinks = [
+      {
+        source: 'concept-food',
+        target: 'concept-weather',
+        strength: 0.82,
+        distance: 132,
+        relation: 'echo',
+        sourceType: 'concept',
+        sharedChars: '情绪线索',
+        aiReason: '一个从食物读情绪，一个从照片看天气——它们都在寻找生活留下的感受读数'
+      },
+      {
+        source: 'concept-needed',
+        target: 'concept-drawer',
+        strength: 0.54,
+        distance: 158,
+        relation: 'echo',
+        sourceType: 'concept',
+        sharedChars: '留下位置',
+        aiReason: '一个点子被保存下来，也是在确认：这个念头曾经被世界需要过'
+      }
+    ];
+    conceptLinks.forEach(link => {
+      const key = [link.source, link.target].sort().join(':');
+      const exists = links.some(candidate => [
+        candidate.source?.id || candidate.source,
+        candidate.target?.id || candidate.target
+      ].sort().join(':') === key);
+      if (!exists) links.push(link);
+    });
+  }
   activeUniverseLinks = links;
-  reportLocalSemanticDiagnostics(embeddingItems, cardNodes.length);
+  if (!conceptUniverseActive) reportLocalSemanticDiagnostics(embeddingItems, cardNodes.length);
 
   // Glow filter
   const defs = svg.append('defs');
@@ -1821,17 +2131,31 @@ function renderUniverse(options = {}) {
   // Links - visible thin line
   const linkSel = svg.append('g').selectAll('line')
     .data(links).join('line')
+    .attr('class', d => `universe-link ${conceptUniverseActive ? 'concept-universe-link' : ''} relation-${d.relation}`)
     .attr('stroke', d => d.relation === 'collision' ? '#7ec8e3' : '#d7a454')
     .attr('stroke-width', d => 0.5 + d.strength * 1.5)
     .attr('stroke-dasharray', '4,4')
-    .attr('opacity', d => 0.12 + d.strength * 0.25)
+    .attr('stroke-dashoffset', conceptUniverseActive && effectiveConceptTransition ? 72 : 0)
+    .attr('opacity', d => conceptUniverseActive && effectiveConceptTransition ? 0 : 0.12 + d.strength * 0.25)
     .attr('filter', 'url(#glow)')
     .attr('pointer-events', 'none');
+
+  if (conceptUniverseActive && effectiveConceptTransition) {
+    linkSel.transition()
+      .delay(d => d.relation === 'collision' ? 520 : 180)
+      .duration(d => d.relation === 'collision' ? 1250 : 1500)
+      .ease(d3.easeCubicOut)
+      .attr('stroke-dashoffset', 0)
+      .attr('opacity', d => 0.18 + d.strength * 0.34);
+  }
 
   // Node groups
   const nodeSel = svg.append('g').selectAll('g')
     .data(nodes).join('g')
-    .attr('class', 'universe-node')
+    .attr('class', d => `universe-node ${d.id === 'concept-climate-menu' ? 'concept-born-star' : ''}`)
+    .attr('opacity', d => conceptUniverseActive
+      && effectiveConceptTransition === 'supernova'
+      && d.id === 'concept-climate-menu' ? 0 : 1)
     .attr('cursor', 'pointer')
     .call(d3.drag()
       .on('start', (e, d) => { if (!e.active) universeSim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
@@ -1891,6 +2215,22 @@ function renderUniverse(options = {}) {
     .text(d => currentLanguage === 'en'
       ? d.displayName
       : (d.displayName.length > 8 ? d.displayName.slice(0, 8) + '…' : d.displayName));
+
+  if (conceptUniverseActive && effectiveConceptTransition === 'stars') {
+    nodeSel.attr('opacity', 0)
+      .transition()
+      .delay((d, index) => 120 + index * 190)
+      .duration(720)
+      .ease(d3.easeCubicOut)
+      .attr('opacity', 1);
+  } else if (conceptUniverseActive && effectiveConceptTransition === 'supernova') {
+    nodeSel.filter(d => d.id === 'concept-climate-menu')
+      .transition()
+      .delay(320)
+      .duration(1100)
+      .ease(d3.easeBackOut.overshoot(1.2))
+      .attr('opacity', 1);
+  }
 
   // Node hover preview. Link hints continue using nodeTip below.
   const tip = document.getElementById('nodeTip');
@@ -2024,6 +2364,13 @@ function renderUniverse(options = {}) {
     focusNode.fx = w / 2;
     focusNode.fy = h / 2;
   }
+  if (conceptUniverseActive && conceptUniversePhase >= 3) {
+    const bornStar = nodes.find(d => d.id === 'concept-climate-menu');
+    if (bornStar) {
+      bornStar.fx = w * 0.68;
+      bornStar.fy = h * 0.44;
+    }
+  }
 
   universeSim.on('tick', () => {
     linkSel
@@ -2040,7 +2387,14 @@ function renderUniverse(options = {}) {
   });
 
   // Generate AI narration
-  if (links.length > 0 && universeEmbeddingState !== 'syncing') {
+  if (conceptUniverseActive) {
+    narration.style.display = 'block';
+    document.getElementById('narrationText').textContent = conceptUniversePhase === 1
+      ? t('✦ 四颗借来的星正在进入同一片引力场。试着拖动它们。', '✦ Four borrowed stars are entering the same gravity field. Try dragging them.')
+      : conceptUniversePhase === 2
+        ? t('✦ 两条暗线正在显形。点子之间的联系，不需要你手动整理。', '✦ Two hidden threads are appearing. You do not have to organize them by hand.')
+        : t('✦ 新方向「情绪气候食谱」出现了。宇宙不仅保存点子，也会让第三种可能诞生。', '✦ A new direction appeared. The universe not only keeps ideas; it can grow a third possibility.');
+  } else if (links.length > 0 && universeEmbeddingState !== 'syncing') {
     generateUniverseNarration(ideasWithCards, links);
   } else if (ideasWithCards.length >= 2) {
     narration.style.display = 'block';
@@ -2055,11 +2409,11 @@ function renderUniverse(options = {}) {
   }
 
   // Auto-discover supernovae only after the real vector space is ready.
-  if (universeEmbeddingState === 'ready') autoDiscoverSupernovae(ideasWithCards);
+  if (!conceptUniverseActive && universeEmbeddingState === 'ready') autoDiscoverSupernovae(ideasWithCards);
 
   // First-visit guide
   const guideEl = document.getElementById('universeGuide');
-  if (guideEl && links.length > 0) {
+  if (!conceptUniverseActive && guideEl && links.length > 0) {
     const guideStorageKey = 'drawer_universe_guide_v2';
     const hasVisited = localStorage.getItem(guideStorageKey);
     if (!hasVisited) {
@@ -2075,7 +2429,7 @@ function renderUniverse(options = {}) {
     }
   }
 
-  if (currentLanguage === 'en') ensureUniverseEnglishLabels();
+  if (!conceptUniverseActive && currentLanguage === 'en') ensureUniverseEnglishLabels();
 }
 
 async function generateUniverseNarration(ideasWithCards, links) {
@@ -3153,8 +3507,10 @@ async function generateIdeaCard(auto) {
     idea.card = JSON.parse(raw);
     idea.updatedAt = Date.now();
     saveIdeas();
+    dismissConceptUniverseForRealIdea();
     renderCard();
     switchTab('card');
+    setTimeout(showCardBirthMoment, 420);
   } catch (e) {
     if (cardGenBtn) { cardGenBtn.disabled = false; cardGenBtn.textContent = '整理成卡片'; }
     if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = '重新整理'; }
@@ -3164,6 +3520,30 @@ async function generateIdeaCard(auto) {
     cardGenerating = false;
     if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = '重新整理'; }
   }
+}
+
+function showCardBirthMoment() {
+  if (localStorage.getItem(CARD_BIRTH_SEEN_KEY)) return;
+  const moment = document.getElementById('cardBirthMoment');
+  const ideaView = document.getElementById('ideaView');
+  const drawer = document.getElementById('drawerPanel');
+  if (!moment || !ideaView || !drawer) return;
+  localStorage.setItem(CARD_BIRTH_SEEN_KEY, '1');
+  drawer.classList.remove('open');
+  drawer.classList.add('closed');
+  updateDrawerLabel(false);
+  moment.classList.add('show');
+  moment.setAttribute('aria-hidden', 'false');
+  ideaView.classList.add('card-just-born');
+}
+
+function dismissCardBirthMoment(continueChat) {
+  const moment = document.getElementById('cardBirthMoment');
+  const ideaView = document.getElementById('ideaView');
+  moment?.classList.remove('show');
+  moment?.setAttribute('aria-hidden', 'true');
+  ideaView?.classList.remove('card-just-born');
+  if (continueChat) expandDrawerIfNot();
 }
 
 function copyCard() {

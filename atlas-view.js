@@ -1,6 +1,8 @@
 (function createAtlasView(root) {
   const MODE_STORAGE_KEY = 'drawer_universe_mode_v1';
   const NARRATIVE_STORAGE_KEY = 'drawer_atlas_narratives_v1';
+  const GUIDE_STORAGE_KEY = 'drawer_atlas_guide_dismissed_v1';
+  const GUIDE_DURATIONS = { 1: 3200, 2: 4600, 3: 5600 };
   const ANCHOR_VERSION = 1;
   const CLUSTER_COLORS = ['#ff9440', '#57c4c9', '#ffb870', '#8fdce0', '#d6a85a', '#75b9e6'];
   const AXIS_TERMS = {
@@ -25,6 +27,9 @@
   let atlasResizeObserver = null;
   let semanticContext = null;
   let semanticContextJob = null;
+  let atlasGuideActive = false;
+  let atlasGuidePhase = 0;
+  let atlasGuideTimer = null;
 
   function isActive() {
     return atlasMode === 'atlas'
@@ -49,6 +54,10 @@
   }
 
   function switchMode(mode) {
+    if (atlasMode === 'atlas' && mode !== 'atlas' && atlasGuideTimer) {
+      clearTimeout(atlasGuideTimer);
+      atlasGuideTimer = null;
+    }
     atlasMode = ['atlas', 'world'].includes(mode) ? mode : 'gravity';
     localStorage.setItem(MODE_STORAGE_KEY, atlasMode);
     updateModeChrome();
@@ -64,6 +73,8 @@
     }
     if (atlasMode === 'atlas') {
       window.DrawerWorldWindow?.deactivate();
+      if (shouldOfferGuide() && !atlasGuideActive) startGuide();
+      else if (atlasGuideActive) scheduleGuideAdvance();
       renderAtlas();
     } else if (atlasMode === 'world') {
       closeExpedition();
@@ -77,7 +88,10 @@
 
   function activate() {
     updateModeChrome();
-    if (atlasMode === 'atlas') renderAtlas();
+    if (atlasMode === 'atlas') {
+      if (shouldOfferGuide() && !atlasGuideActive) startGuide();
+      renderAtlas();
+    }
     else if (atlasMode === 'world') window.DrawerWorldWindow?.activate();
     else renderUniverse();
   }
@@ -175,6 +189,147 @@
     const text = document.getElementById('atlasLoadingText');
     if (text) text.textContent = message;
     loading?.classList.toggle('hidden', !visible);
+  }
+
+  function shouldOfferGuide() {
+    const forced = new URLSearchParams(window.location.search).get('concept') === '1';
+    if (forced) return true;
+    if (localStorage.getItem(GUIDE_STORAGE_KEY)) return false;
+    return ideas.filter(idea => idea.card?.core).length < 4;
+  }
+
+  function buildConceptAtlasData(phase = atlasGuidePhase || 1) {
+    const sourceIdeas = typeof buildConceptUniverseIdeas === 'function'
+      ? buildConceptUniverseIdeas(false)
+      : [];
+    const coordinates = [
+      [-0.62, -0.2],
+      [0.3, 0.28],
+      [0.58, -0.05],
+      [-0.34, 0.18]
+    ];
+    const points = sourceIdeas.slice(0, 4).map((idea, index) => ({
+      id: idea.id,
+      idea,
+      x: coordinates[index][0],
+      y: coordinates[index][1],
+      rawX: coordinates[index][0],
+      rawY: coordinates[index][1]
+    }));
+    const makeCluster = (id, indexes, name, color) => {
+      const clusterPoints = indexes.map(index => points[index]).filter(Boolean);
+      const centroid = {
+        x: clusterPoints.reduce((sum, point) => sum + point.x, 0) / Math.max(1, clusterPoints.length),
+        y: clusterPoints.reduce((sum, point) => sum + point.y, 0) / Math.max(1, clusterPoints.length)
+      };
+      const layoutPoints = clusterPoints.map(point => ({ ...point, layoutX: point.x, layoutY: point.y, clusterId: id }));
+      return {
+        id,
+        points: clusterPoints,
+        centroid,
+        name,
+        color,
+        isConstellation: phase >= 2 && clusterPoints.length >= 2,
+        layoutPoints,
+        edges: phase >= 2 ? DrawerAtlasSpace.minimumSpanningTree(layoutPoints) : [],
+        firstTimestamp: Math.min(...clusterPoints.map(point => Number(point.idea.createdAt || Date.now())))
+      };
+    };
+    const clusters = phase >= 2
+      ? [
+          makeCluster('concept-emotion', [1, 2], t('情绪与日常', 'Mood & Everyday'), CLUSTER_COLORS[0]),
+          makeCluster('concept-belonging', [0, 3], t('需要感与容器', 'Belonging & Containers'), CLUSTER_COLORS[1])
+        ]
+      : points.map((_, index) => makeCluster(`concept-single-${index}`, [index], '', '#d8dbdc'));
+    const terraRegions = phase >= 3 ? [{
+      id: 'concept-terra-action',
+      x: 0.02,
+      y: 0.78,
+      radius: 0.22,
+      area: 0.16,
+      searchArea: 'output',
+      name: t('行动与实验', 'Action & Experiments'),
+      starter: t('如果把其中一个想法做成明天能试一次的东西，它会是什么？', 'What could one of these ideas become if you tried it once tomorrow?'),
+      alternatives: [
+        t('哪颗星最接近一个可以动手的原型？', 'Which star is closest to a prototype you can make?'),
+        t('什么小实验能让这片空白出现第一颗星？', 'What small experiment could place the first star here?')
+      ]
+    }] : [];
+    return { points, clusters, terraRegions, vectorDimension: 0, conceptPreview: true, conceptPhase: phase };
+  }
+
+  function updateGuide() {
+    const guide = document.getElementById('atlasConceptGuide');
+    if (!guide) return;
+    const title = document.getElementById('atlasConceptGuideTitle');
+    const body = document.getElementById('atlasConceptGuideBody');
+    const steps = [...guide.querySelectorAll('.concept-guide-step')];
+    const timeline = document.getElementById('atlasConceptTimelineFill');
+    guide.classList.add('show');
+    guide.setAttribute('aria-hidden', 'false');
+    steps.forEach((step, index) => {
+      step.classList.toggle('active', index < atlasGuidePhase);
+      step.classList.toggle('current', index === atlasGuidePhase - 1);
+      if (index === atlasGuidePhase - 1) step.setAttribute('aria-current', 'step');
+      else step.removeAttribute('aria-current');
+    });
+    if (timeline) {
+      timeline.classList.remove('playing');
+      timeline.style.setProperty('--concept-phase-duration', `${GUIDE_DURATIONS[atlasGuidePhase]}ms`);
+      void timeline.offsetWidth;
+      timeline.classList.add('playing');
+    }
+    if (atlasGuidePhase === 1) {
+      title.textContent = t('同一批星，变成一张地图', 'The same stars become a map');
+      body.textContent = t('这里不评判点子的好坏，只看它们更靠近内心还是世界、吸收还是产出。', 'This map does not judge ideas. It places them between self and world, absorbing and making.');
+    } else if (atlasGuidePhase === 2) {
+      title.textContent = t('靠近的点子，慢慢形成星座', 'Nearby ideas become constellations');
+      body.textContent = t('反复靠近的注意力会被辨认成星座，让你看见这一年真正围绕过什么。', 'Recurring directions become constellations, revealing what your attention has really orbited.');
+    } else {
+      title.textContent = t('空白也是你的轮廓', 'Blank space is part of your shape');
+      body.textContent = t('没有星星的区域会成为未知地带。它不是缺失，而是一张可以出发的邀请。', 'A region without stars becomes uncharted territory—not a failure, but an invitation to depart.');
+    }
+  }
+
+  function scheduleGuideAdvance() {
+    if (atlasGuideTimer) clearTimeout(atlasGuideTimer);
+    atlasGuideTimer = null;
+    if (!atlasGuideActive || atlasGuidePhase >= 3 || !isActive()) return;
+    atlasGuideTimer = setTimeout(() => goToGuidePhase(atlasGuidePhase + 1), GUIDE_DURATIONS[atlasGuidePhase]);
+  }
+
+  function goToGuidePhase(phase) {
+    atlasGuideActive = true;
+    atlasGuidePhase = Math.max(1, Math.min(3, Number(phase) || 1));
+    selectedTerraId = atlasGuidePhase >= 3 ? 'concept-terra-action' : null;
+    atlasData = buildConceptAtlasData(atlasGuidePhase);
+    updateGuide();
+    setAtlasLoading('', false);
+    updateAtlasMeta(atlasData);
+    if (isActive()) {
+      renderAtlasSvg(atlasData);
+      renderExpedition(atlasData.terraRegions.find(region => region.id === selectedTerraId));
+    }
+    scheduleGuideAdvance();
+  }
+
+  function startGuide() {
+    goToGuidePhase(1);
+  }
+
+  function finishGuide() {
+    localStorage.setItem(GUIDE_STORAGE_KEY, '1');
+    if (atlasGuideTimer) clearTimeout(atlasGuideTimer);
+    atlasGuideTimer = null;
+    atlasGuideActive = false;
+    atlasGuidePhase = 0;
+    selectedTerraId = null;
+    atlasData = null;
+    const guide = document.getElementById('atlasConceptGuide');
+    guide?.classList.remove('show');
+    guide?.setAttribute('aria-hidden', 'true');
+    closeExpedition();
+    renderAtlas(true);
   }
 
   function ideaDepth(idea) {
@@ -422,6 +577,7 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
 
   function axisText(svg, x, y, text, anchor = 'middle') {
     svg.append('text')
+      .attr('class', 'atlas-axis-label')
       .attr('x', x)
       .attr('y', y)
       .attr('text-anchor', anchor)
@@ -464,7 +620,9 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
     const x = mapFactory(-1, 1, plot.left, plot.right);
     const y = mapFactory(-1, 1, plot.bottom, plot.top);
     const svg = d3.select('#atlasSvg');
-    svg.attr('viewBox', `0 0 ${width} ${height}`).selectAll('*').remove();
+    svg.attr('viewBox', `0 0 ${width} ${height}`)
+      .classed('atlas-concept-preview', Boolean(data.conceptPreview))
+      .selectAll('*').remove();
 
     const defs = svg.append('defs');
     const glow = defs.append('filter').attr('id', 'atlasGlow');
@@ -533,7 +691,9 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
         .attr('x2', edge => x(edge.target.layoutX))
         .attr('y2', edge => y(edge.target.layoutY))
         .attr('stroke', cluster.color)
+        .attr('class', data.conceptPreview ? 'atlas-concept-edge' : null)
         .attr('stroke-width', 1)
+        .attr('stroke-dasharray', data.conceptPreview ? '90' : null)
         .attr('stroke-opacity', 0.42);
 
       const points = clusterLayer.append('g')
@@ -548,11 +708,14 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
         .attr('stroke', point => point.idea.type === 'supernova' ? '#d9f4ff' : 'rgba(255,255,255,.18)')
         .attr('stroke-width', point => point.idea.type === 'supernova' ? 1.6 : 0.7)
         .attr('filter', 'url(#atlasGlow)')
+        .attr('class', data.conceptPreview ? 'atlas-concept-point' : null)
         .attr('cursor', 'pointer')
         .on('mouseenter', (event, point) => showAtlasTooltip(event, point))
         .on('mousemove', (event, point) => showAtlasTooltip(event, point))
         .on('mouseleave', hideAtlasTooltip)
-        .on('click', (_, point) => selectIdea(point.idea.id));
+        .on('click', (_, point) => {
+          if (!data.conceptPreview) selectIdea(point.idea.id);
+        });
       points.append('title').text(point => point.idea.name);
 
       if (!cluster.isConstellation) return;
@@ -622,7 +785,11 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
     const meta = document.getElementById('atlasHeadingMeta');
     const subtitle = document.getElementById('universeSubtitle');
     const constellationCount = data.clusters.filter(cluster => cluster.isConstellation).length;
-    const text = currentLanguage === 'en'
+    const text = data.conceptPreview
+      ? (currentLanguage === 'en'
+          ? `${data.points.length} BORROWED STARS · CONCEPT MAP`
+          : `${data.points.length} 颗借来的星 · 概念测绘`)
+      : currentLanguage === 'en'
       ? `${data.points.length} IDEAS · ${constellationCount} CONSTELLATIONS · ${data.terraRegions.length} UNCHARTED`
       : `${data.points.length} 个点子 · ${constellationCount} 个星座 · ${data.terraRegions.length} 片未知区域`;
     if (meta) meta.textContent = text;
@@ -632,6 +799,14 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
   async function renderAtlas(force = false) {
     updateModeChrome();
     if (!isActive()) return;
+    if (atlasGuideActive) {
+      atlasData = buildConceptAtlasData(atlasGuidePhase || 1);
+      setAtlasLoading('', false);
+      updateAtlasMeta(atlasData);
+      renderAtlasSvg(atlasData);
+      renderExpedition(atlasData.terraRegions.find(region => region.id === selectedTerraId));
+      return atlasData;
+    }
     if (atlasData && !force) {
       setAtlasLoading('', false);
       updateAtlasMeta(atlasData);
@@ -685,8 +860,10 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
   root.DrawerAtlasView = {
     activate,
     closeExpedition,
+    finishGuide,
     getSemanticContext,
     getMode,
+    goToGuidePhase,
     invalidate,
     isActive,
     render: renderAtlas,

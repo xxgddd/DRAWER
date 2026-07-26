@@ -22,7 +22,7 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=69">
+  <link rel="stylesheet" href="style.css?v=76">
   <link rel="stylesheet" href="card-redesign.css?v=69">
   <link rel="stylesheet" href="card-reference.css">
   <link rel="stylesheet" href="chat-calm.css?v=69">
@@ -170,7 +170,34 @@
           </div>
         </div>
 
+        <aside class="concept-universe-guide" id="conceptUniverseGuide" aria-hidden="true">
+          <div class="concept-guide-kicker">✦ CONCEPT TOUR</div>
+          <div class="concept-guide-title" id="conceptGuideTitle">先借你四颗星</div>
+          <p id="conceptGuideBody">它们会像真正的点子一样漂浮、靠近，并在彼此之间长出暗线。</p>
+          <nav class="concept-guide-progress" aria-label="概念宇宙教程步骤">
+            <button class="concept-guide-step active" type="button" onclick="goToConceptUniversePhase(1)" aria-label="回到第一步：认识四颗星"><i></i></button>
+            <button class="concept-guide-step" type="button" onclick="goToConceptUniversePhase(2)" aria-label="前往第二步：观察暗线"><i></i></button>
+            <button class="concept-guide-step" type="button" onclick="goToConceptUniversePhase(3)" aria-label="前往第三步：发现新方向"><i></i></button>
+          </nav>
+          <button class="concept-guide-cta" type="button" onclick="finishConceptUniverseTour()">用我的点子充实这片宇宙</button>
+          <small>这只是一个概念浏览，不会写入你的抽屉。</small>
+          <div class="concept-guide-timeline" aria-hidden="true"><i id="conceptGuideTimelineFill"></i></div>
+        </aside>
+
         <div class="atlas-view" id="atlasView" aria-hidden="true">
+          <aside class="concept-view-guide atlas-concept-guide" id="atlasConceptGuide" aria-hidden="true">
+            <div class="concept-guide-kicker">✦ ATLAS TOUR</div>
+            <div class="concept-guide-title" id="atlasConceptGuideTitle">同一批星，变成一张地图</div>
+            <p id="atlasConceptGuideBody">这里不评判点子的好坏，只看它们更靠近内心还是世界、吸收还是产出。</p>
+            <nav class="concept-guide-progress" aria-label="年鉴教程步骤">
+              <button class="concept-guide-step active" type="button" onclick="DrawerAtlasView.goToGuidePhase(1)" aria-label="回到第一步：认识坐标"><i></i></button>
+              <button class="concept-guide-step" type="button" onclick="DrawerAtlasView.goToGuidePhase(2)" aria-label="前往第二步：形成星座"><i></i></button>
+              <button class="concept-guide-step" type="button" onclick="DrawerAtlasView.goToGuidePhase(3)" aria-label="前往第三步：发现未知区域"><i></i></button>
+            </nav>
+            <button class="concept-guide-cta" type="button" onclick="DrawerAtlasView.finishGuide()">等我的点子长成自己的年鉴</button>
+            <small>这只是概念测绘，不会写入你的抽屉。</small>
+            <div class="concept-guide-timeline" aria-hidden="true"><i id="atlasConceptTimelineFill"></i></div>
+          </aside>
           <div class="atlas-canvas-wrap" id="atlasCanvasWrap">
             <div class="atlas-heading">
               <div class="atlas-kicker">THE ATLAS OF YOUR YEAR</div>
@@ -204,6 +231,19 @@
 
         <div class="world-window" id="worldWindowView" aria-hidden="true">
           <div class="world-window-frame">
+            <aside class="concept-view-guide world-concept-guide" id="worldConceptGuide" aria-hidden="true">
+              <div class="concept-guide-kicker">✦ WORLD WINDOW TOUR</div>
+              <div class="concept-guide-title" id="worldConceptGuideTitle">这里是你的已知内海</div>
+              <p id="worldConceptGuideBody">橙色星光来自你已经留下的念头，海岸线是此刻认知的边界。</p>
+              <nav class="concept-guide-progress" aria-label="世界之窗教程步骤">
+                <button class="concept-guide-step active" type="button" onclick="DrawerWorldWindow.goToGuidePhase(1)" aria-label="回到第一步：认识已知内海"><i></i></button>
+                <button class="concept-guide-step" type="button" onclick="DrawerWorldWindow.goToGuidePhase(2)" aria-label="前往第二步：点亮外部灯塔"><i></i></button>
+                <button class="concept-guide-step" type="button" onclick="DrawerWorldWindow.goToGuidePhase(3)" aria-label="前往第三步：打开今日来信"><i></i></button>
+              </nav>
+              <button class="concept-guide-cta" type="button" onclick="DrawerWorldWindow.finishGuide()">等我的世界收到真正的来信</button>
+              <small>灯塔只是概念示范，不会自动收藏或生成点子。</small>
+              <div class="concept-guide-timeline" aria-hidden="true"><i id="worldConceptTimelineFill"></i></div>
+            </aside>
             <i class="world-corner world-corner-tl"></i>
             <i class="world-corner world-corner-tr"></i>
             <i class="world-corner world-corner-bl"></i>
@@ -341,6 +381,17 @@
 
       <!-- Idea View -->
       <div class="idea-view" id="ideaView" style="display: none;">
+        <div class="card-birth-moment" id="cardBirthMoment" aria-hidden="true">
+          <div class="card-birth-star">✦</div>
+          <div class="card-birth-copy">
+            <span>想法结晶了</span>
+            <strong>刚才聊散的东西，已经长成了一张卡片。</strong>
+          </div>
+          <div class="card-birth-actions">
+            <button class="primary" type="button" onclick="dismissCardBirthMoment(false)">看看这张卡片</button>
+            <button type="button" onclick="dismissCardBirthMoment(true)">继续聊</button>
+          </div>
+        </div>
         <div class="idea-bar">
           <div class="idea-hero-main">
             <div class="idea-hero-kicker"><span class="idea-hero-star">✦</span><span>核心点子</span><span class="idea-hero-number" id="ideaHeroNumber"></span></div>
@@ -576,9 +627,9 @@
 
   <script src="semantic-space.js?v=55"></script>
   <script src="atlas-space.js?v=61"></script>
-  <script src="script.js?v=69"></script>
-  <script src="atlas-view.js?v=62"></script>
-  <script src="world-window.js?v=69"></script>
+  <script src="script.js?v=73"></script>
+  <script src="atlas-view.js?v=63"></script>
+  <script src="world-window.js?v=70"></script>
   <script>
     // Service Worker Registration
     if ('serviceWorker' in navigator) {
