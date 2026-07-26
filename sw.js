@@ -1,4 +1,4 @@
-const CACHE_NAME = 'drawer-v76-light-frost';
+const CACHE_NAME = 'drawer-v81-settled-guide-transitions';
 const ASSETS = [
   '/',
   '/index.html',

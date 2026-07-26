@@ -2301,79 +2301,116 @@ body::before {
 /* ── First-run concept universe ── */
 .concept-universe-guide {
   position: absolute;
-  top: 92px;
-  left: 30px;
   z-index: 12;
-  width: min(306px, calc(100% - 60px));
-  padding: 18px 18px 23px;
-  overflow: hidden;
-  border: 1px solid rgba(166, 221, 238, .2);
-  border-radius: 12px;
+  width: 280px;
+  padding: 11px 14px 12px 29px;
+  border: 1px solid rgba(166, 221, 238, .14);
+  border-radius: 8px;
   background:
-    radial-gradient(circle at 12% 0%, rgba(126, 200, 227, .08), transparent 42%),
-    linear-gradient(145deg, rgba(24, 31, 34, .46), rgba(9, 12, 14, .32));
-  box-shadow: 0 16px 40px rgba(0, 0, 0, .22), inset 0 1px rgba(255, 255, 255, .035);
-  -webkit-backdrop-filter: blur(10px) saturate(110%);
-  backdrop-filter: blur(10px) saturate(110%);
+    radial-gradient(circle at 8% 0%, rgba(126, 200, 227, .07), transparent 46%),
+    linear-gradient(145deg, rgba(23, 30, 33, .54), rgba(8, 11, 13, .36));
+  box-shadow: 0 9px 26px rgba(0, 0, 0, .18), inset 0 1px rgba(255, 255, 255, .025);
+  -webkit-backdrop-filter: blur(8px) saturate(108%);
+  backdrop-filter: blur(8px) saturate(108%);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-8px);
-  transition: opacity .45s ease, transform .45s ease, visibility .45s;
+  pointer-events: none;
+  transform: translateY(5px);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .92);
+  transition: opacity .34s ease, visibility .34s;
 }
 
 .concept-universe-guide.show {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.concept-universe-guide.show.guide-positioned {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+  transform: none;
 }
 
 .concept-view-guide {
   position: absolute;
   z-index: 24;
-  width: min(306px, calc(100% - 48px));
-  padding: 18px 18px 23px;
-  overflow: hidden;
-  border: 1px solid rgba(166, 221, 238, .2);
-  border-radius: 12px;
+  width: 280px;
+  padding: 11px 14px 12px 29px;
+  border: 1px solid rgba(166, 221, 238, .14);
+  border-radius: 8px;
   background:
-    radial-gradient(circle at 12% 0%, rgba(126, 200, 227, .08), transparent 42%),
-    linear-gradient(145deg, rgba(24, 31, 34, .46), rgba(9, 12, 14, .32));
-  box-shadow: 0 16px 40px rgba(0, 0, 0, .22), inset 0 1px rgba(255, 255, 255, .035);
-  -webkit-backdrop-filter: blur(10px) saturate(110%);
-  backdrop-filter: blur(10px) saturate(110%);
+    radial-gradient(circle at 8% 0%, rgba(126, 200, 227, .07), transparent 46%),
+    linear-gradient(145deg, rgba(23, 30, 33, .54), rgba(8, 11, 13, .36));
+  box-shadow: 0 9px 26px rgba(0, 0, 0, .18), inset 0 1px rgba(255, 255, 255, .025);
+  -webkit-backdrop-filter: blur(8px) saturate(108%);
+  backdrop-filter: blur(8px) saturate(108%);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-8px);
-  transition: opacity .45s ease, transform .45s ease, visibility .45s;
+  pointer-events: none;
+  transform: translateY(5px);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .92);
+  transition: opacity .34s ease, visibility .34s;
 }
 
 .concept-view-guide.show {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+  transform: none;
 }
 
-.atlas-concept-guide {
-  top: 108px;
-  left: 24px;
+.concept-universe-guide::before,
+.concept-view-guide::before {
+  content: '';
+  position: absolute;
+  top: 21px;
+  left: 12px;
+  width: 10px;
+  height: 1px;
+  background: rgba(126, 200, 227, .72);
+  box-shadow: 0 0 8px rgba(126, 200, 227, .48);
 }
 
-.world-concept-guide {
-  top: 116px;
-  left: 22px;
+.scene-guide-connector {
+  position: absolute;
+  z-index: 0;
+  display: block;
+  height: 1px;
+  pointer-events: none;
+  transform-origin: left center;
+  background: linear-gradient(90deg, rgba(126, 200, 227, .28), rgba(126, 200, 227, .76));
+  box-shadow: 0 0 6px rgba(126, 200, 227, .24);
+  transition: none;
+}
+
+.scene-guide-connector::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid rgba(185, 231, 242, .72);
+  border-radius: 50%;
+  background: #102026;
+  box-shadow: 0 0 7px rgba(126, 200, 227, .55);
+}
+
+.concept-guide-title,
+.concept-universe-guide p,
+.concept-view-guide p,
+.concept-guide-cta {
+  position: relative;
+  z-index: 1;
 }
 
 .concept-view-guide p {
-  margin: 8px 0 0;
-  color: rgba(225, 216, 202, .58);
-  font: 12px/1.75 'Noto Serif SC', serif;
+  margin: 5px 0 0;
+  color: rgba(225, 216, 202, .52);
+  font: 11px/1.7 'Noto Serif SC', serif;
 }
 
 .concept-view-guide small {
-  display: block;
-  margin-top: 9px;
-  color: rgba(216, 207, 191, .28);
-  font: 8px/1.5 'Space Mono', monospace;
+  display: none;
 }
 
 .atlas-concept-preview .atlas-axis-label {
@@ -2385,7 +2422,7 @@ body::before {
 }
 
 .atlas-concept-preview .atlas-concept-edge {
-  animation: atlasConceptEdgeIn 1.15s ease forwards;
+  animation: atlasConceptEdgeIn .9s ease forwards;
 }
 
 .atlas-concept-preview .atlas-terra {
@@ -2402,8 +2439,8 @@ body::before {
 }
 
 @keyframes atlasConceptEdgeIn {
-  from { stroke-dashoffset: 90; opacity: 0; }
-  to { stroke-dashoffset: 0; opacity: .42; }
+  from { stroke-opacity: 0; }
+  to { stroke-opacity: .42; }
 }
 
 @keyframes atlasConceptTerraIn {
@@ -2423,27 +2460,24 @@ body::before {
 .universe-view.world-mode .concept-universe-guide { display: none; }
 
 .concept-guide-kicker {
-  color: #83c4d4;
-  font: 8px 'Space Mono', monospace;
-  letter-spacing: .18em;
+  display: none;
 }
 
 .concept-guide-title {
-  margin-top: 8px;
+  margin-top: 0;
   color: #efe8de;
-  font: 500 18px/1.35 'Noto Serif SC', serif;
+  font: 500 16px/1.4 'Noto Serif SC', serif;
+  letter-spacing: .02em;
 }
 
 .concept-universe-guide p {
-  margin: 8px 0 0;
-  color: rgba(225, 216, 202, .58);
-  font: 12px/1.75 'Noto Serif SC', serif;
+  margin: 5px 0 0;
+  color: rgba(225, 216, 202, .52);
+  font: 11px/1.7 'Noto Serif SC', serif;
 }
 
 .concept-guide-progress {
-  display: flex;
-  gap: 8px;
-  margin-top: 13px;
+  display: none;
 }
 
 .concept-guide-step {
@@ -2482,25 +2516,39 @@ body::before {
 }
 
 .concept-guide-cta {
-  margin-top: 15px;
-  padding: 8px 11px;
-  border: 1px solid rgba(215, 164, 84, .24);
-  border-radius: 6px;
-  background: rgba(215, 164, 84, .07);
-  color: #dfb979;
-  font: 10px 'Noto Serif SC', serif;
+  display: block;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(223, 185, 121, .9);
+  font: 11px/1.7 'Noto Serif SC', serif;
+  text-align: left;
   cursor: pointer;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity .7s ease, transform .7s ease, color .2s;
+}
+
+.concept-guide-cta::before {
+  content: '✦ ';
+  color: #7ec8e3;
+}
+
+.concept-universe-guide.action-ready .concept-guide-cta,
+.concept-view-guide.action-ready .concept-guide-cta {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.concept-guide-cta:hover {
+  color: #f1ca8b;
 }
 
 .concept-guide-timeline {
-  position: absolute;
-  right: 11px;
-  bottom: 0;
-  left: 11px;
-  height: 2px;
-  overflow: hidden;
-  border-radius: 99px;
-  background: rgba(126, 200, 227, .08);
+  display: none;
 }
 
 .concept-guide-timeline i {
@@ -2523,10 +2571,39 @@ body::before {
 }
 
 .concept-universe-guide small {
-  display: block;
-  margin-top: 9px;
-  color: rgba(216, 207, 191, .28);
-  font: 8px/1.5 'Space Mono', monospace;
+  display: none;
+}
+
+.concept-universe-guide.phase-1 .concept-guide-title,
+.concept-universe-guide.phase-1 p,
+.concept-universe-guide.phase-2 .concept-guide-title,
+.concept-universe-guide.phase-2 p,
+.concept-universe-guide.phase-3 .concept-guide-title,
+.concept-universe-guide.phase-3 p,
+.concept-view-guide.phase-1 .concept-guide-title,
+.concept-view-guide.phase-1 p,
+.concept-view-guide.phase-2 .concept-guide-title,
+.concept-view-guide.phase-2 p,
+.concept-view-guide.phase-3 .concept-guide-title,
+.concept-view-guide.phase-3 p {
+  animation: sceneGuideTextIn .58s cubic-bezier(.2,.75,.2,1) both;
+}
+
+.concept-view-guide.show.phase-1,
+.concept-view-guide.show.phase-2,
+.concept-view-guide.show.phase-3,
+.concept-universe-guide.show.guide-positioned {
+  animation: sceneGuidePhaseIn .42s ease both;
+}
+
+@keyframes sceneGuideTextIn {
+  from { opacity: 0; transform: translateY(6px); filter: blur(2px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes sceneGuidePhaseIn {
+  from { opacity: 0; filter: blur(2px); }
+  to { opacity: 1; filter: blur(0); }
 }
 
 .concept-universe-link {
@@ -2584,16 +2661,11 @@ body::before {
 
 @media (max-width: 700px) {
   .concept-universe-guide {
-    top: 76px;
-    left: 14px;
-    width: calc(100% - 28px);
-    padding: 14px;
+    max-width: calc(100% - 36px);
   }
 
   .concept-view-guide {
-    top: 86px;
-    left: 14px;
-    width: min(306px, calc(100% - 28px));
+    max-width: calc(100% - 36px);
   }
   .concept-guide-title { font-size: 16px; }
   .card-birth-moment {

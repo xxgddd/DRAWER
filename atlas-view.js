@@ -264,8 +264,9 @@
     const title = document.getElementById('atlasConceptGuideTitle');
     const body = document.getElementById('atlasConceptGuideBody');
     const steps = [...guide.querySelectorAll('.concept-guide-step')];
-    const timeline = document.getElementById('atlasConceptTimelineFill');
     guide.classList.add('show');
+    guide.classList.remove('phase-1', 'phase-2', 'phase-3', 'action-ready');
+    guide.classList.add(`phase-${atlasGuidePhase}`);
     guide.setAttribute('aria-hidden', 'false');
     steps.forEach((step, index) => {
       step.classList.toggle('active', index < atlasGuidePhase);
@@ -273,17 +274,11 @@
       if (index === atlasGuidePhase - 1) step.setAttribute('aria-current', 'step');
       else step.removeAttribute('aria-current');
     });
-    if (timeline) {
-      timeline.classList.remove('playing');
-      timeline.style.setProperty('--concept-phase-duration', `${GUIDE_DURATIONS[atlasGuidePhase]}ms`);
-      void timeline.offsetWidth;
-      timeline.classList.add('playing');
-    }
     if (atlasGuidePhase === 1) {
-      title.textContent = t('同一批星，变成一张地图', 'The same stars become a map');
+      title.textContent = t('同一批星，落在坐标里', 'The same stars settle into coordinates');
       body.textContent = t('这里不评判点子的好坏，只看它们更靠近内心还是世界、吸收还是产出。', 'This map does not judge ideas. It places them between self and world, absorbing and making.');
     } else if (atlasGuidePhase === 2) {
-      title.textContent = t('靠近的点子，慢慢形成星座', 'Nearby ideas become constellations');
+      title.textContent = t('靠近的星，慢慢连成星座', 'Nearby stars slowly form constellations');
       body.textContent = t('反复靠近的注意力会被辨认成星座，让你看见这一年真正围绕过什么。', 'Recurring directions become constellations, revealing what your attention has really orbited.');
     } else {
       title.textContent = t('空白也是你的轮廓', 'Blank space is part of your shape');
@@ -294,7 +289,15 @@
   function scheduleGuideAdvance() {
     if (atlasGuideTimer) clearTimeout(atlasGuideTimer);
     atlasGuideTimer = null;
-    if (!atlasGuideActive || atlasGuidePhase >= 3 || !isActive()) return;
+    if (!atlasGuideActive || !isActive()) return;
+    if (atlasGuidePhase >= 3) {
+      atlasGuideTimer = setTimeout(() => {
+        if (atlasGuideActive && isActive()) {
+          document.getElementById('atlasConceptGuide')?.classList.add('action-ready');
+        }
+      }, 2200);
+      return;
+    }
     atlasGuideTimer = setTimeout(() => goToGuidePhase(atlasGuidePhase + 1), GUIDE_DURATIONS[atlasGuidePhase]);
   }
 
@@ -619,6 +622,41 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
     };
     const x = mapFactory(-1, 1, plot.left, plot.right);
     const y = mapFactory(-1, 1, plot.bottom, plot.top);
+    const guide = document.getElementById('atlasConceptGuide');
+    if (guide && data.conceptPreview) {
+      let guideX = plot.left + 38;
+      let guideY = plot.top + 46;
+      let connectorX = data.points[0] ? x(data.points[0].x) : x(0);
+      let connectorY = data.points[0] ? y(data.points[0].y) : y(0);
+      if (data.conceptPhase === 2) {
+        const edge = data.clusters.flatMap(cluster => cluster.edges || [])[0];
+        if (edge) {
+          connectorX = (x(edge.source.layoutX) + x(edge.target.layoutX)) / 2;
+          connectorY = (y(edge.source.layoutY) + y(edge.target.layoutY)) / 2;
+          guideX = connectorX + 140;
+          guideY = connectorY - 124;
+        }
+      } else if (data.conceptPhase === 3 && data.terraRegions[0]) {
+        connectorX = x(data.terraRegions[0].x);
+        connectorY = y(data.terraRegions[0].y);
+        guideX = connectorX + 150;
+        guideY = connectorY - 72;
+      }
+      const guideWidth = Math.min(300, Math.max(220, width * .24));
+      const guideLeft = Math.max(24, Math.min(width - guideWidth - 24, guideX));
+      const guideTop = Math.max(92, Math.min(height - 150, guideY));
+      guide.style.width = `${guideWidth}px`;
+      guide.style.left = `${guideLeft}px`;
+      guide.style.top = `${guideTop}px`;
+      window.positionSceneGuideConnector?.(
+        guide,
+        connectorX,
+        connectorY,
+        guideLeft,
+        guideTop,
+        guideWidth
+      );
+    }
     const svg = d3.select('#atlasSvg');
     svg.attr('viewBox', `0 0 ${width} ${height}`)
       .classed('atlas-concept-preview', Boolean(data.conceptPreview))
@@ -693,7 +731,7 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
         .attr('stroke', cluster.color)
         .attr('class', data.conceptPreview ? 'atlas-concept-edge' : null)
         .attr('stroke-width', 1)
-        .attr('stroke-dasharray', data.conceptPreview ? '90' : null)
+        .attr('stroke-linecap', 'round')
         .attr('stroke-opacity', 0.42);
 
       const points = clusterLayer.append('g')

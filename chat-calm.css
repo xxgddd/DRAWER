@@ -126,6 +126,13 @@
 .idea-view .msg.ai .msg-bubble { border-top-left-radius:5px; }
 .idea-view .msg.user .msg-bubble { border-top-right-radius:5px; background:#2e2118; color:#f0d9c2; }
 .idea-view .msg.ai .msg-bubble strong { color:#efae59; font-weight:600; }
+.idea-view .msg-privacy-note {
+  max-width: 430px;
+  margin-top: 1px;
+  color: rgba(191, 184, 174, .42);
+  font: 400 9px/1.55 'Noto Serif SC', serif;
+  text-align: right;
+}
 
 .idea-view .chat-inline-actions { display:flex; flex-wrap:wrap; gap:4px; margin-top:1px; opacity:.48; transition:opacity .18s; }
 .idea-view .msg.ai:hover .chat-inline-actions { opacity:1; }

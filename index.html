@@ -22,10 +22,10 @@
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=76">
+  <link rel="stylesheet" href="style.css?v=80">
   <link rel="stylesheet" href="card-redesign.css?v=69">
   <link rel="stylesheet" href="card-reference.css">
-  <link rel="stylesheet" href="chat-calm.css?v=69">
+  <link rel="stylesheet" href="chat-calm.css?v=70">
   <link rel="stylesheet" href="sidebar-calm.css?v=69">
   <link rel="stylesheet" href="universe-interactions.css?v=69">
   <link rel="stylesheet" href="atlas-view.css?v=69">
@@ -172,14 +172,14 @@
 
         <aside class="concept-universe-guide" id="conceptUniverseGuide" aria-hidden="true">
           <div class="concept-guide-kicker">✦ CONCEPT TOUR</div>
-          <div class="concept-guide-title" id="conceptGuideTitle">先借你四颗星</div>
+          <div class="concept-guide-title" id="conceptGuideTitle">先送你四颗星</div>
           <p id="conceptGuideBody">它们会像真正的点子一样漂浮、靠近，并在彼此之间长出暗线。</p>
           <nav class="concept-guide-progress" aria-label="概念宇宙教程步骤">
             <button class="concept-guide-step active" type="button" onclick="goToConceptUniversePhase(1)" aria-label="回到第一步：认识四颗星"><i></i></button>
             <button class="concept-guide-step" type="button" onclick="goToConceptUniversePhase(2)" aria-label="前往第二步：观察暗线"><i></i></button>
             <button class="concept-guide-step" type="button" onclick="goToConceptUniversePhase(3)" aria-label="前往第三步：发现新方向"><i></i></button>
           </nav>
-          <button class="concept-guide-cta" type="button" onclick="finishConceptUniverseTour()">用我的点子充实这片宇宙</button>
+          <button class="concept-guide-cta" type="button" onclick="finishConceptUniverseTour()">用我的点子重拾这片宇宙</button>
           <small>这只是一个概念浏览，不会写入你的抽屉。</small>
           <div class="concept-guide-timeline" aria-hidden="true"><i id="conceptGuideTimelineFill"></i></div>
         </aside>
@@ -194,7 +194,7 @@
               <button class="concept-guide-step" type="button" onclick="DrawerAtlasView.goToGuidePhase(2)" aria-label="前往第二步：形成星座"><i></i></button>
               <button class="concept-guide-step" type="button" onclick="DrawerAtlasView.goToGuidePhase(3)" aria-label="前往第三步：发现未知区域"><i></i></button>
             </nav>
-            <button class="concept-guide-cta" type="button" onclick="DrawerAtlasView.finishGuide()">等我的点子长成自己的年鉴</button>
+            <button class="concept-guide-cta" type="button" onclick="DrawerAtlasView.finishGuide()">用我的点子绘出自己的年鉴</button>
             <small>这只是概念测绘，不会写入你的抽屉。</small>
             <div class="concept-guide-timeline" aria-hidden="true"><i id="atlasConceptTimelineFill"></i></div>
           </aside>
@@ -240,7 +240,7 @@
                 <button class="concept-guide-step" type="button" onclick="DrawerWorldWindow.goToGuidePhase(2)" aria-label="前往第二步：点亮外部灯塔"><i></i></button>
                 <button class="concept-guide-step" type="button" onclick="DrawerWorldWindow.goToGuidePhase(3)" aria-label="前往第三步：打开今日来信"><i></i></button>
               </nav>
-              <button class="concept-guide-cta" type="button" onclick="DrawerWorldWindow.finishGuide()">等我的世界收到真正的来信</button>
+              <button class="concept-guide-cta" type="button" onclick="DrawerWorldWindow.finishGuide()">用我的点子打开真正的世界之窗</button>
               <small>灯塔只是概念示范，不会自动收藏或生成点子。</small>
               <div class="concept-guide-timeline" aria-hidden="true"><i id="worldConceptTimelineFill"></i></div>
             </aside>
@@ -627,9 +627,9 @@
 
   <script src="semantic-space.js?v=55"></script>
   <script src="atlas-space.js?v=61"></script>
-  <script src="script.js?v=73"></script>
-  <script src="atlas-view.js?v=63"></script>
-  <script src="world-window.js?v=70"></script>
+  <script src="script.js?v=78"></script>
+  <script src="atlas-view.js?v=67"></script>
+  <script src="world-window.js?v=73"></script>
   <script>
     // Service Worker Registration
     if ('serviceWorker' in navigator) {

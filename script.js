@@ -15,6 +15,7 @@ let currentLanguage = localStorage.getItem('drawer_language') || 'zh';
 
 const CONCEPT_UNIVERSE_DISMISSED_KEY = 'drawer_concept_universe_dismissed_v1';
 const CARD_BIRTH_SEEN_KEY = 'drawer_card_birth_seen_v1';
+const FIRST_MESSAGE_PRIVACY_KEY = 'drawer_first_message_privacy_seen_v1';
 const CONCEPT_UNIVERSE_PHASE_DURATIONS = { 1: 2800, 2: 4400, 3: 5200 };
 let conceptUniverseActive = false;
 let conceptUniversePhase = 0;
@@ -1172,7 +1173,13 @@ async function selectIdea(id, options = {}) {
   if (chatHistory.length > 0) {
     // Render existing chat history
     chatHistory.forEach((msg, idx) => {
-      appendMsg(msg.role === 'user' ? 'user' : 'ai', msg.content, msg.role !== 'user' && idx >= 2, idx);
+      appendMsg(
+        msg.role === 'user' ? 'user' : 'ai',
+        msg.content,
+        msg.role !== 'user' && idx >= 2,
+        idx,
+        { showPrivacyNote: Boolean(msg.privacyNotice) }
+      );
     });
   } else if (idea.nodes.length === 0 && chatHistory.length === 0) {
     // First time
@@ -1277,8 +1284,9 @@ function updateConceptUniverseGuide(phase) {
   const title = document.getElementById('conceptGuideTitle');
   const body = document.getElementById('conceptGuideBody');
   const progress = [...guide.querySelectorAll('.concept-guide-step')];
-  const timeline = document.getElementById('conceptGuideTimelineFill');
   guide.classList.add('show');
+  guide.classList.remove('phase-1', 'phase-2', 'phase-3', 'action-ready', 'guide-positioned');
+  guide.classList.add(`phase-${phase}`);
   guide.setAttribute('aria-hidden', 'false');
   progress.forEach((item, index) => {
     item.classList.toggle('active', index <= phase - 1);
@@ -1286,20 +1294,14 @@ function updateConceptUniverseGuide(phase) {
     if (index === phase - 1) item.setAttribute('aria-current', 'step');
     else item.removeAttribute('aria-current');
   });
-  if (timeline) {
-    timeline.classList.remove('playing');
-    timeline.style.setProperty('--concept-phase-duration', `${CONCEPT_UNIVERSE_PHASE_DURATIONS[phase]}ms`);
-    void timeline.offsetWidth;
-    timeline.classList.add('playing');
-  }
   if (phase === 1) {
-    title.textContent = t('先借你四颗星', 'Borrow four stars for a moment');
+    title.textContent = t('先送你四颗星', 'Here are four stars');
     body.textContent = t(
       '它们和真正的点子一样，会在同一片力场里漂浮，也可以被你拖着走。',
       'They float in the same force field as real ideas, and you can drag them around.'
     );
   } else if (phase === 2) {
-    title.textContent = t('暗线正在显形', 'A hidden thread is appearing');
+    title.textContent = t('连接出现了', 'A connection appeared');
     body.textContent = t(
       '点子不需要被手动归类。它们靠近时，宇宙会把藏着的联系慢慢画出来。',
       'Ideas do not need manual filing. As they draw near, the universe reveals their hidden thread.'
@@ -1311,6 +1313,84 @@ function updateConceptUniverseGuide(phase) {
       '“Emotional Eating Guide” and “Mood Weather” collided and grew a candidate supernova.'
     );
   }
+}
+
+function positionSceneGuideConnector(guide, targetX, targetY, guideLeft, guideTop, guideWidth) {
+  if (!guide) return;
+  let connector = guide.querySelector('.scene-guide-connector');
+  if (!connector) {
+    connector = document.createElement('i');
+    connector.className = 'scene-guide-connector';
+    connector.setAttribute('aria-hidden', 'true');
+    guide.prepend(connector);
+  }
+  const targetIsLeft = targetX < guideLeft + guideWidth / 2;
+  const anchorX = targetIsLeft ? 0 : guideWidth;
+  const anchorY = Math.min(48, Math.max(22, guide.offsetHeight * .42));
+  const dx = targetX - (guideLeft + anchorX);
+  const dy = targetY - (guideTop + anchorY);
+  connector.style.left = `${anchorX}px`;
+  connector.style.top = `${anchorY}px`;
+  connector.style.width = `${Math.max(18, Math.hypot(dx, dy))}px`;
+  connector.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+}
+window.positionSceneGuideConnector = positionSceneGuideConnector;
+
+function positionConceptUniverseGuide(nodes, svgWrap) {
+  const guide = document.getElementById('conceptUniverseGuide');
+  if (!guide || !conceptUniverseActive || !nodes?.length || !svgWrap) return;
+  const phase = conceptUniversePhase || 1;
+  let targetX = svgWrap.clientWidth * .5;
+  let targetY = svgWrap.clientHeight * .42;
+
+  let connectorTargetX = targetX;
+  let connectorTargetY = targetY;
+  if (phase === 1) {
+    const borrowed = nodes.filter(node => node.id !== 'concept-climate-menu');
+    targetX = borrowed.reduce((sum, node) => sum + Number(node.x || 0), 0) / Math.max(1, borrowed.length);
+    targetY = borrowed.reduce((sum, node) => sum + Number(node.y || 0), 0) / Math.max(1, borrowed.length);
+    const pointedStar = nodes.find(node => node.id === 'concept-food') || borrowed[0];
+    connectorTargetX = Number(pointedStar?.x || targetX);
+    connectorTargetY = Number(pointedStar?.y || targetY);
+  } else if (phase === 2) {
+    const source = nodes.find(node => node.id === 'concept-food');
+    const target = nodes.find(node => node.id === 'concept-weather');
+    if (source && target) {
+      targetX = (source.x + target.x) / 2;
+      targetY = (source.y + target.y) / 2;
+      connectorTargetX = targetX;
+      connectorTargetY = targetY;
+    }
+  } else {
+    const born = nodes.find(node => node.id === 'concept-climate-menu');
+    if (born) {
+      targetX = born.x;
+      targetY = born.y;
+      connectorTargetX = targetX;
+      connectorTargetY = targetY;
+    }
+  }
+
+  const guideWidth = Math.min(292, Math.max(210, svgWrap.clientWidth * .28));
+  const offsetX = phase === 1 ? -guideWidth - 120 : 120;
+  const offsetY = phase === 1 ? -96 : -112;
+  const left = Math.max(18, Math.min(svgWrap.clientWidth - guideWidth - 18, targetX + offsetX));
+  const top = Math.max(svgWrap.offsetTop + 18, Math.min(
+    svgWrap.offsetTop + svgWrap.clientHeight - 132,
+    svgWrap.offsetTop + targetY + offsetY
+  ));
+  guide.style.width = `${guideWidth}px`;
+  guide.style.left = `${left}px`;
+  guide.style.top = `${top}px`;
+  positionSceneGuideConnector(
+    guide,
+    connectorTargetX,
+    svgWrap.offsetTop + connectorTargetY,
+    left,
+    top,
+    guideWidth
+  );
+  guide.classList.add('guide-positioned');
 }
 
 function showConceptSupernovaBirth() {
@@ -1337,7 +1417,14 @@ function showConceptSupernovaBirth() {
 
 function scheduleConceptUniverseAdvance() {
   clearConceptUniverseTimers();
-  if (!conceptUniverseActive || conceptUniversePhase >= 3) return;
+  if (!conceptUniverseActive) return;
+  if (conceptUniversePhase >= 3) {
+    conceptUniverseTimers.push(setTimeout(() => {
+      if (!conceptUniverseActive) return;
+      document.getElementById('conceptUniverseGuide')?.classList.add('action-ready');
+    }, 2200));
+    return;
+  }
   conceptUniverseTimers.push(setTimeout(() => {
     if (!conceptUniverseActive || document.getElementById('universeView')?.style.display === 'none') return;
     goToConceptUniversePhase(conceptUniversePhase + 1);
@@ -2372,6 +2459,7 @@ function renderUniverse(options = {}) {
     }
   }
 
+  let conceptGuidePositioned = false;
   universeSim.on('tick', () => {
     linkSel
       .attr('x1', d => Math.max(20, Math.min(w - 20, d.source.x)))
@@ -2384,16 +2472,15 @@ function renderUniverse(options = {}) {
       .attr('x2', d => Math.max(20, Math.min(w - 20, d.target.x)))
       .attr('y2', d => Math.max(20, Math.min(h - 20, d.target.y)));
     nodeSel.attr('transform', d => `translate(${Math.max(20, Math.min(w - 20, d.x))},${Math.max(20, Math.min(h - 20, d.y))})`);
+    if (conceptUniverseActive && !conceptGuidePositioned && universeSim.alpha() < .38) {
+      positionConceptUniverseGuide(nodes, svgWrap);
+      conceptGuidePositioned = true;
+    }
   });
 
   // Generate AI narration
   if (conceptUniverseActive) {
-    narration.style.display = 'block';
-    document.getElementById('narrationText').textContent = conceptUniversePhase === 1
-      ? t('✦ 四颗借来的星正在进入同一片引力场。试着拖动它们。', '✦ Four borrowed stars are entering the same gravity field. Try dragging them.')
-      : conceptUniversePhase === 2
-        ? t('✦ 两条暗线正在显形。点子之间的联系，不需要你手动整理。', '✦ Two hidden threads are appearing. You do not have to organize them by hand.')
-        : t('✦ 新方向「情绪气候食谱」出现了。宇宙不仅保存点子，也会让第三种可能诞生。', '✦ A new direction appeared. The universe not only keeps ideas; it can grow a third possibility.');
+    narration.style.display = 'none';
   } else if (links.length > 0 && universeEmbeddingState !== 'syncing') {
     generateUniverseNarration(ideasWithCards, links);
   } else if (ideasWithCards.length >= 2) {
@@ -3639,9 +3726,17 @@ async function sendMessage(e) {
     return;
   }
 
+  const hasPreviousUserMessage = ideas.some(candidate =>
+    (candidate.chatHistory || []).some(message => message.role === 'user')
+  );
+  const showPrivacyNote = !localStorage.getItem(FIRST_MESSAGE_PRIVACY_KEY) && !hasPreviousUserMessage;
+  if (!localStorage.getItem(FIRST_MESSAGE_PRIVACY_KEY)) {
+    localStorage.setItem(FIRST_MESSAGE_PRIVACY_KEY, '1');
+  }
+
   input.value = ''; input.style.height = 'auto';
-  appendMsg('user', text, false);
-  chatHistory.push({ role: 'user', content: text });
+  appendMsg('user', text, false, undefined, { showPrivacyNote });
+  chatHistory.push({ role: 'user', content: text, privacyNotice: showPrivacyNote });
 
   const idea = currentId ? getIdea(currentId) : null;
   if (idea) { idea.chatHistory = chatHistory; saveIdeas(); }
@@ -3876,7 +3971,7 @@ async function pinToTimeline(btn, isTodo, msgIdx) {
 }
 
 // ── DOM helpers ──
-function appendMsg(role, text, showPin, msgIdx) {
+function appendMsg(role, text, showPin, msgIdx, options = {}) {
   const msgs = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = `msg ${role}`;
@@ -3891,7 +3986,13 @@ function appendMsg(role, text, showPin, msgIdx) {
   const avatar = role === 'user'
     ? `<span class="msg-avatar msg-avatar-user">${t('你', 'You')}</span>`
     : `<span class="msg-avatar"><span class="msg-avatar-core"></span></span>`;
-  div.innerHTML = `${avatar}<div class="msg-stack"><div class="msg-who">${role === 'user' ? t('你', 'You') : t('抽屉', 'Drawer')}</div><div class="msg-bubble">${fmt(text)}</div>${actions}</div>`;
+  const privacyNote = role === 'user' && options.showPrivacyNote
+    ? `<div class="msg-privacy-note">${t(
+        '点子与对话记录只保存在此浏览器；为生成回复，当前对话会发送至 AI 服务处理，本应用不会在服务端保存对话记录。',
+        'Ideas and chat history stay in this browser. To generate a reply, the current conversation is sent to the AI service for processing and is not stored by this app.'
+      )}</div>`
+    : '';
+  div.innerHTML = `${avatar}<div class="msg-stack"><div class="msg-who">${role === 'user' ? t('你', 'You') : t('抽屉', 'Drawer')}</div><div class="msg-bubble">${fmt(text)}</div>${privacyNote}${actions}</div>`;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
 }

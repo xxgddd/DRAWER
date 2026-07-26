@@ -173,8 +173,9 @@
     const title = document.getElementById('worldConceptGuideTitle');
     const body = document.getElementById('worldConceptGuideBody');
     const steps = [...guide.querySelectorAll('.concept-guide-step')];
-    const timeline = document.getElementById('worldConceptTimelineFill');
     guide.classList.add('show');
+    guide.classList.remove('phase-1', 'phase-2', 'phase-3', 'action-ready');
+    guide.classList.add(`phase-${worldGuidePhase}`);
     guide.setAttribute('aria-hidden', 'false');
     steps.forEach((step, index) => {
       step.classList.toggle('active', index < worldGuidePhase);
@@ -182,20 +183,14 @@
       if (index === worldGuidePhase - 1) step.setAttribute('aria-current', 'step');
       else step.removeAttribute('aria-current');
     });
-    if (timeline) {
-      timeline.classList.remove('playing');
-      timeline.style.setProperty('--concept-phase-duration', `${GUIDE_DURATIONS[worldGuidePhase]}ms`);
-      void timeline.offsetWidth;
-      timeline.classList.add('playing');
-    }
     if (worldGuidePhase === 1) {
       title.textContent = t('这里是你的已知内海', 'This is your known inner sea');
       body.textContent = t('橙色星光来自你已经留下的念头，海岸线是此刻认知的边界。', 'The orange stars are thoughts you have kept; the shoreline is the edge of what you know today.');
     } else if (worldGuidePhase === 2) {
-      title.textContent = t('窗口从你的边缘向外打开', 'The window opens from your frontier');
+      title.textContent = t('一束光从边界外抵达', 'A light arrives from beyond the edge');
       body.textContent = t('青色灯塔不是随机推荐。每一盏都从某颗旧星出发，通向边界外的真实概念。', 'The cyan lights are not random. Each begins at one of your stars and points toward a real idea beyond the edge.');
     } else {
-      title.textContent = t('把一束外部光带回抽屉', 'Bring one outside light home');
+      title.textContent = t('它带来一封与你有关的信', 'It brings a letter connected to you');
       body.textContent = t('打开来信，看看它为何与你有关。你可以收藏它，也可以让它和旧点子发生一次碰撞。', 'Open the letter to see why it found you. Save it, or let it collide with an older idea.');
     }
   }
@@ -203,7 +198,15 @@
   function scheduleGuideAdvance() {
     if (worldGuideTimer) clearTimeout(worldGuideTimer);
     worldGuideTimer = null;
-    if (!worldGuideActive || worldGuidePhase >= 3 || !isActive()) return;
+    if (!worldGuideActive || !isActive()) return;
+    if (worldGuidePhase >= 3) {
+      worldGuideTimer = setTimeout(() => {
+        if (worldGuideActive && isActive()) {
+          document.getElementById('worldConceptGuide')?.classList.add('action-ready');
+        }
+      }, 2200);
+      return;
+    }
     worldGuideTimer = setTimeout(() => goToGuidePhase(worldGuidePhase + 1), GUIDE_DURATIONS[worldGuidePhase]);
   }
 
@@ -979,6 +982,39 @@
       screen: lightPosition(light, index, width, height)
     }));
     const pointById = new Map(worldData.context.points.map(point => [String(point.id), point]));
+    const guide = document.getElementById('worldConceptGuide');
+    if (guide && worldData.conceptPreview) {
+      const guideWidth = Math.min(300, Math.max(220, width * .24));
+      let target = [...knownPositions.values()][0] || { x: width * .2, y: height * .65 };
+      if (worldData.conceptPhase >= 2 && positioned[0]) {
+        const light = worldData.conceptPhase >= 3
+          ? (positioned.find(item => item.id === selectedLightId) || positioned[0])
+          : positioned[0];
+        const source = knownPositions.get(String(light.anchorId || light.nearestIdeaId || ''))
+          || [...knownPositions.values()][0]
+          || target;
+        target = worldData.conceptPhase === 2
+          ? { x: (source.x + light.screen.x) / 2, y: (source.y + light.screen.y) / 2 }
+          : light.screen;
+      }
+      const guideX = worldData.conceptPhase === 3
+        ? target.x - guideWidth - 110
+        : target.x + (worldData.conceptPhase === 1 ? 120 : 150);
+      const guideY = target.y + (worldData.conceptPhase === 1 ? -150 : worldData.conceptPhase === 2 ? -130 : 70);
+      const guideLeft = clamp(guideX, 24, width - guideWidth - 24);
+      const guideTop = clamp(guideY, 90, height - 154);
+      guide.style.width = `${guideWidth}px`;
+      guide.style.left = `${guideLeft}px`;
+      guide.style.top = `${guideTop}px`;
+      window.positionSceneGuideConnector?.(
+        guide,
+        target.x,
+        target.y,
+        guideLeft,
+        guideTop,
+        guideWidth
+      );
+    }
     const lineLayer = svg.append('g');
     positioned.forEach(light => {
       const anchorId = String(light.anchorId || light.nearestIdeaId || '');
