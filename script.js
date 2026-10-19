@@ -1394,7 +1394,7 @@ async function generateHook(idea) {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 120,
+        model: 'moonshotai/Kimi-K3', max_tokens: 120,
         messages: [
           {
             role: 'system', content: `你帮用户重新进入一个搁置中的想法。
@@ -2010,7 +2010,7 @@ ${ctxB}
     const res = await fetch('/api/chat', {
       method: 'POST', headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 200,
+        model: 'moonshotai/Kimi-K3', max_tokens: 200,
         messages
       })
     });
@@ -2555,7 +2555,7 @@ function renderUniverse(options = {}) {
       const res = await fetch('/api/chat', {
         method: 'POST', headers,
         body: JSON.stringify({
-          model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 60,
+          model: 'moonshotai/Kimi-K3', max_tokens: 60,
           messages: [
             { role: 'system', content: `从两个想法中各取一个具体元素，写一句让人突然看见它们之间暗线的话。
 15-35字，具体、有启发，但不要故作诗意。不要报告相似度，不要用“它们都 / 两者都是 / 都关于”开头，也不要只复述共同主题。
@@ -2750,7 +2750,7 @@ async function generateUniverseNarration(ideasWithCards, links) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 120,
+        model: 'moonshotai/Kimi-K3', max_tokens: 120,
         messages: [
           { role: 'system', content: `你是"抽屉"的思维观察者。用户有多个点子，你发现了它们之间的隐藏联系。
 用一句话（不超过50字）指出最有趣的交叉点。口语，像一个聪明的朋友轻声说的话。不要说"我发现"，直接说。` },
@@ -2995,7 +2995,7 @@ async function autoDiscoverSupernovae(ideasWithCards) {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct',
+        model: 'moonshotai/Kimi-K3',
         max_tokens: 700,
         messages: [
           {
@@ -3664,7 +3664,7 @@ async function triggerCardEvolution(ideaId) {
     const res = await fetch('/api/chat', {
       method: 'POST', headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 650,
+        model: 'moonshotai/Kimi-K3', max_tokens: 650,
         messages: [
           { role: 'system', content: `你是“抽屉”的想法编辑。用户的想法随着聊天变深了，请重写卡片的最新状态。
 
@@ -3765,7 +3765,7 @@ async function generateIdeaCard(auto) {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({
-        model: 'Qwen/Qwen2.5-72B-Instruct', max_tokens: 400,
+        model: 'moonshotai/Kimi-K3', max_tokens: 400,
         messages: [
           {
             role: 'system',
@@ -3969,7 +3969,7 @@ async function sendMessage(e) {
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     const requestBody = {
-      model: 'Qwen/Qwen2.5-72B-Instruct',
+      model: 'moonshotai/Kimi-K3',
       max_tokens: 800,
       stream: true,
       messages: [

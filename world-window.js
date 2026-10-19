@@ -522,7 +522,7 @@
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: 'Qwen/Qwen2.5-72B-Instruct',
+          model: 'moonshotai/Kimi-K3',
           max_tokens: 1600,
           messages: [
             {
@@ -1217,7 +1217,7 @@
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: 'Qwen/Qwen2.5-72B-Instruct',
+          model: 'moonshotai/Kimi-K3',
           max_tokens: 220,
           messages: [
             {

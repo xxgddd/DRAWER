@@ -28,14 +28,27 @@ export default async function handler(req) {
   const body = await req.json();
 
   try {
-    const response = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+    const requestUpstream = (payload) => fetch('https://api.siliconflow.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
+
+    let response = await requestUpstream(body);
+    if ((response.status === 400 || response.status === 404) && typeof body?.model === 'string' && body.model.includes('Kimi')) {
+      const fallbacks = ['Pro/moonshotai/Kimi-K3', 'Pro/moonshotai/Kimi-K2.5', 'moonshotai/Kimi-K2-Instruct'];
+      for (const fallbackModel of fallbacks) {
+        if (fallbackModel === body.model) continue;
+        const retry = await requestUpstream({ ...body, model: fallbackModel });
+        if (retry.ok || (retry.status !== 400 && retry.status !== 404)) {
+          response = retry;
+          break;
+        }
+      }
+    }
 
     return new Response(response.body, {
       status: response.status,
