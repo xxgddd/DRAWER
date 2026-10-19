@@ -934,7 +934,7 @@ function initGalaxyEngine() {
       if (seenIds.has(id)) return -100;
       seenIds.add(id);
       if (kind === 'idea') return 0.15 + (newIdeaCount++) * 0.07;
-      return 1.1 + (newLightCount++) * 0.85;
+      return 1.8 + (newLightCount++) * 0.85;
     };
 
     mappedIdeas.forEach((idea, i) => {
@@ -1364,8 +1364,8 @@ function initGalaxyEngine() {
   }
 
   const INTRO_END = 10.5;
-  // Opening sequence disabled for now: start the clock after it has finished.
-  const SKIP_OPENING = true;
+  // Set to true to skip the opening sequence (veil, camera dive, sun ignition).
+  const SKIP_OPENING = false;
   const clockStart = () => performance.now() - (SKIP_OPENING ? INTRO_END * 1000 : 0);
   let startTime = clockStart();
   const flags = { veil: SKIP_OPENING, hud: false, nudge: false, sunWave: SKIP_OPENING };
@@ -1419,8 +1419,9 @@ function initGalaxyEngine() {
     shoreTicks.opacity = 0.35 * easeOutCubic(clamp01((t - 5.6) / 1.2));
     satellite.material.opacity = 0.85 * clamp01((t - 6.2) / 1);
 
-    // ideas & lighthouses run on their own clock (data loads asynchronously)
-    const lt = (performance.now() - sceneBorn) / 1000;
+    // ideas & lighthouses run on their own clock (data loads asynchronously),
+    // but never before the opening reaches its reveal moment (~5s)
+    const lt = (performance.now() - Math.max(sceneBorn, startTime + 5000)) / 1000;
     items.forEach(it => {
       if (it.kind !== 'idea') return;
       it.appear = it.delay < 0 ? 1 : easeOutBack(clamp01((lt - it.delay) / 0.7));

@@ -77,10 +77,8 @@
   }
 
   function shouldOfferGuide() {
-    const forced = new URLSearchParams(window.location.search).get('concept') === '1';
-    if (forced) return true;
-    if (localStorage.getItem(GUIDE_STORAGE_KEY)) return false;
-    return !ideas.some(idea => idea.card?.core);
+    // Tour disabled for now: the opening sequence already introduces the metaphor.
+    return false;
   }
 
   function buildConceptGuideData(phase = worldGuidePhase || 1) {
