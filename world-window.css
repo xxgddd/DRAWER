@@ -157,11 +157,28 @@
   letter-spacing: 0.12em;
   opacity: 0.6;
 }
-.world-window .label.idea .sub { text-align: center; }
+.world-window .label .name {
+  display: block;
+  white-space: normal;
+  line-height: 1.18;
+}
+.world-window .label.light .name { max-width: 8.5em; margin-left: auto; }
+.world-window .label.idea .name { max-width: 10em; margin: 0 auto; }
+.world-window .label.idea .sub { text-align: center; white-space: normal; max-width: 18em; margin: 2px auto 0; line-height: 1.4; }
+.world-window .label.idea {
+  text-align: center;
+  color: #ffd2a1;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 1),
+    0 0 6px rgba(0, 0, 0, 0.95),
+    0 1px 14px rgba(0, 0, 0, 0.85),
+    0 0 22px rgba(240, 138, 75, 0.45);
+}
+.world-window .label.idea.anchor { color: #ffc47e; }
 .world-window .label.show { opacity: 1; }
 .world-window .label.focus { filter: brightness(1.35); }
-.world-window .label.dwarf { color: #a9b8cf; text-shadow: 0 0 10px rgba(169, 184, 207, 0.4); }
-.world-window .label.dormant { color: #c79a74; }
+.world-window .label.dwarf:not(.anchor) { color: #d3dcea; }
+.world-window .label.dormant:not(.anchor) { color: #f0c49c; }
 
 /* ---------------- HUD ---------------- */
 .world-hud {

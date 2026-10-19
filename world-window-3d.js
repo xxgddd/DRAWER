@@ -877,15 +877,37 @@ function initGalaxyEngine() {
     };
 
     const usedLightAngles = [];
+    const angDiff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+    const OFFSETS = [0.18, -0.18, 0.36, -0.36, 0.54, -0.54, 0.72, -0.72, 0.9, -0.9, 1.1, -1.1];
+    const segVec = new THREE.Vector3();
+    // closest distance from the sun (origin) to the straight segment a→b
+    const segMinDist = (a, b) => {
+      segVec.copy(b).sub(a);
+      const tt = clamp01(-a.dot(segVec) / segVec.lengthSq());
+      return a.clone().addScaledVector(segVec, tt).length();
+    };
     const mappedLights = rawLights.map((light, i) => {
       const anchorIdeaId = String(light.anchorId ?? light.nearestIdeaId ?? mappedIdeas[i % Math.max(1, mappedIdeas.length)]?.id ?? '');
       const anchorObj = mappedIdeas.find(m => m.id === anchorIdeaId) || mappedIdeas[0];
-      const baseAngle = anchorObj
-        ? anchorObj.angle + (i % 2 === 0 ? 0.55 : -0.55) + i * 0.25
-        : Math.atan2(Number(light.y) || 0, Number(light.x) || 0);
-      let angle = baseAngle;
-      while (usedLightAngles.some(a => Math.abs(Math.atan2(Math.sin(angle - a), Math.cos(angle - a))) < 0.65)) {
-        angle += 0.68;
+      const dist = Math.max(0.22, Math.min(1.45, Number(light.semanticDistance) || (light.role === 'far' ? 1.2 : light.role === 'echo' ? 0.72 : 0.35)));
+      const rLight = lightRadius({ distance: dist });
+      const tilt = LIGHT_TILT[i % LIGHT_TILT.length];
+      let angle;
+      if (anchorObj) {
+        const aPos = tilted(ORBITS[anchorObj.orbit], anchorObj.angle, ORBIT_TILT[anchorObj.orbit]);
+        const aR = aPos.length();
+        const ok = off => {
+          const ang = anchorObj.angle + off;
+          if (usedLightAngles.some(u => angDiff(ang, u) < 0.5)) return false;
+          const lPos = tilted(rLight, ang, tilt);
+          return lPos.distanceTo(aPos) <= rLight * 0.85 && segMinDist(aPos, lPos) >= aR * 0.92;
+        };
+        const off = OFFSETS.find(ok)
+          ?? OFFSETS.find(o => !usedLightAngles.some(u => angDiff(anchorObj.angle + o, u) < 0.5))
+          ?? OFFSETS[i % OFFSETS.length];
+        angle = anchorObj.angle + off;
+      } else {
+        angle = Math.atan2(Number(light.y) || 0, Number(light.x) || 0);
       }
       usedLightAngles.push(angle);
 
@@ -897,7 +919,6 @@ function initGalaxyEngine() {
       const descSecondary = langEn ? (light.description || '') : (light.descriptionEn || '');
       const whyPrimary = langEn ? (light.relationEn || light.relation) : (light.relationZh || light.relation);
       const whySecondary = langEn ? (light.relation || '') : (light.relationEn || '');
-      const dist = Math.max(0.22, Math.min(1.45, Number(light.semanticDistance) || (light.role === 'far' ? 1.2 : light.role === 'echo' ? 0.72 : 0.35)));
 
       return {
         id: String(light.id || `light-${i}`),
@@ -940,12 +961,15 @@ function initGalaxyEngine() {
     mappedIdeas.forEach((idea, i) => {
       const r = ORBITS[idea.orbit];
       const pos = tilted(r, idea.angle, ORBIT_TILT[idea.orbit]);
-      const size = idea.status === 'active' ? 1.15 + (i % 3) * 0.2 : idea.status === 'dormant' ? 0.95 : 0.6;
+      const isAnchor = anchorIds.has(idea.id);
+      const baseSize = idea.status === 'active' ? 1.15 + (i % 3) * 0.2 : idea.status === 'dormant' ? 0.95 : 0.6;
+      const size = isAnchor ? Math.max(1.35, baseSize * 1.35) : baseSize;
       const group = new THREE.Group();
       group.position.copy(pos);
-      const mesh = makePlanet({ color: idea.color, color2: idea.color2, bands: 8 + (i % 4) * 3, size, emissive: idea.status === 'active' ? 0.25 : 0.05 });
-      const glow = makeGlow(idea.color, size * (idea.status === 'dwarf' ? 3.5 : 5), idea.status === 'active' ? 0.32 : idea.status === 'dormant' ? 0.2 : 0.12);
+      const mesh = makePlanet({ color: idea.color, color2: idea.color2, bands: 8 + (i % 4) * 3, size, emissive: isAnchor ? 0.5 : idea.status === 'active' ? 0.25 : 0.05 });
+      const glow = makeGlow(idea.color, size * (idea.status === 'dwarf' && !isAnchor ? 3.5 : 5.5), isAnchor ? 0.5 : idea.status === 'active' ? 0.32 : idea.status === 'dormant' ? 0.2 : 0.12);
       group.add(mesh, glow);
+      if (isAnchor) group.add(makeGlow('#ffd9a0', size * 2.4, 0.55));
       group.scale.setScalar(alreadyRevealed ? 1 : 0.0001);
       dynamicGroup.add(group);
       const it = { kind: 'idea', data: idea, index: i, group, mesh, glow, size, glowBase: glow.material.opacity, glowScale: glow.scale.x, hover: 0, appear: 0, local: pos, delay: delayFor(`idea:${idea.id}`, 'idea') };
@@ -1022,8 +1046,8 @@ function initGalaxyEngine() {
             vec3 col = mix(uA, uB, smoothstep(0.15, 0.95, vT));
             float hd = (vT - uDraw) * 30.0;
             float head = exp(-hd * hd) * (1.0 - step(0.999, uDraw));
-            float a = mix(0.18 + 0.7 * dash, 0.45 + 0.55 * dash, uSel) + head * 2.0;
-            gl_FragColor = vec4(col * (1.6 + uSel * 1.2 + head * 2.0), min(a, 1.0));
+            float a = mix(0.42 + 0.58 * dash, 0.6 + 0.4 * dash, uSel) + head * 2.0;
+            gl_FragColor = vec4(col * (2.3 + uSel * 1.2 + head * 2.0), min(a, 1.0));
           }`,
         transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
       });
@@ -1048,10 +1072,10 @@ function initGalaxyEngine() {
       const d = it.data;
       if (it.kind === 'light') {
         el.className = 'label light';
-        el.innerHTML = `${esc(d.name)}<span class="sub">${esc(d.roleLabel)}</span>${d.zh && d.zh !== d.roleZh ? `<span class="sub alt">${esc(d.zh)}</span>` : ''}`;
+        el.innerHTML = `<span class="name">${esc(d.name)}</span><span class="sub">${esc(d.roleLabel)}</span>${d.zh && d.zh !== d.roleZh ? `<span class="sub alt">${esc(d.zh)}</span>` : ''}`;
       } else {
-        el.className = `label idea ${d.status}`;
-        el.innerHTML = `${esc(d.name)}<span class="sub">${esc(d.zh)}</span>`;
+        el.className = `label idea ${d.status}${anchorIds.has(d.id) ? ' anchor' : ''}`;
+        el.innerHTML = `<span class="name">${esc(d.name)}</span><span class="sub">${esc(d.zh)}</span>`;
       }
       labelsEl?.appendChild(el);
       it.label = el;
@@ -1490,7 +1514,8 @@ function initGalaxyEngine() {
         : (it.appear > 0.6);
       const wanted = s.visible && ((it.labelPinned && arcReady) || isHot || related);
       const clear = sunClearance(it.world);
-      const depth = (isHot || related) ? Math.max(0.75, nearSide(it.world)) : nearSide(it.world);
+      const depthFloor = (isHot || related) ? 0.75 : it.kind === 'idea' ? 0.55 : 0;
+      const depth = Math.max(depthFloor, nearSide(it.world));
       const alpha = wanted ? clear * depth : 0;
       it.label.classList.toggle('show', alpha > 0.02);
       it.label.style.opacity = alpha > 0.02 ? alpha.toFixed(3) : '0';
