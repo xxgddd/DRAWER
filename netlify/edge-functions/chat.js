@@ -44,12 +44,12 @@ export default async (request, context) => {
     });
 
     let response = await requestUpstream(body);
-    if ((response.status === 400 || response.status === 404) && typeof body?.model === 'string' && body.model.includes('Kimi')) {
-      const fallbacks = ['Pro/moonshotai/Kimi-K3', 'Pro/moonshotai/Kimi-K2.5', 'moonshotai/Kimi-K2-Instruct'];
+    if ([400, 403, 404].includes(response.status) && typeof body?.model === 'string') {
+      const fallbacks = ['deepseek-ai/DeepSeek-V3.2', 'deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-72B-Instruct'];
       for (const fallbackModel of fallbacks) {
         if (fallbackModel === body.model) continue;
         const retry = await requestUpstream({ ...body, model: fallbackModel });
-        if (retry.ok || (retry.status !== 400 && retry.status !== 404)) {
+        if (retry.ok) {
           response = retry;
           break;
         }

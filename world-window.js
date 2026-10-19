@@ -522,7 +522,7 @@
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: 'moonshotai/Kimi-K3',
+          model: 'deepseek-ai/DeepSeek-V3.2',
           max_tokens: 1600,
           messages: [
             {
@@ -1217,7 +1217,7 @@
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: 'moonshotai/Kimi-K3',
+          model: 'deepseek-ai/DeepSeek-V3.2',
           max_tokens: 220,
           messages: [
             {
