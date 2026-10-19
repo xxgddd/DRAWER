@@ -138,6 +138,69 @@
     return means;
   }
 
+  function buildLocalSemanticContext(signature) {
+    const themes = [
+      { words: ['记忆','关系','承诺','陌生人','旧物','未来的自己'], x: -0.55, y: -0.28 },
+      { words: ['创作','表达','写作','灵感','原型','声音','展览'], x: -0.34, y: 0.58 },
+      { words: ['城市','社区','居民','公共','剧场','共同','共享'], x: 0.62, y: 0.42 },
+      { words: ['身体','情绪','疲惫','焦虑','睡眠','饮食','能量'], x: -0.62, y: -0.64 },
+      { words: ['未来','技术','人工智能','算法','机器','产品','职业'], x: 0.58, y: 0.65 },
+      { words: ['自然','季节','雨水','树木','候鸟','月相','气候'], x: 0.46, y: -0.58 }
+    ];
+    const axisWords = {
+      inward: ['自我','情绪','身体','记忆','感受','睡眠','焦虑','内心'],
+      outward: ['城市','社区','社会','世界','公共','他人','居民','自然'],
+      absorb: ['观察','理解','感知','记忆','记录','倾听','回看','学习'],
+      output: ['创造','行动','制作','原型','设计','建立','写作','工具','实验','改变']
+    };
+    const score = (text, words) => words.reduce((sum, word) => sum + (text.includes(word) ? 1 : 0), 0);
+    const points = ideas.map((idea, index) => {
+      const descriptor = getIdeaSemanticDescriptor(idea);
+      const text = `${idea.name || ''} ${descriptor.text || ''}`;
+      const theme = themes
+        .map(candidate => ({ ...candidate, score: score(text, candidate.words) }))
+        .sort((left, right) => right.score - left.score)[0];
+      const hashText = DrawerSemanticSpace.fingerprint(`${idea.id}:${idea.name}`);
+      const hash = parseInt(hashText.slice(0, 8), 16) || index * 7919;
+      const jitterX = ((hash % 101) / 100 - 0.5) * 0.22;
+      const jitterY = (((hash >> 7) % 101) / 100 - 0.5) * 0.22;
+      const inward = score(text, axisWords.inward);
+      const outward = score(text, axisWords.outward);
+      const absorb = score(text, axisWords.absorb);
+      const output = score(text, axisWords.output);
+      const axisX = (outward - inward) / Math.max(1, outward + inward);
+      const axisY = (output - absorb) / Math.max(1, output + absorb);
+      const hasTheme = theme?.score > 0;
+      const rawX = (hasTheme ? theme.x * 0.76 : axisX * 0.72) + axisX * 0.24 + jitterX;
+      const rawY = (hasTheme ? theme.y * 0.76 : axisY * 0.72) + axisY * 0.24 + jitterY;
+      return {
+        id: idea.id,
+        idea,
+        x: Math.max(-0.95, Math.min(0.95, rawX)),
+        y: Math.max(-0.95, Math.min(0.95, rawY)),
+        rawX,
+        rawY,
+        localFallback: true
+      };
+    });
+    const rawXs = points.map(point => point.rawX);
+    const rawYs = points.map(point => point.rawY);
+    return {
+      signature,
+      points,
+      items: [],
+      anchorMeans: null,
+      rawBounds: {
+        xMin: Math.min(...rawXs),
+        xMax: Math.max(...rawXs),
+        yMin: Math.min(...rawYs),
+        yMax: Math.max(...rawYs)
+      },
+      vectorDimension: 0,
+      localFallback: true
+    };
+  }
+
   async function getSemanticContext(force = false) {
     const signature = DrawerSemanticSpace.fingerprint(JSON.stringify(
       ideas.map(idea => {
@@ -153,31 +216,37 @@
     }
 
     semanticContextJob = (async () => {
-      await refreshIdeaEmbeddings(ideas);
-      const anchorMeans = await getAtlasAnchorMeans();
-      const items = ideas.map(idea => {
-        const record = getCurrentIdeaEmbedding(idea);
-        return record ? { id: idea.id, idea, vector: record.vector } : null;
-      }).filter(Boolean);
-      if (!items.length) throw new Error('No idea embeddings are available');
-      const points = DrawerAtlasSpace.projectItems(items, anchorMeans, DrawerSemanticSpace.cosineSimilarity);
-      const rawXs = points.map(point => point.rawX);
-      const rawYs = points.map(point => point.rawY);
-      const context = {
-        signature,
-        points,
-        items,
-        anchorMeans,
-        rawBounds: {
-          xMin: Math.min(...rawXs),
-          xMax: Math.max(...rawXs),
-          yMin: Math.min(...rawYs),
-          yMax: Math.max(...rawYs)
-        },
-        vectorDimension: items[0]?.vector?.length || 0
-      };
-      semanticContext = context;
-      return context;
+      try {
+        await refreshIdeaEmbeddings(ideas);
+        const anchorMeans = await getAtlasAnchorMeans();
+        const items = ideas.map(idea => {
+          const record = getCurrentIdeaEmbedding(idea);
+          return record ? { id: idea.id, idea, vector: record.vector } : null;
+        }).filter(Boolean);
+        if (!items.length) throw new Error('No idea embeddings are available');
+        const points = DrawerAtlasSpace.projectItems(items, anchorMeans, DrawerSemanticSpace.cosineSimilarity);
+        const rawXs = points.map(point => point.rawX);
+        const rawYs = points.map(point => point.rawY);
+        const context = {
+          signature,
+          points,
+          items,
+          anchorMeans,
+          rawBounds: {
+            xMin: Math.min(...rawXs),
+            xMax: Math.max(...rawXs),
+            yMin: Math.min(...rawYs),
+            yMax: Math.max(...rawYs)
+          },
+          vectorDimension: items[0]?.vector?.length || 0
+        };
+        semanticContext = context;
+        return context;
+      } catch (error) {
+        console.warn('Atlas is using local semantic coordinates:', error.message);
+        semanticContext = buildLocalSemanticContext(signature);
+        return semanticContext;
+      }
     })().finally(() => {
       semanticContextJob = null;
     });
@@ -342,6 +411,23 @@
     return 1 + userTurns * 1.25 + nodeCount * 0.9 + branchCount * 0.75 + (idea.card?.core ? 2 : 0);
   }
 
+  function ideaDepthRatio(idea) {
+    return Math.max(0, Math.min(1, (ideaDepth(idea) - 2.5) / 15));
+  }
+
+  function ideaSynthesisRatio(idea) {
+    const nodeCount = (idea.nodes || []).length;
+    const branchCount = (idea.card?.branches || []).length;
+    const connectedNodes = Math.max(0, Math.min(1, (nodeCount - 2) / 5));
+    const branching = Math.max(0, Math.min(1, (branchCount - 1) / 4));
+    return connectedNodes * 0.58 + branching * 0.42;
+  }
+
+  function stableUnit(value) {
+    const hash = DrawerSemanticSpace.fingerprint(String(value));
+    return (parseInt(hash, 36) % 10000) / 9999;
+  }
+
   function ideaRecency(idea) {
     const timestamp = Number(idea.updatedAt || idea.createdAt || Date.now());
     const days = Math.max(0, Date.now() - timestamp) / (24 * 60 * 60 * 1000);
@@ -355,6 +441,47 @@
     if (x < 0 && y >= 0) return 'Personal Making';
     if (x >= 0 && y < 0) return 'World Watching';
     return 'Public Building';
+  }
+
+  function semanticClusterColor(cluster) {
+    const x = Math.max(-1, Math.min(1, Number(cluster.centroid?.x) || 0));
+    const neutral = '#d7d4cb';
+    return x < 0
+      ? d3.interpolateRgb(neutral, '#57c4c9')(-x)
+      : d3.interpolateRgb(neutral, '#ff9440')(x);
+  }
+
+  function buildClusterBridges(clusters) {
+    const constellations = clusters.filter(cluster => cluster.isConstellation);
+    const candidates = [];
+    for (let leftIndex = 0; leftIndex < constellations.length; leftIndex++) {
+      for (let rightIndex = leftIndex + 1; rightIndex < constellations.length; rightIndex++) {
+        const left = constellations[leftIndex];
+        const right = constellations[rightIndex];
+        let nearest = null;
+        left.layoutPoints.forEach(source => right.layoutPoints.forEach(target => {
+          const distance = Math.hypot(source.layoutX - target.layoutX, source.layoutY - target.layoutY);
+          if (!nearest || distance < nearest.distance) nearest = { source, target, distance };
+        }));
+        if (nearest) candidates.push({ ...nearest, left, right });
+      }
+    }
+    candidates.sort((a, b) => a.distance - b.distance);
+    const parent = new Map(constellations.map(cluster => [cluster.id, cluster.id]));
+    const find = id => {
+      let root = id;
+      while (parent.get(root) !== root) root = parent.get(root);
+      return root;
+    };
+    const bridges = [];
+    candidates.forEach(candidate => {
+      const leftRoot = find(candidate.left.id);
+      const rightRoot = find(candidate.right.id);
+      if (leftRoot === rightRoot) return;
+      parent.set(leftRoot, rightRoot);
+      bridges.push(candidate);
+    });
+    return bridges.slice(0, 3);
   }
 
   function monthLabel(timestamp) {
@@ -501,13 +628,14 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
     setAtlasLoading(t('正在为所有点子生成语义坐标…', 'Mapping semantic coordinates for every idea…'));
     const context = await getSemanticContext();
     const { items, points: projected } = context;
-    const clusters = DrawerAtlasSpace.clusterPoints(projected, { maxClusters: 6 }).map((cluster, index) => {
-      const layoutPoints = DrawerAtlasSpace.layoutClusterPoints(cluster, projected.length < 10 ? 0.16 : 0.12);
+    const clusters = DrawerAtlasSpace.clusterPoints(projected, { maxClusters: 6 }).map(cluster => {
+      const spread = projected.length > 32 ? 0.2 : projected.length > 18 ? 0.18 : projected.length < 10 ? 0.14 : 0.16;
+      const layoutPoints = DrawerAtlasSpace.layoutClusterPoints(cluster, spread);
       const isConstellation = cluster.points.length >= 2;
       return {
         ...cluster,
         isConstellation,
-        color: isConstellation ? CLUSTER_COLORS[index % CLUSTER_COLORS.length] : '#d8dbdc',
+        color: isConstellation ? semanticClusterColor(cluster) : '#d8dbdc',
         layoutPoints,
         edges: DrawerAtlasSpace.minimumSpanningTree(layoutPoints),
         firstTimestamp: Math.min(...cluster.points.map(point => Number(point.idea.createdAt || point.idea.updatedAt || Date.now())))
@@ -530,6 +658,7 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
     const data = {
       points: projected,
       clusters,
+      bridges: buildClusterBridges(clusters),
       terraRegions,
       vectorDimension: context.vectorDimension
     };
@@ -662,13 +791,6 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
       .classed('atlas-concept-preview', Boolean(data.conceptPreview))
       .selectAll('*').remove();
 
-    const defs = svg.append('defs');
-    const glow = defs.append('filter').attr('id', 'atlasGlow');
-    glow.append('feGaussianBlur').attr('stdDeviation', '2.4').attr('result', 'blur');
-    const merge = glow.append('feMerge');
-    merge.append('feMergeNode').attr('in', 'blur');
-    merge.append('feMergeNode').attr('in', 'SourceGraphic');
-
     const centerX = x(0);
     const centerY = y(0);
     const maximumRadius = Math.min(centerX - plot.left, plot.right - centerX, centerY - plot.top, plot.bottom - centerY);
@@ -718,7 +840,50 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
       .attr('letter-spacing', '.12em')
       .text(region => String(region.name || '').toUpperCase());
 
+    if (!data.conceptPreview) {
+      const bridgeLayer = svg.append('g').attr('class', 'atlas-bridges').attr('pointer-events', 'none');
+      (data.bridges || []).forEach((bridge, bridgeIndex) => {
+        const startX = x(bridge.source.layoutX);
+        const startY = y(bridge.source.layoutY);
+        const endX = x(bridge.target.layoutX);
+        const endY = y(bridge.target.layoutY);
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const length = Math.max(1, Math.hypot(dx, dy));
+        const bend = (stableUnit(`${bridge.left.id}:${bridge.right.id}:bend`) - 0.5) * 46;
+        const controlX = (startX + endX) / 2 - (dy / length) * bend;
+        const controlY = (startY + endY) / 2 + (dx / length) * bend;
+        const bridgeColor = d3.interpolateRgb(bridge.left.color, bridge.right.color)(0.5);
+        bridgeLayer.append('path')
+          .attr('d', `M${startX},${startY} Q${controlX},${controlY} ${endX},${endY}`)
+          .attr('fill', 'none')
+          .attr('stroke', bridgeColor)
+          .attr('stroke-width', 0.55)
+          .attr('stroke-opacity', 0.11)
+          .attr('stroke-dasharray', '2,7');
+        const dust = Array.from({ length: 7 }, (_, index) => {
+          const tValue = (index + 1) / 8;
+          const inverse = 1 - tValue;
+          return {
+            x: inverse * inverse * startX + 2 * inverse * tValue * controlX + tValue * tValue * endX,
+            y: inverse * inverse * startY + 2 * inverse * tValue * controlY + tValue * tValue * endY,
+            seed: stableUnit(`${bridgeIndex}:${index}:dust`)
+          };
+        });
+        bridgeLayer.selectAll(`.atlas-bridge-dust-${bridgeIndex}`)
+          .data(dust)
+          .join('circle')
+          .attr('class', `atlas-bridge-dust atlas-bridge-dust-${bridgeIndex}`)
+          .attr('cx', point => point.x)
+          .attr('cy', point => point.y)
+          .attr('r', point => 0.35 + point.seed * 0.65)
+          .attr('fill', point => d3.interpolateRgb(bridgeColor, '#eee9df')(point.seed * 0.32))
+          .attr('fill-opacity', point => 0.16 + point.seed * 0.28);
+      });
+    }
+
     const clusterLayer = svg.append('g');
+    const labelPlacements = [];
     data.clusters.forEach(cluster => {
       clusterLayer.append('g')
         .selectAll('line')
@@ -728,25 +893,89 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
         .attr('y1', edge => y(edge.source.layoutY))
         .attr('x2', edge => x(edge.target.layoutX))
         .attr('y2', edge => y(edge.target.layoutY))
-        .attr('stroke', cluster.color)
+        .attr('stroke', edge => d3.interpolateRgb(
+          cluster.color,
+          '#eee9df'
+        )(stableUnit(`${edge.source.id}:${edge.target.id}:edge`) * 0.24))
         .attr('class', data.conceptPreview ? 'atlas-concept-edge' : null)
-        .attr('stroke-width', 1)
+        .attr('stroke-width', edge => 0.55 + ((ideaDepthRatio(edge.source.idea) + ideaDepthRatio(edge.target.idea)) / 2) * 0.85)
         .attr('stroke-linecap', 'round')
-        .attr('stroke-opacity', 0.42);
+        .attr('stroke-opacity', edge => 0.12 + ((ideaDepthRatio(edge.source.idea) + ideaDepthRatio(edge.target.idea)) / 2) * 0.38);
+
+      const starRadius = point => 1.1 + Math.pow(ideaDepthRatio(point.idea), 0.92) * 3.5;
+      const starColor = point => {
+        const depth = ideaDepthRatio(point.idea);
+        const color = d3.hsl(cluster.color);
+        const variation = stableUnit(`${point.id}:tone`);
+        color.h += (variation - 0.5) * 22;
+        color.s = Math.max(0.04, Math.min(1, 0.06 + depth * 0.84 + (variation - 0.5) * 0.18));
+        color.l = Math.max(0.3, Math.min(0.76, 0.39 + depth * 0.21 + variation * 0.09));
+        const synthesis = point.idea.type === 'supernova'
+          ? 0.82
+          : Math.min(0.76, Math.pow(ideaSynthesisRatio(point.idea), 1.25) * 0.58
+            + Math.max(0, variation - 0.82) * 0.72);
+        return d3.interpolateRgb(color.formatHex(), '#f3eee5')(synthesis);
+      };
+      const starOpacity = point => {
+        const depth = ideaDepthRatio(point.idea);
+        return Math.min(1, 0.26 + depth * 0.7 + (ideaRecency(point.idea) - 0.4) * 0.06);
+      };
+
+      if (!data.conceptPreview) {
+        const satellites = cluster.layoutPoints.flatMap(point => {
+          const nodes = (point.idea.nodes || []).slice(-6).map((node, index) => ({
+            key: node.id || `node-${index}`,
+            text: node.text || ''
+          }));
+          const branches = (point.idea.card?.branches || []).slice(0, 3).map((text, index) => ({
+            key: `branch-${index}`,
+            text
+          }));
+          return [...nodes, ...branches].slice(0, 8).map((fragment, index) => {
+            const angle = stableUnit(`${point.id}:${fragment.key}:angle`) * Math.PI * 2;
+            const orbit = 7 + stableUnit(`${point.id}:${fragment.key}:orbit`) * (12 + index * 0.8);
+            const tone = stableUnit(`${point.id}:${fragment.key}:tone`);
+            return {
+              point,
+              fragment,
+              x: x(point.layoutX) + Math.cos(angle) * orbit,
+              y: y(point.layoutY) + Math.sin(angle) * orbit,
+              radius: 0.35 + tone * 0.72,
+              tone
+            };
+          });
+        });
+        clusterLayer.append('g')
+          .attr('class', 'atlas-node-stars')
+          .attr('pointer-events', 'none')
+          .selectAll('circle')
+          .data(satellites)
+          .join('circle')
+          .attr('cx', satellite => satellite.x)
+          .attr('cy', satellite => satellite.y)
+          .attr('r', satellite => satellite.radius)
+          .attr('fill', satellite => d3.interpolateRgb(
+            starColor(satellite.point),
+            '#eee9df'
+          )(0.05 + satellite.tone * 0.28))
+          .attr('fill-opacity', satellite => 0.2 + ideaDepthRatio(satellite.point.idea) * 0.34 + satellite.tone * 0.18);
+      }
 
       const points = clusterLayer.append('g')
         .selectAll('circle')
         .data(cluster.layoutPoints)
         .join('circle')
+        .attr('class', point => `atlas-star depth-${Math.round(ideaDepthRatio(point.idea) * 4)}`)
         .attr('cx', point => x(point.layoutX))
         .attr('cy', point => y(point.layoutY))
-        .attr('r', point => Math.min(9, 3.2 + Math.sqrt(ideaDepth(point.idea)) * 1.12))
-        .attr('fill', cluster.color)
-        .attr('fill-opacity', point => ideaRecency(point.idea))
-        .attr('stroke', point => point.idea.type === 'supernova' ? '#d9f4ff' : 'rgba(255,255,255,.18)')
-        .attr('stroke-width', point => point.idea.type === 'supernova' ? 1.6 : 0.7)
-        .attr('filter', 'url(#atlasGlow)')
-        .attr('class', data.conceptPreview ? 'atlas-concept-point' : null)
+        .attr('r', starRadius)
+        .attr('fill', starColor)
+        .attr('fill-opacity', starOpacity)
+        .attr('stroke', point => point.idea.type === 'supernova'
+          ? '#d9f4ff'
+          : d3.interpolateRgb('#767879', cluster.color)(ideaDepthRatio(point.idea) * 0.58))
+        .attr('stroke-width', point => point.idea.type === 'supernova' ? 1 : 0.25 + ideaDepthRatio(point.idea) * 0.45)
+        .classed('atlas-concept-point', Boolean(data.conceptPreview))
         .attr('cursor', 'pointer')
         .on('mouseenter', (event, point) => showAtlasTooltip(event, point))
         .on('mousemove', (event, point) => showAtlasTooltip(event, point))
@@ -756,13 +985,43 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
         });
       points.append('title').text(point => point.idea.name);
 
+      clusterLayer.append('g')
+        .selectAll('circle')
+        .data(cluster.layoutPoints)
+        .join('circle')
+        .attr('class', 'atlas-star-hit')
+        .attr('cx', point => x(point.layoutX))
+        .attr('cy', point => y(point.layoutY))
+        .attr('r', point => Math.max(8, starRadius(point) + 4))
+        .attr('fill', 'transparent')
+        .attr('pointer-events', 'all')
+        .attr('cursor', 'pointer')
+        .on('mouseenter', (event, point) => showAtlasTooltip(event, point))
+        .on('mousemove', (event, point) => showAtlasTooltip(event, point))
+        .on('mouseleave', hideAtlasTooltip)
+        .on('click', (_, point) => {
+          if (!data.conceptPreview) selectIdea(point.idea.id);
+        })
+        .append('title')
+        .text(point => point.idea.name);
+
       if (!cluster.isConstellation) return;
       const pointYs = cluster.layoutPoints.map(point => y(point.layoutY));
-      const labelAbove = cluster.centroid.y <= 0.2;
-      const labelX = Math.max(plot.left + 88, Math.min(plot.right - 88, x(cluster.centroid.x)));
-      const labelY = labelAbove
+      const labelAbove = cluster.centroid.y > 0.05;
+      let labelX = Math.max(plot.left + 88, Math.min(plot.right - 88, x(cluster.centroid.x)));
+      let labelY = labelAbove
         ? Math.max(plot.top + 26, Math.min(...pointYs) - 24)
         : Math.min(plot.bottom - 34, Math.max(...pointYs) + 34);
+      labelPlacements.forEach(previous => {
+        if (Math.abs(labelX - previous.x) >= 168 || Math.abs(labelY - previous.y) >= 38) return;
+        labelY += labelAbove ? -42 : 42;
+        labelY = Math.max(plot.top + 24, Math.min(plot.bottom - 36, labelY));
+        if (Math.abs(labelY - previous.y) < 38) {
+          labelX += labelX >= previous.x ? 54 : -54;
+          labelX = Math.max(plot.left + 76, Math.min(plot.right - 76, labelX));
+        }
+      });
+      labelPlacements.push({ x: labelX, y: labelY });
       svg.append('text')
         .attr('x', labelX)
         .attr('y', labelY)
@@ -830,7 +1089,12 @@ Y -1=吸收（观察、理解、感知、记住、反思），+1=产出（做、
       : currentLanguage === 'en'
       ? `${data.points.length} IDEAS · ${constellationCount} CONSTELLATIONS · ${data.terraRegions.length} UNCHARTED`
       : `${data.points.length} 个点子 · ${constellationCount} 个星座 · ${data.terraRegions.length} 片未知区域`;
-    if (meta) meta.textContent = text;
+    if (meta) {
+      const depthLegend = currentLanguage === 'en'
+        ? ' \u00b7 BRIGHTNESS = DEPTH \u00b7 PALE = CONNECTED \u00b7 HUE = SELF / WORLD'
+        : ' \u00b7 \u660e\u5ea6 = \u6df1\u5ea6 \u00b7 \u504f\u767d = \u8fde\u63a5 \u00b7 \u51b7\u6696 = \u5185\u5916';
+      meta.textContent = data.conceptPreview ? text : `${text}${depthLegend}`;
+    }
     if (subtitle) subtitle.textContent = t('固定语义坐标 · 内外 × 吸收产出', 'Fixed semantic axes · inward/outward × absorb/output');
   }
 

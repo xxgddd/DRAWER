@@ -257,9 +257,9 @@
     const anchorCount = data.anchors?.length || 0;
     const ignored = getIgnoredNames();
     const lightCount = (data.lights || []).filter(light => !ignored.has(String(light.name || '').toLowerCase())).length;
-    summary.textContent = currentLanguage === 'en'
-      ? `${starCount} YOUR STARS · ${anchorCount} ANCHORS · ${lightCount} LIGHTHOUSES`
-      : `${starCount} 颗你的星 · ${anchorCount} 处今日锚点 · ${lightCount} 盏外部灯塔`;
+    summary.innerHTML = currentLanguage === 'en'
+      ? `<b>${starCount}</b> your stars · <b>${anchorCount}</b> anchors · <b class="c">${lightCount}</b> lighthouses`
+      : `<b>${starCount}</b> 颗你的星 · <b>${anchorCount}</b> 处今日锚点 · <b class="c">${lightCount}</b> 盏外部灯塔`;
   }
 
   function recommendedLight(data = worldData) {
@@ -304,8 +304,8 @@
 
   function refreshLanguage() {
     const copy = {
-      worldWindowTitle: t('世界之窗', 'World Window'),
-      worldTerraSubtitle: t('海岸线之外 · 每日一封来信', 'BEYOND THE SHORE · A DAILY LETTER'),
+      worldWindowTitle: 'World Window',
+      worldTerraSubtitle: t('SHORELINE · 认知边界', 'SHORELINE · EDGE OF MIND'),
       worldEmptyTitle: t('先在抽屉里留下一颗星', 'Leave one star in the drawer first'),
       worldEmptyBody: t('世界之窗会从你的边疆向外寻找今天的灯塔。', 'World Window looks outward from your frontier for today’s lighthouses.'),
       worldCollisionLabel: t('交叉后出现的新方向', 'A NEW DIRECTION FROM THE CROSSING'),
@@ -313,17 +313,17 @@
       worldCaptureBtn: t('收藏为种子', 'Save as a seed'),
       worldCollideBtn: t('和旧点子交叉', 'Cross with an old idea'),
       worldIgnoreBtn: t('忽略', 'Ignore'),
-      worldNudgeKicker: t('今日引导', "TODAY'S NUDGE"),
-      worldNudgeTitle: t('今天只做一件小事', 'One small move for today'),
-      worldLegendKnown: t('你的星', 'Your stars'),
-      worldLegendExternal: t('外部灯塔', 'Outside lights')
+      worldNudgeKicker: "TODAY'S NUDGE",
+      worldNudgeTitle: 'One small move for today',
+      worldLegendKnown: t('YOUR STARS · 你的星', 'YOUR STARS'),
+      worldLegendExternal: t("TODAY'S LIGHTS · 灯塔", "TODAY'S LIGHTS")
     };
     Object.entries(copy).forEach(([id, value]) => {
       const element = document.getElementById(id);
       if (element) element.textContent = value;
     });
     const nudgeButton = document.getElementById('worldNudgeButton');
-    if (nudgeButton) nudgeButton.innerHTML = `${t('打开今天的第一盏灯塔', 'Open today’s first lighthouse')} <span>↗</span>`;
+    if (nudgeButton) nudgeButton.innerHTML = `<span>${t('打开今天的第一盏灯塔', 'Open today’s first lighthouse')}</span> <span>↗</span>`;
     const closeButton = document.getElementById('worldLetterCloseBtn');
     if (closeButton) closeButton.setAttribute('aria-label', t('关闭', 'Close'));
     const svg = document.getElementById('worldWindowSvg');
@@ -869,8 +869,18 @@
 
   function renderSvg() {
     const frame = document.querySelector('.world-window-frame');
-    if (!frame || !worldData || typeof d3 === 'undefined') return;
+    if (!frame || !worldData) return;
     frame.classList.toggle('world-concept-preview', Boolean(worldData.conceptPreview));
+    if (window.DrawerWorldGalaxy3D) {
+      const ignored = getIgnoredNames();
+      const filteredData = {
+        ...worldData,
+        lights: (worldData.lights || []).filter(light => !ignored.has(String(light.name || '').toLowerCase()))
+      };
+      window.DrawerWorldGalaxy3D.setWorldData(filteredData.context?.points?.length ? filteredData : buildLocalPreviewData());
+      if (selectedLightId) window.DrawerWorldGalaxy3D.selectLight(selectedLightId);
+    }
+    if (typeof d3 === 'undefined') return;
     const width = frame.clientWidth || 1000;
     const height = frame.clientHeight || 680;
     const svg = d3.select('#worldWindowSvg');
@@ -1099,6 +1109,7 @@
       return;
     }
     nudge?.classList.add('yielding');
+    card.classList.remove('idea');
     document.getElementById('worldLetterKicker').textContent = `${label(ROLE_LABELS[light.role])} · ${label(TYPE_LABELS[light.type] || TYPE_LABELS.concept)}`;
     document.getElementById('worldLetterName').textContent = lightValue(light, 'name');
     document.getElementById('worldLetterVerification').textContent = ['person', 'work'].includes(light.type)
@@ -1113,6 +1124,7 @@
     collision.hidden = true;
     collisionText.textContent = '';
     saveCollisionButton.hidden = true;
+    window.DrawerWorldGalaxy3D?.selectLight(light.id);
     card.classList.add('open');
     card.setAttribute('aria-hidden', 'false');
     ['worldCaptureBtn', 'worldCollideBtn', 'worldIgnoreBtn'].forEach(id => {
@@ -1125,7 +1137,6 @@
   function selectLight(id) {
     hideTooltip();
     selectedLightId = id;
-    renderSvg();
     renderLetter(selectedLight());
   }
 
@@ -1134,14 +1145,16 @@
     lastCollision = null;
     document.getElementById('worldLetterCard')?.classList.remove('open');
     document.getElementById('worldLetterCard')?.setAttribute('aria-hidden', 'true');
+    document.getElementById('worldDailyNudge')?.classList.remove('yielding');
+    window.DrawerWorldGalaxy3D?.closeLetter();
     updateCoordinate(null);
-    if (worldData && isActive()) renderSvg();
   }
 
   function captureSelected() {
     if (worldGuideActive) return;
     const light = selectedLight();
     if (!light) return;
+    window.DrawerWorldGalaxy3D?.triggerCaptureWave(light.id);
     const now = Date.now();
     const lightName = lightValue(light, 'name');
     const lightDescription = lightValue(light, 'description');
@@ -1175,6 +1188,8 @@
     if (worldGuideActive) return;
     const light = selectedLight();
     if (!light) return;
+    window.DrawerWorldGalaxy3D?.triggerCollideWave(light.id);
+    document.getElementById('worldLetterCard')?.classList.add('expanded');
     const collision = document.getElementById('worldLetterCollision');
     const collisionText = document.getElementById('worldLetterCollisionText');
     const saveCollisionButton = document.getElementById('worldCollisionSaveBtn');
@@ -1281,6 +1296,7 @@
     updateSummary(worldData);
     updateDailyNudge(worldData);
     closeLetter();
+    if (isActive()) renderSvg();
   }
 
   function reportLocalWorldDiagnostics(data) {
@@ -1308,6 +1324,7 @@
     updateSummary();
     updateDailyNudge();
     if (!isActive()) return;
+    window.DrawerWorldGalaxy3D?.activate();
     if (worldGuideActive) {
       worldData = buildConceptGuideData(worldGuidePhase || 1);
       setLoading('', false);
@@ -1355,6 +1372,7 @@
   }
 
   function activate() {
+    window.DrawerWorldGalaxy3D?.activate();
     if (shouldOfferGuide() && !worldGuideActive) startGuide();
     else if (worldGuideActive) scheduleGuideAdvance();
     render();
@@ -1365,6 +1383,17 @@
     worldGuideTimer = null;
     hideTooltip();
     closeLetter();
+    window.DrawerWorldGalaxy3D?.deactivate();
+  }
+
+  function onGalaxyReady() {
+    if (isActive()) {
+      window.DrawerWorldGalaxy3D?.activate();
+      if (worldData) {
+        renderSvg();
+        if (selectedLightId) renderLetter(selectedLight());
+      }
+    }
   }
 
   function invalidate() {
@@ -1375,7 +1404,7 @@
   const frame = document.querySelector('.world-window-frame');
   if (frame && typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
-      if (worldData && isActive()) renderSvg();
+      if (isActive()) window.DrawerWorldGalaxy3D?.resize();
     });
     resizeObserver.observe(frame);
   }
@@ -1391,6 +1420,7 @@
     ignoreSelected,
     invalidate,
     isActive,
+    onGalaxyReady,
     openDailyNudge,
     refreshLanguage,
     render,

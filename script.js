@@ -1,7 +1,123 @@
 // ── State ──
+const IDEAS_RECOVERY_STORAGE_KEY = 'drawer_ideas_recovery_v1';
+
+function normalizeText(value, fallback = '') {
+  if (typeof value === 'string') return value.trim();
+  if (value == null) return fallback;
+  return String(value).trim();
+}
+
+function normalizeIdeaCollection(source) {
+  if (!Array.isArray(source)) return [];
+  const now = Date.now();
+
+  return source
+    .filter(item => item && typeof item === 'object' && !Array.isArray(item))
+    .map((item, index) => {
+      const createdAtValue = Number(item.createdAt);
+      const updatedAtValue = Number(item.updatedAt);
+      const createdAt = Number.isFinite(createdAtValue) ? createdAtValue : now - index * 60000;
+      const updatedAt = Number.isFinite(updatedAtValue) ? updatedAtValue : createdAt;
+      const id = ['string', 'number'].includes(typeof item.id) && item.id !== ''
+        ? item.id
+        : createdAt + index;
+
+      const nodes = (Array.isArray(item.nodes) ? item.nodes : [])
+        .map((node, nodeIndex) => {
+          const record = typeof node === 'string' ? { text: node } : node;
+          if (!record || typeof record !== 'object') return null;
+          const text = normalizeText(record.text || record.content);
+          if (!text) return null;
+          return {
+            ...record,
+            id: ['string', 'number'].includes(typeof record.id) ? record.id : `${id}-node-${nodeIndex + 1}`,
+            text,
+            keyword: normalizeText(record.keyword, text.slice(0, 8)),
+            type: ['ai', 'todo', 'user'].includes(record.type) ? record.type : 'ai',
+            tasks: Array.isArray(record.tasks) ? record.tasks : []
+          };
+        })
+        .filter(Boolean);
+
+      const chatHistory = (Array.isArray(item.chatHistory) ? item.chatHistory : [])
+        .map(message => {
+          const record = typeof message === 'string' ? { role: 'user', content: message } : message;
+          if (!record || typeof record !== 'object') return null;
+          const content = normalizeText(record.content || record.text);
+          if (!content) return null;
+          return {
+            ...record,
+            role: ['user', 'assistant', 'system'].includes(record.role) ? record.role : 'assistant',
+            content
+          };
+        })
+        .filter(Boolean);
+
+      let card = null;
+      if (item.card && typeof item.card === 'object' && !Array.isArray(item.card)) {
+        card = {
+          ...item.card,
+          core: normalizeText(item.card.core || item.card.summary),
+          origin: normalizeText(item.card.origin),
+          turningPoint: normalizeText(item.card.turningPoint || item.card.turn),
+          tensions: normalizeText(item.card.tensions || item.card.tension),
+          next: normalizeText(item.card.next),
+          seed: normalizeText(item.card.seed),
+          branches: (Array.isArray(item.card.branches) ? item.card.branches : [])
+            .map(branch => normalizeText(branch))
+            .filter(Boolean),
+          actions: item.card.actions && typeof item.card.actions === 'object' && !Array.isArray(item.card.actions)
+            ? item.card.actions
+            : {}
+        };
+      }
+
+      return {
+        ...item,
+        id,
+        name: normalizeText(item.name || item.title, `未命名点子 ${index + 1}`),
+        status: ['seed', 'grow', 'pause'].includes(item.status) ? item.status : 'seed',
+        nodes,
+        chatHistory,
+        card,
+        parentIds: Array.isArray(item.parentIds) ? item.parentIds : [],
+        createdAt,
+        updatedAt
+      };
+    });
+}
+
+function extractIdeaArray(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data?.ideas)) return payload.data.ideas;
+  if (Array.isArray(payload?.ideas)) return payload.ideas;
+  return null;
+}
+
+function loadStoredIdeas() {
+  const raw = localStorage.getItem('drawer_ideas');
+  if (!raw) return [];
+
+  try {
+    let parsed = JSON.parse(raw.replace(/^\uFEFF/, '').trim());
+    if (typeof parsed === 'string') parsed = JSON.parse(parsed.replace(/^\uFEFF/, '').trim());
+    const source = extractIdeaArray(parsed);
+    if (!source) throw new Error('Stored ideas do not contain an idea array');
+    return normalizeIdeaCollection(source);
+  } catch (error) {
+    console.error('Drawer recovered from invalid local idea data:', error);
+    try {
+      if (!localStorage.getItem(IDEAS_RECOVERY_STORAGE_KEY)) {
+        localStorage.setItem(IDEAS_RECOVERY_STORAGE_KEY, raw);
+      }
+    } catch (_) { }
+    return [];
+  }
+}
+
 let apiKey = localStorage.getItem('drawer_api_key') || '';
 let fontSize = localStorage.getItem('drawer_font_size') || 'medium';
-let ideas = JSON.parse(localStorage.getItem('drawer_ideas') || '[]');
+let ideas = loadStoredIdeas();
 let currentId = null;
 let chatHistory = [];
 let loading = false;
@@ -991,11 +1107,17 @@ async function importDrawerBackup(event) {
   if (!file) return;
 
   try {
-    const backup = JSON.parse(await file.text());
-    const data = backup?.data;
-    if (backup?.format !== 'drawer-backup' || backup?.version !== 1 || !Array.isArray(data?.ideas)) {
+    let backup = JSON.parse((await file.text()).replace(/^\uFEFF/, '').trim());
+    if (typeof backup === 'string') backup = JSON.parse(backup.replace(/^\uFEFF/, '').trim());
+    const sourceIdeas = extractIdeaArray(backup);
+    if (!sourceIdeas) {
       throw new Error(t('这不是有效的抽屉备份文件。', 'This is not a valid Drawer backup file.'));
     }
+    const importedIdeas = normalizeIdeaCollection(sourceIdeas);
+    if (sourceIdeas.length > 0 && importedIdeas.length === 0) {
+      throw new Error(t('备份中没有可恢复的点子。', 'No recoverable ideas were found in this backup.'));
+    }
+    const data = backup?.data && typeof backup.data === 'object' ? backup.data : backup;
 
     const universeChats = data.universeChats;
     if (universeChats != null && (typeof universeChats !== 'object' || Array.isArray(universeChats))) {
@@ -1003,8 +1125,8 @@ async function importDrawerBackup(event) {
     }
 
     const confirmed = confirm(t(
-      `将用备份中的 ${data.ideas.length} 个点子替换当前浏览器里的全部抽屉数据。API Key 会保留。继续吗？`,
-      `This will replace all Drawer data in this browser with ${data.ideas.length} ideas from the backup. Your API key will be kept. Continue?`
+      `将用备份中的 ${importedIdeas.length} 个点子替换当前浏览器里的全部抽屉数据。API Key 会保留。继续吗？`,
+      `This will replace all Drawer data in this browser with ${importedIdeas.length} ideas from the backup. Your API key will be kept. Continue?`
     ));
     if (!confirmed) return;
 
@@ -1015,7 +1137,7 @@ async function importDrawerBackup(event) {
     }
     chatKeys.forEach(key => localStorage.removeItem(key));
 
-    localStorage.setItem('drawer_ideas', JSON.stringify(data.ideas));
+    localStorage.setItem('drawer_ideas', JSON.stringify(importedIdeas));
     Object.entries(universeChats || {}).forEach(([key, history]) => {
       if (key.startsWith('uchat_') && Array.isArray(history)) {
         localStorage.setItem(key, JSON.stringify(history));
@@ -1031,8 +1153,8 @@ async function importDrawerBackup(event) {
     }
 
     alert(t(
-      `恢复成功：已导入 ${data.ideas.length} 个点子。`,
-      `Restore complete: ${data.ideas.length} ideas imported.`
+      `恢复成功：已导入 ${importedIdeas.length} 个点子。`,
+      `Restore complete: ${importedIdeas.length} ideas imported.`
     ));
     location.reload();
   } catch (error) {
@@ -2067,6 +2189,7 @@ function renderUniverse(options = {}) {
       index: i
     };
   });
+  const denseUniverse = !conceptUniverseActive && nodes.length > 24;
 
   // Build links: only between ideas that BOTH have cards
   const links = [];
@@ -2191,6 +2314,27 @@ function renderUniverse(options = {}) {
       }
     });
   });
+  if (denseUniverse && links.length) {
+    const maxNeighbors = cardNodes.length > 30 ? 3 : 4;
+    const echoLinks = links.filter(link => link.relation !== 'collision');
+    const selectedKeys = new Set();
+    const linkKey = link => [
+      link.source?.id || link.source,
+      link.target?.id || link.target
+    ].sort().join(':');
+    const linkScore = link => (link.sourceType === 'embedding' ? 3 : 0) + Number(link.strength || 0);
+
+    cardNodes.forEach(node => {
+      echoLinks
+        .filter(link => (link.source?.id || link.source) === node.id || (link.target?.id || link.target) === node.id)
+        .sort((left, right) => linkScore(right) - linkScore(left))
+        .slice(0, maxNeighbors)
+        .forEach(link => selectedKeys.add(linkKey(link)));
+    });
+
+    const compactLinks = links.filter(link => link.relation === 'collision' || selectedKeys.has(linkKey(link)));
+    links.splice(0, links.length, ...compactLinks);
+  }
   if (conceptUniverseActive && conceptUniversePhase >= 2) {
     const conceptLinks = [
       {
@@ -2272,6 +2416,10 @@ function renderUniverse(options = {}) {
     .attr('stroke-width', 20)
     .attr('cursor', 'pointer');
 
+  const getUniverseLinkOpacity = d => denseUniverse
+    ? 0.025 + d.strength * 0.12
+    : 0.12 + d.strength * 0.25;
+
   // Links - visible thin line
   const linkSel = svg.append('g').selectAll('line')
     .data(links).join('line')
@@ -2280,7 +2428,7 @@ function renderUniverse(options = {}) {
     .attr('stroke-width', d => 0.5 + d.strength * 1.5)
     .attr('stroke-dasharray', '4,4')
     .attr('stroke-dashoffset', conceptUniverseActive && effectiveConceptTransition ? 72 : 0)
-    .attr('opacity', d => conceptUniverseActive && effectiveConceptTransition ? 0 : 0.12 + d.strength * 0.25)
+    .attr('opacity', d => conceptUniverseActive && effectiveConceptTransition ? 0 : getUniverseLinkOpacity(d))
     .attr('filter', 'url(#glow)')
     .attr('pointer-events', 'none');
 
@@ -2328,6 +2476,13 @@ function renderUniverse(options = {}) {
     return cosmicColors[d.cosmicType] || cosmicColors.idea;
   }
 
+  function getUniverseLabelOpacity(d) {
+    if (d.isFocus) return 1;
+    if (denseUniverse) return d.index % 5 === 0 ? (d.isDwarf ? 0.32 : 0.62) : 0;
+    if (d.isDwarf) return 0.42;
+    return d.size >= 16 ? 0.82 : 0.58;
+  }
+
   // Outer body
   nodeSel.append('circle')
     .attr('r', d => d.size + (d.isFocus ? 8 : 0))
@@ -2351,11 +2506,7 @@ function renderUniverse(options = {}) {
     .attr('font-size', d => d.isDwarf ? '9px' : '11px')
     .attr('font-weight', '300')
     .attr('fill', d => d.isDwarf ? cosmicColors.dwarf : '#c8b89a')
-    .attr('opacity', d => {
-      if (d.isFocus) return 1;
-      if (d.isDwarf) return 0.42;
-      return d.size >= 16 ? 0.82 : 0.58;
-    })
+    .attr('opacity', getUniverseLabelOpacity)
     .text(d => currentLanguage === 'en'
       ? d.displayName
       : (d.displayName.length > 8 ? d.displayName.slice(0, 8) + '…' : d.displayName));
@@ -2386,8 +2537,7 @@ function renderUniverse(options = {}) {
     })
     .on('mouseleave', function(e, d) {
       hideUniverseNodePreview();
-      const baseOpacity = d.isFocus ? 1 : (d.isDwarf ? 0.42 : (d.size >= 16 ? 0.82 : 0.58));
-      d3.select(this).select('text').attr('opacity', baseOpacity);
+      d3.select(this).select('text').attr('opacity', getUniverseLabelOpacity(d));
     });
 
   // Link interaction via hit area - hover auto-triggers AI
@@ -2473,7 +2623,7 @@ function renderUniverse(options = {}) {
     })
     .on('mouseleave', function(e, d) {
       const idx = links.indexOf(d);
-      d3.select(linkSel.nodes()[idx]).attr('opacity', 0.12 + d.strength * 0.25).attr('stroke-width', 0.5 + d.strength * 1.5).attr('filter', 'url(#glow)');
+      d3.select(linkSel.nodes()[idx]).attr('opacity', getUniverseLinkOpacity(d)).attr('stroke-width', 0.5 + d.strength * 1.5).attr('filter', 'url(#glow)');
       // Reset nodes
       const srcId = d.source.id || d.source;
       const tgtId = d.target.id || d.target;
@@ -2495,13 +2645,13 @@ function renderUniverse(options = {}) {
   // Simulation
   universeSim = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(links).id(d => d.id)
-      .distance(d => d.distance || 160)
+      .distance(d => denseUniverse ? Math.min(d.distance || 160, 116) : (d.distance || 160))
       .strength(d => d.relation === 'collision' ? 0.72 : 0.2 + d.strength * 0.42))
-    .force('charge', d3.forceManyBody().strength(d => d.hasCard ? -380 : -100))
+    .force('charge', d3.forceManyBody().strength(d => d.hasCard ? (denseUniverse ? -150 : -380) : -100))
     .force('center', d3.forceCenter(w / 2, h / 2))
     .force('x', d3.forceX(w / 2).strength(.04))
     .force('y', d3.forceY(h / 2).strength(.04))
-    .force('collision', d3.forceCollide(d => (d.hasCard ? d.size : 6) + 15));
+    .force('collision', d3.forceCollide(d => (d.hasCard ? d.size : 6) + (denseUniverse ? 10 : 15)));
 
   const focusNode = nodes.find(d => d.isFocus);
   if (focusNode) {

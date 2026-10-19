@@ -182,12 +182,12 @@
   function layoutClusterPoints(cluster, spread = 0.13) {
     return cluster.points.map(point => {
       const angle = hashUnit(`${point.id}:angle`) * Math.PI * 2;
-      const radius = (0.32 + hashUnit(`${point.id}:radius`) * 0.68) * spread;
+      const radius = (0.28 + hashUnit(`${point.id}:radius`) * 0.72) * spread;
       return {
         ...point,
         clusterId: cluster.id,
-        layoutX: clamp(cluster.centroid.x + (point.x - cluster.centroid.x) * 0.28 + Math.cos(angle) * radius, -1, 1),
-        layoutY: clamp(cluster.centroid.y + (point.y - cluster.centroid.y) * 0.28 + Math.sin(angle) * radius, -1, 1)
+        layoutX: clamp(cluster.centroid.x + (point.x - cluster.centroid.x) * 0.58 + Math.cos(angle) * radius, -0.96, 0.96),
+        layoutY: clamp(cluster.centroid.y + (point.y - cluster.centroid.y) * 0.58 + Math.sin(angle) * radius, -0.96, 0.96)
       };
     });
   }

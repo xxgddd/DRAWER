@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>World Window · Drawer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="world-window-galaxy.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div class="vignette"></div>
+  <div id="labels"></div>
+
+  <!-- ============ HUD ============ -->
+  <div class="hud" id="hud">
+    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+    <header class="hud-title">
+      <h1>World Window</h1>
+      <div class="hud-date mono" id="hudDate">TODAY'S LETTER</div>
+      <div class="hud-counts" id="hudCounts"></div>
+    </header>
+
+    <div class="hud-top mono">ORBIT OPUS <span class="sep">//</span> NAV-7 <span class="sep">·</span> <span id="hudClock">00:00:00</span></div>
+
+    <div class="hud-ruler">
+      <div class="compass" id="hudCompass"><span>N</span></div>
+      <div class="ticks"></div>
+      <div class="ruler-label mono">ALT</div>
+    </div>
+
+    <div class="hud-crosshair tr-cross"></div>
+
+    <div class="hud-br mono">
+      <div>VEL: <b id="hudVel">19.7</b> KM/S</div>
+      <div>BEARING: <b id="hudBearing">128.4</b>°</div>
+      <div class="zoom-bar"><i id="hudZoom"></i></div>
+    </div>
+
+    <div class="hud-legend mono">
+      <span><i class="dot gold"></i>YOUR STARS</span>
+      <span><i class="dot cyan"></i>TODAY'S LIGHTS</span>
+      <span><i class="ring"></i>SHORELINE · 认知边界</span>
+    </div>
+  </div>
+
+  <!-- ============ Today's nudge ============ -->
+  <section class="nudge" id="nudge">
+    <div class="nudge-kicker mono">TODAY'S NUDGE</div>
+    <h3>One small move for today</h3>
+    <p>Three lights arrived at the edge of what you know. Open the nearest one — keep it, or let it collide with an old idea.</p>
+    <button class="nudge-btn" id="nudgeBtn"><span>Open today's first lighthouse</span><span class="arrow">↗</span></button>
+  </section>
+
+  <!-- ============ Hover tooltip ============ -->
+  <div class="tooltip" id="tooltip">
+    <div class="tt-kicker mono" id="ttKicker"></div>
+    <div class="tt-title" id="ttTitle"></div>
+    <div class="tt-body" id="ttBody"></div>
+    <div class="tt-hint mono">CLICK TO OPEN</div>
+  </div>
+
+  <!-- ============ Letter panel ============ -->
+  <aside class="letter" id="letter" aria-hidden="true">
+    <button class="letter-close" id="letterClose" aria-label="Close">×</button>
+    <div class="postmark mono" id="postmark"><span>DRAWER POST</span><b id="postmarkDate">19 OCT</b><span>WORLD WINDOW</span></div>
+    <div id="letterContent"></div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ============ Intro veil ============ -->
+  <div class="veil" id="veil">
+    <div class="veil-inner">
+      <div class="veil-kicker mono" id="veilDate">TODAY'S LETTER</div>
+      <div class="veil-title">The world wrote back.</div>
+      <div class="veil-zh">今天，世界从你认知的边缘外，寄来了几封信。</div>
+    </div>
+  </div>
+  <div class="skip-hint mono" id="skipHint">CLICK TO SKIP</div>
+
+  <script type="module" src="world-window-galaxy.js"></script>
+</body>
+</html>
