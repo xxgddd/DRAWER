@@ -1048,7 +1048,7 @@ function initGalaxyEngine() {
       const d = it.data;
       if (it.kind === 'light') {
         el.className = 'label light';
-        el.innerHTML = `${esc(d.name)}<span class="sub">${esc(d.roleLabel)} · ${esc(d.zh)}</span>`;
+        el.innerHTML = `${esc(d.name)}<span class="sub">${esc(d.roleLabel)}</span>${d.zh && d.zh !== d.roleZh ? `<span class="sub alt">${esc(d.zh)}</span>` : ''}`;
       } else {
         el.className = `label idea ${d.status}`;
         el.innerHTML = `${esc(d.name)}<span class="sub">${esc(d.zh)}</span>`;
@@ -1192,6 +1192,7 @@ function initGalaxyEngine() {
     let best = null, bestD = Infinity;
     for (const it of items) {
       if (it.appear < 0.9) continue;
+      if (sunClearance(it.world) < 0.35) continue;
       const s = toScreen(it.world);
       if (!s.visible) continue;
       const d = Math.hypot(s.x - mouse.px, s.y - mouse.py);
@@ -1456,6 +1457,26 @@ function initGalaxyEngine() {
   let last = performance.now();
   const tmpV = new THREE.Vector3();
 
+  const sunWorld = new THREE.Vector3(0, 0, 0);
+  const occV = new THREE.Vector3();
+  const occW = new THREE.Vector3();
+  const smooth = (a, b, x) => { const k = clamp01((x - a) / (b - a)); return k * k * (3 - 2 * k); };
+  // 1 = clearly visible, 0 = hidden behind the sun
+  function sunClearance(world) {
+    occV.copy(world).sub(camera.position);
+    const len2 = occV.lengthSq();
+    occW.copy(sunWorld).sub(camera.position);
+    const tt = occW.dot(occV) / len2;
+    if (tt <= 0 || tt >= 1) return 1;
+    const dist = occW.addScaledVector(occV, -tt).length();
+    return smooth(SUN_R * 1.0, SUN_R * 1.9, dist);
+  }
+  // 1 = near side / level with the sun, fades toward ~0.15 on the far side of the galaxy
+  function nearSide(world) {
+    const behind = camera.position.distanceTo(world) - camera.position.distanceTo(sunWorld);
+    return 1 - smooth(14, 62, behind) * 0.85;
+  }
+
   function updateLabels() {
     for (const it of items) {
       if (!it.label) continue;
@@ -1466,8 +1487,12 @@ function initGalaxyEngine() {
       const arcReady = it.kind === 'idea'
         ? (lightItems.some(l => l.data.anchor === it.data.id && (l.arc || 0) > 0.95) || (it.appear > 0.85 && !lightItems.length))
         : (it.appear > 0.6);
-      const show = s.visible && ((it.labelPinned && arcReady) || isHot || related);
-      it.label.classList.toggle('show', show);
+      const wanted = s.visible && ((it.labelPinned && arcReady) || isHot || related);
+      const clear = sunClearance(it.world);
+      const depth = (isHot || related) ? Math.max(0.75, nearSide(it.world)) : nearSide(it.world);
+      const alpha = wanted ? clear * depth : 0;
+      it.label.classList.toggle('show', alpha > 0.02);
+      it.label.style.opacity = alpha > 0.02 ? alpha.toFixed(3) : '0';
       it.label.classList.toggle('focus', isHot || related);
       if (!s.visible) continue;
       const pr = pixelRadius(it) * (1 + it.hover * 0.35);

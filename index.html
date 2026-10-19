@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>鎶藉眽 Drawer - 鎹曟崏浣犵殑鐏垫劅</title>
+  <title>抽屉 Drawer - 捕捉你的灵感</title>
 
   <!-- PWA Meta Tags -->
   <meta name="theme-color" content="#11100e">
@@ -39,7 +39,7 @@
   <link rel="stylesheet" href="sidebar-calm.css?v=69">
   <link rel="stylesheet" href="universe-interactions.css?v=69">
   <link rel="stylesheet" href="atlas-view.css?v=69">
-  <link rel="stylesheet" href="world-window.css?v=68">
+  <link rel="stylesheet" href="world-window.css?v=81">
   <link rel="stylesheet" href="design-tokens.css">
   <link rel="stylesheet" href="capture-modal.css">
   <link rel="stylesheet" href="localization.css">
@@ -99,21 +99,21 @@
     <div class="list-panel" id="listPanel">
       <div class="list-hdr">
         <div class="app-label">Drawer</div>
-        <h1 class="app-title">鎶藉眽 <span>Drawer</span></h1>
-        <div class="app-tagline">鍦ㄨ繖閲岋紝鐐瑰瓙涓嶆槸涓轰簡瀹屾垚锛?br>鑰屾槸涓轰簡鐢熼暱銆?/div>
-        <button class="new-btn" onclick="openModal('newIdeaModal')"><span class="sidebar-plus">+</span><span>鏂扮殑鐐瑰瓙</span></button>
-        <button class="universe-btn" id="universeSidebarBtn" onclick="showUniverse()"><span class="sidebar-universe-star">鉁?/span><span>杩涘叆浣犵殑鎬濈淮瀹囧畽</span><span class="sidebar-nav-arrow">鈫?/span></button>
+        <h1 class="app-title">抽屉 <span>Drawer</span></h1>
+        <div class="app-tagline">在这里，点子不是为了完成，<br>而是为了生长。</div>
+        <button class="new-btn" onclick="openModal('newIdeaModal')"><span class="sidebar-plus">+</span><span>新的点子</span></button>
+        <button class="universe-btn" id="universeSidebarBtn" onclick="showUniverse()"><span class="sidebar-universe-star">✦</span><span>进入你的思维宇宙</span><span class="sidebar-nav-arrow">→</span></button>
       </div>
       <div class="sidebar-divider"></div>
-      <div class="sidebar-list-label">鐐瑰瓙 <span>路</span> <b id="ideaCount">0</b></div>
+      <div class="sidebar-list-label">点子 <span>·</span> <b id="ideaCount">0</b></div>
       <div class="ideas-list" id="ideasList">
         <!-- JS Rendered -->
       </div>
       <div class="bottom-sec">
-        <button class="language-switch" id="languageSwitch" onclick="toggleLanguage()" aria-label="鍒囨崲涓嫳鏂?>
-          <span class="language-option" id="languageZh">涓?/span><i></i><span class="language-option" id="languageEn">EN</span>
+        <button class="language-switch" id="languageSwitch" onclick="toggleLanguage()" aria-label="切换中英文">
+          <span class="language-option" id="languageZh">中</span><i></i><span class="language-option" id="languageEn">EN</span>
         </button>
-        <button class="settings-link" onclick="openModal('settingsModal')">鈿?璁剧疆 & API</button>
+        <button class="settings-link" onclick="openModal('settingsModal')">⚙ 设置 & API</button>
       </div>
     </div>
 
@@ -121,8 +121,8 @@
     <div class="main-panel">
       <!-- Mobile Header -->
       <div class="mobile-hdr">
-        <button class="menu-btn" onclick="toggleSidebar()">鈽?/button>
-        <div class="mobile-hdr-title">鎶藉眽 Drawer</div>
+        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <div class="mobile-hdr-title">抽屉 Drawer</div>
       </div>
 
       <!-- No Selection State (Quick Capture) -->
@@ -144,18 +144,18 @@
 
         <div class="quick-capture-container">
           <div class="home-dawn" aria-hidden="true"></div>
-          <div class="home-kicker">鐐逛寒涓€涓柊鎯虫硶</div>
+          <div class="home-kicker">点亮一个新想法</div>
           <div class="quick-capture-greeting" id="captureGreeting"></div>
           <div class="home-capture-box">
             <span class="home-spark" aria-hidden="true"></span>
-            <textarea id="quickCaptureInput" class="quick-capture-input" placeholder="璇寸偣浠€涔堬紝瀹冧細鎴愪负涓€棰楁柊鐨勬槦鈥? rows="1"></textarea>
-            <span class="home-return" aria-hidden="true">鈫?/span>
+            <textarea id="quickCaptureInput" class="quick-capture-input" placeholder="说点什么，它会成为一颗新的星…" rows="1"></textarea>
+            <span class="home-return" aria-hidden="true">↵</span>
           </div>
-          <div class="quick-capture-hint">鍥炶溅鍗虫椂鎹曟崏 路 鏃犻渶鏁寸悊锛屽厛鎺ヤ綇鍐嶈</div>
+          <div class="quick-capture-hint">回车即时捕捉 · 无需整理，先接住再说</div>
           <div class="home-choices">
-            <span><i class="new"></i>寮€濮嬭 = 鐐逛寒涓€棰楁柊鏄?/span>
+            <span><i class="new"></i>开始说 = 点亮一颗新星</span>
             <b></b>
-            <span><i></i>鐐逛竴棰楁棫鏄?= 鍥炲埌閭ｄ釜鎯虫硶</span>
+            <span><i></i>点一颗旧星 = 回到那个想法</span>
           </div>
         </div>
       </div>
@@ -164,66 +164,66 @@
       <div class="universe-view" id="universeView" style="display:none;">
         <div class="universe-header">
           <div class="universe-header-copy">
-            <div class="universe-title">鉁?浣犵殑鎬濈淮瀹囧畽</div>
+            <div class="universe-title">✦ 你的思维宇宙</div>
             <div class="universe-subtitle" id="universeSubtitle"></div>
           </div>
-          <div id="universeModeSwitch" class="universe-mode-switch" role="group" aria-label="瀹囧畽瑙嗗浘">
-            <button id="universeGravityModeBtn" class="active icon-only-btn" onclick="DrawerAtlasView.switchMode('gravity')" aria-label="鏄熷浘" title="鏄熷浘">
+          <div id="universeModeSwitch" class="universe-mode-switch" role="group" aria-label="宇宙视图">
+            <button id="universeGravityModeBtn" class="active icon-only-btn" onclick="DrawerAtlasView.switchMode('gravity')" aria-label="星图" title="星图">
               <svg class="ui-icon" aria-hidden="true"><use href="#ui-orbit"></use></svg>
             </button>
-            <button id="universeAtlasModeBtn" class="icon-only-btn" onclick="DrawerAtlasView.switchMode('atlas')" aria-label="骞撮壌" title="骞撮壌">
+            <button id="universeAtlasModeBtn" class="icon-only-btn" onclick="DrawerAtlasView.switchMode('atlas')" aria-label="年鉴" title="年鉴">
               <svg class="ui-icon" aria-hidden="true"><use href="#ui-atlas"></use></svg>
             </button>
-            <button id="universeWorldModeBtn" class="icon-only-btn" onclick="DrawerAtlasView.switchMode('world')" aria-label="涓栫晫涔嬬獥" title="涓栫晫涔嬬獥">
+            <button id="universeWorldModeBtn" class="icon-only-btn" onclick="DrawerAtlasView.switchMode('world')" aria-label="世界之窗" title="世界之窗">
               <svg class="ui-icon" aria-hidden="true"><use href="#ui-window"></use></svg>
             </button>
           </div>
         </div>
 
         <aside class="concept-universe-guide" id="conceptUniverseGuide" aria-hidden="true">
-          <div class="concept-guide-kicker">鉁?CONCEPT TOUR</div>
-          <div class="concept-guide-title" id="conceptGuideTitle">鍏堥€佷綘鍥涢鏄?/div>
-          <p id="conceptGuideBody">瀹冧滑浼氬儚鐪熸鐨勭偣瀛愪竴鏍锋紓娴€侀潬杩戯紝骞跺湪褰兼涔嬮棿闀垮嚭鏆楃嚎銆?/p>
-          <nav class="concept-guide-progress" aria-label="姒傚康瀹囧畽鏁欑▼姝ラ">
-            <button class="concept-guide-step active" type="button" onclick="goToConceptUniversePhase(1)" aria-label="鍥炲埌绗竴姝ワ細璁よ瘑鍥涢鏄?><i></i></button>
-            <button class="concept-guide-step" type="button" onclick="goToConceptUniversePhase(2)" aria-label="鍓嶅線绗簩姝ワ細瑙傚療鏆楃嚎"><i></i></button>
-            <button class="concept-guide-step" type="button" onclick="goToConceptUniversePhase(3)" aria-label="鍓嶅線绗笁姝ワ細鍙戠幇鏂版柟鍚?><i></i></button>
+          <div class="concept-guide-kicker">✦ CONCEPT TOUR</div>
+          <div class="concept-guide-title" id="conceptGuideTitle">先送你四颗星</div>
+          <p id="conceptGuideBody">它们会像真正的点子一样漂浮、靠近，并在彼此之间长出暗线。</p>
+          <nav class="concept-guide-progress" aria-label="概念宇宙教程步骤">
+            <button class="concept-guide-step active" type="button" onclick="goToConceptUniversePhase(1)" aria-label="回到第一步：认识四颗星"><i></i></button>
+            <button class="concept-guide-step" type="button" onclick="goToConceptUniversePhase(2)" aria-label="前往第二步：观察暗线"><i></i></button>
+            <button class="concept-guide-step" type="button" onclick="goToConceptUniversePhase(3)" aria-label="前往第三步：发现新方向"><i></i></button>
           </nav>
-          <button class="concept-guide-cta" type="button" onclick="finishConceptUniverseTour()">鐢ㄦ垜鐨勭偣瀛愰噸鎷捐繖鐗囧畤瀹?/button>
-          <small>杩欏彧鏄竴涓蹇垫祻瑙堬紝涓嶄細鍐欏叆浣犵殑鎶藉眽銆?/small>
+          <button class="concept-guide-cta" type="button" onclick="finishConceptUniverseTour()">用我的点子重拾这片宇宙</button>
+          <small>这只是一个概念浏览，不会写入你的抽屉。</small>
           <div class="concept-guide-timeline" aria-hidden="true"><i id="conceptGuideTimelineFill"></i></div>
         </aside>
 
         <div class="atlas-view" id="atlasView" aria-hidden="true">
           <aside class="concept-view-guide atlas-concept-guide" id="atlasConceptGuide" aria-hidden="true">
-            <div class="concept-guide-kicker">鉁?ATLAS TOUR</div>
-            <div class="concept-guide-title" id="atlasConceptGuideTitle">鍚屼竴鎵规槦锛屽彉鎴愪竴寮犲湴鍥?/div>
-            <p id="atlasConceptGuideBody">杩欓噷涓嶈瘎鍒ょ偣瀛愮殑濂藉潖锛屽彧鐪嬪畠浠洿闈犺繎鍐呭績杩樻槸涓栫晫銆佸惛鏀惰繕鏄骇鍑恒€?/p>
-            <nav class="concept-guide-progress" aria-label="骞撮壌鏁欑▼姝ラ">
-              <button class="concept-guide-step active" type="button" onclick="DrawerAtlasView.goToGuidePhase(1)" aria-label="鍥炲埌绗竴姝ワ細璁よ瘑鍧愭爣"><i></i></button>
-              <button class="concept-guide-step" type="button" onclick="DrawerAtlasView.goToGuidePhase(2)" aria-label="鍓嶅線绗簩姝ワ細褰㈡垚鏄熷骇"><i></i></button>
-              <button class="concept-guide-step" type="button" onclick="DrawerAtlasView.goToGuidePhase(3)" aria-label="鍓嶅線绗笁姝ワ細鍙戠幇鏈煡鍖哄煙"><i></i></button>
+            <div class="concept-guide-kicker">✦ ATLAS TOUR</div>
+            <div class="concept-guide-title" id="atlasConceptGuideTitle">同一批星，变成一张地图</div>
+            <p id="atlasConceptGuideBody">这里不评判点子的好坏，只看它们更靠近内心还是世界、吸收还是产出。</p>
+            <nav class="concept-guide-progress" aria-label="年鉴教程步骤">
+              <button class="concept-guide-step active" type="button" onclick="DrawerAtlasView.goToGuidePhase(1)" aria-label="回到第一步：认识坐标"><i></i></button>
+              <button class="concept-guide-step" type="button" onclick="DrawerAtlasView.goToGuidePhase(2)" aria-label="前往第二步：形成星座"><i></i></button>
+              <button class="concept-guide-step" type="button" onclick="DrawerAtlasView.goToGuidePhase(3)" aria-label="前往第三步：发现未知区域"><i></i></button>
             </nav>
-            <button class="concept-guide-cta" type="button" onclick="DrawerAtlasView.finishGuide()">鐢ㄦ垜鐨勭偣瀛愮粯鍑鸿嚜宸辩殑骞撮壌</button>
-            <small>杩欏彧鏄蹇垫祴缁橈紝涓嶄細鍐欏叆浣犵殑鎶藉眽銆?/small>
+            <button class="concept-guide-cta" type="button" onclick="DrawerAtlasView.finishGuide()">用我的点子绘出自己的年鉴</button>
+            <small>这只是概念测绘，不会写入你的抽屉。</small>
             <div class="concept-guide-timeline" aria-hidden="true"><i id="atlasConceptTimelineFill"></i></div>
           </aside>
           <div class="atlas-canvas-wrap" id="atlasCanvasWrap">
             <div class="atlas-heading">
               <div class="atlas-kicker">THE ATLAS OF YOUR YEAR</div>
-              <div class="atlas-heading-title">鎶婅繖涓€骞寸殑蹇靛ご锛屾斁鍥炲畠浠湡姝ｇ殑浣嶇疆</div>
-              <div class="atlas-heading-meta" id="atlasHeadingMeta">姝ｅ湪娴嬬粯璇箟鍧愭爣鈥?/div>
+              <div class="atlas-heading-title">把这一年的念头，放回它们真正的位置</div>
+              <div class="atlas-heading-meta" id="atlasHeadingMeta">正在测绘语义坐标…</div>
             </div>
-            <svg id="atlasSvg" aria-label="浜岀淮璇箟鏄熷浘"></svg>
+            <svg id="atlasSvg" aria-label="二维语义星图"></svg>
             <div class="atlas-loading" id="atlasLoading">
               <span></span>
-              <div id="atlasLoadingText">姝ｅ湪娴嬬粯璇箟鍧愭爣鈥?/div>
+              <div id="atlasLoadingText">正在测绘语义坐标…</div>
             </div>
             <div class="atlas-tooltip" id="atlasTooltip"></div>
           </div>
           <aside class="atlas-expedition" id="atlasExpedition" aria-hidden="true">
-            <button class="atlas-expedition-close" onclick="DrawerAtlasView.closeExpedition()" aria-label="鍏抽棴">鉁?/button>
-            <div class="atlas-expedition-kicker">馃Л CHART AN EXPEDITION</div>
+            <button class="atlas-expedition-close" onclick="DrawerAtlasView.closeExpedition()" aria-label="关闭">✕</button>
+            <div class="atlas-expedition-kicker">🧭 CHART AN EXPEDITION</div>
             <div class="atlas-expedition-tag">TERRA INCOGNITA</div>
             <div class="atlas-expedition-name" id="atlasExpeditionName"></div>
             <div class="atlas-expedition-description" id="atlasExpeditionDescription"></div>
@@ -244,19 +244,19 @@
             <canvas id="worldWindowGl"></canvas>
             <div class="world-vignette"></div>
             <div id="worldWindowLabels"></div>
-            <svg id="worldWindowSvg" aria-label="涓栫晫涔嬬獥锛氫綘鐨勫凡鐭ュ唴娴蜂笌浠婃棩澶栭儴鐏" hidden></svg>
+            <svg id="worldWindowSvg" aria-label="世界之窗：你的已知内海与今日外部灯塔" hidden></svg>
 
             <aside class="concept-view-guide world-concept-guide" id="worldConceptGuide" aria-hidden="true">
-              <div class="concept-guide-kicker">鉁?WORLD WINDOW TOUR</div>
-              <div class="concept-guide-title" id="worldConceptGuideTitle">杩欓噷鏄綘鐨勫凡鐭ュ唴娴?/div>
-              <p id="worldConceptGuideBody">姗欒壊鏄熷厜鏉ヨ嚜浣犲凡缁忕暀涓嬬殑蹇靛ご锛屾捣宀哥嚎鏄鍒昏鐭ョ殑杈圭晫銆?/p>
-              <nav class="concept-guide-progress" aria-label="涓栫晫涔嬬獥鏁欑▼姝ラ">
-                <button class="concept-guide-step active" type="button" onclick="DrawerWorldWindow.goToGuidePhase(1)" aria-label="鍥炲埌绗竴姝ワ細璁よ瘑宸茬煡鍐呮捣"><i></i></button>
-                <button class="concept-guide-step" type="button" onclick="DrawerWorldWindow.goToGuidePhase(2)" aria-label="鍓嶅線绗簩姝ワ細鐐逛寒澶栭儴鐏"><i></i></button>
-                <button class="concept-guide-step" type="button" onclick="DrawerWorldWindow.goToGuidePhase(3)" aria-label="鍓嶅線绗笁姝ワ細鎵撳紑浠婃棩鏉ヤ俊"><i></i></button>
+              <div class="concept-guide-kicker">✦ WORLD WINDOW TOUR</div>
+              <div class="concept-guide-title" id="worldConceptGuideTitle">这里是你的已知内海</div>
+              <p id="worldConceptGuideBody">橙色星光来自你已经留下的念头，海岸线是此刻认知的边界。</p>
+              <nav class="concept-guide-progress" aria-label="世界之窗教程步骤">
+                <button class="concept-guide-step active" type="button" onclick="DrawerWorldWindow.goToGuidePhase(1)" aria-label="回到第一步：认识已知内海"><i></i></button>
+                <button class="concept-guide-step" type="button" onclick="DrawerWorldWindow.goToGuidePhase(2)" aria-label="前往第二步：点亮外部灯塔"><i></i></button>
+                <button class="concept-guide-step" type="button" onclick="DrawerWorldWindow.goToGuidePhase(3)" aria-label="前往第三步：打开今日来信"><i></i></button>
               </nav>
-              <button class="concept-guide-cta" type="button" onclick="DrawerWorldWindow.finishGuide()">鐢ㄦ垜鐨勭偣瀛愭墦寮€鐪熸鐨勪笘鐣屼箣绐?/button>
-              <small>鐏鍙槸姒傚康绀鸿寖锛屼笉浼氳嚜鍔ㄦ敹钘忔垨鐢熸垚鐐瑰瓙銆?/small>
+              <button class="concept-guide-cta" type="button" onclick="DrawerWorldWindow.finishGuide()">用我的点子打开真正的世界之窗</button>
+              <small>灯塔只是概念示范，不会自动收藏或生成点子。</small>
               <div class="concept-guide-timeline" aria-hidden="true"><i id="worldConceptTimelineFill"></i></div>
             </aside>
 
@@ -267,13 +267,13 @@
               <i class="world-corner world-corner-br"></i>
 
               <div class="world-heading">
-                <div class="world-kicker">FLOW 2 路 WORLD WINDOW</div>
+                <div class="world-kicker">FLOW 2 · WORLD WINDOW</div>
                 <div class="world-title" id="worldWindowTitle">World Window</div>
                 <div class="world-date" id="worldWindowDate">TODAY'S LETTER</div>
-                <div class="world-summary" id="worldWindowSummary">姝ｅ湪纭浠婂ぉ鐨勮埅绾库€?/div>
+                <div class="world-summary" id="worldWindowSummary">正在确认今天的航线…</div>
               </div>
 
-              <div class="hud-top mono">ORBIT OPUS <span class="sep">//</span> NAV-7 <span class="sep">路</span> <span id="worldHudClock">00:00:00</span></div>
+              <div class="hud-top mono">ORBIT OPUS <span class="sep">//</span> NAV-7 <span class="sep">·</span> <span id="worldHudClock">00:00:00</span></div>
 
               <div class="hud-ruler">
                 <div class="compass" id="worldHudCompass"><span>N</span></div>
@@ -285,35 +285,35 @@
 
               <div class="hud-br mono">
                 <div>VEL: <b id="worldHudVel">19.7</b> KM/S</div>
-                <div>BEARING: <b id="worldHudBearing">128.4</b>掳</div>
+                <div>BEARING: <b id="worldHudBearing">128.4</b>°</div>
                 <div class="zoom-bar"><i id="worldHudZoom"></i></div>
               </div>
 
               <div class="world-legend hud-legend mono">
                 <span><i class="dot gold known"></i><b id="worldLegendKnown">YOUR STARS</b></span>
                 <span><i class="dot cyan external"></i><b id="worldLegendExternal">TODAY'S LIGHTS</b></span>
-                <span><i class="ring"></i><b id="worldTerraSubtitle">SHORELINE 路 璁ょ煡杈圭晫</b></span>
+                <span><i class="ring"></i><b id="worldTerraSubtitle">SHORELINE · 认知边界</b></span>
               </div>
             </div>
 
             <div class="world-coordinate" id="worldWindowCoordinate" hidden>
-              <span>鍚戝唴 鈫?鍚戝</span>
-              <span>鍚告敹 鈫?浜у嚭</span>
+              <span>向内 ↔ 向外</span>
+              <span>吸收 ↕ 产出</span>
             </div>
 
             <div class="world-window-loading" id="worldWindowLoading">
               <span></span>
-              <div id="worldWindowLoadingText">姝ｅ湪鎷嗗紑浠婂ぉ鐨勬潵淇♀€?/div>
+              <div id="worldWindowLoadingText">正在拆开今天的来信…</div>
             </div>
             <div class="world-window-empty" id="worldWindowEmpty" hidden>
-              <strong id="worldEmptyTitle">鍏堝湪鎶藉眽閲岀暀涓嬩竴棰楁槦</strong>
-              <span id="worldEmptyBody">涓栫晫涔嬬獥浼氫粠浣犵殑杈圭枂鍚戝瀵绘壘浠婂ぉ鐨勭伅濉斻€?/span>
+              <strong id="worldEmptyTitle">先在抽屉里留下一颗星</strong>
+              <span id="worldEmptyBody">世界之窗会从你的边疆向外寻找今天的灯塔。</span>
             </div>
             <div class="world-window-tooltip" id="worldWindowTooltip"></div>
 
             <aside class="world-letter-card" id="worldLetterCard" aria-hidden="true">
               <button class="world-letter-close" id="worldLetterCloseBtn"
-                onclick="DrawerWorldWindow.closeLetter()" aria-label="鍏抽棴">鉁?/button>
+                onclick="DrawerWorldWindow.closeLetter()" aria-label="关闭">✕</button>
               <div class="postmark mono"><span>DRAWER POST</span><b id="worldPostmarkDate">19 OCT</b><span>WORLD WINDOW</span></div>
               <div class="world-letter-kicker" id="worldLetterKicker">TODAY'S LIGHTHOUSE</div>
               <div class="world-letter-name" id="worldLetterName"></div>
@@ -325,41 +325,41 @@
                 <div class="l-more-inner">
                   <div class="l-meta" id="worldLetterChips"></div>
                   <div class="l-section">
-                    <h4>WHY IT FOUND YOU 路 瀹冧负浣曟壘鍒颁綘</h4>
+                    <h4>WHY IT FOUND YOU · 它为何找到你</h4>
                     <div class="world-letter-relation" id="worldLetterRelation"></div>
                   </div>
                   <div id="worldLetterExtraSection"></div>
                   <div class="world-letter-collision" id="worldLetterCollision" hidden>
-                    <div class="world-letter-collision-label" id="worldCollisionLabel">浜ゅ弶鍚庡嚭鐜扮殑鏂版柟鍚?/div>
+                    <div class="world-letter-collision-label" id="worldCollisionLabel">交叉后出现的新方向</div>
                     <div id="worldLetterCollisionText"></div>
                     <button class="world-collision-save" id="worldCollisionSaveBtn" type="button"
-                      onclick="DrawerWorldWindow.saveCollisionSeed()" hidden>淇濆瓨杩欎釜鏂扮伀绉?/button>
+                      onclick="DrawerWorldWindow.saveCollisionSeed()" hidden>保存这个新火种</button>
                   </div>
                 </div>
               </div>
 
               <button class="l-expand" id="worldLetterExpandBtn" type="button">
-                <span class="more">灞曞紑鍏ㄩ儴 路 More</span>
-                <span class="less">鏀惰捣 路 Less</span>
-                <i>鈱?/i>
+                <span class="more">展开全部 · More</span>
+                <span class="less">收起 · Less</span>
+                <i>⌄</i>
               </button>
 
               <div class="world-letter-actions l-actions" id="worldLetterLightActions">
-                <button class="l-btn primary" id="worldCaptureBtn" onclick="DrawerWorldWindow.captureSelected()">鏀惰棌涓虹瀛?/button>
-                <button class="l-btn" id="worldCollideBtn" onclick="DrawerWorldWindow.collideSelected()">鍜屾棫鐐瑰瓙浜ゅ弶</button>
-                <button class="l-btn quiet" id="worldIgnoreBtn" onclick="DrawerWorldWindow.ignoreSelected()">蹇界暐</button>
+                <button class="l-btn primary" id="worldCaptureBtn" onclick="DrawerWorldWindow.captureSelected()">收藏为种子</button>
+                <button class="l-btn" id="worldCollideBtn" onclick="DrawerWorldWindow.collideSelected()">和旧点子交叉</button>
+                <button class="l-btn quiet" id="worldIgnoreBtn" onclick="DrawerWorldWindow.ignoreSelected()">忽略</button>
               </div>
               <div class="l-actions" id="worldLetterIdeaActions" hidden>
-                <button class="l-btn primary" id="worldOpenIdeaBtn" type="button"><span>鍦ㄦ娊灞変腑鎵撳紑 路 Open in Drawer</span><small>鈫?/small></button>
+                <button class="l-btn primary" id="worldOpenIdeaBtn" type="button"><span>在抽屉中打开 · Open in Drawer</span><small>↗</small></button>
               </div>
             </aside>
 
             <aside class="world-daily-nudge" id="worldDailyNudge" aria-live="polite" hidden>
               <div class="world-nudge-kicker" id="worldNudgeKicker">TODAY'S NUDGE</div>
               <div class="world-nudge-title" id="worldNudgeTitle">One small move for today</div>
-              <p id="worldNudgeBody">浠庣浣犳渶杩戠殑鐏寮€濮嬶紝鑺变袱鍒嗛挓鐪嬬湅瀹冨拰鍝鏃ф槦鐩歌繛銆?/p>
+              <p id="worldNudgeBody">从离你最近的灯塔开始，花两分钟看看它和哪颗旧星相连。</p>
               <button id="worldNudgeButton" type="button" onclick="DrawerWorldWindow.openDailyNudge()">
-                <span>鎵撳紑浠婂ぉ鐨勭涓€鐩忕伅濉?/span> <span>鈫?/span>
+                <span>打开今天的第一盏灯塔</span> <span>↗</span>
               </button>
             </aside>
 
@@ -369,7 +369,7 @@
               <div class="world-veil-inner">
                 <div class="world-veil-kicker mono" id="worldVeilDate">TODAY'S LETTER</div>
                 <div class="world-veil-title">The world wrote back.</div>
-                <div class="world-veil-zh">浠婂ぉ锛屼笘鐣屼粠浣犺鐭ョ殑杈圭紭澶栵紝瀵勬潵浜嗗嚑灏佷俊銆?/div>
+                <div class="world-veil-zh">今天，世界从你认知的边缘外，寄来了几封信。</div>
               </div>
             </div>
             <div class="world-skip-hint mono" id="worldSkipHint">CLICK TO SKIP</div>
@@ -384,23 +384,23 @@
           <div class="narration-text" id="narrationText"></div>
         </div>
         <div class="universe-empty" id="universeEmpty" style="display:none;">
-          <div class="universe-empty-icon">鉁?/div>
-          <div class="universe-empty-text">杩樻病鏈夎冻澶熺殑鐐瑰瓙鏉ュ舰鎴愬畤瀹欍€?br>鑷冲皯闇€瑕?2 涓湁鍐呭鐨勭偣瀛愩€?/div>
+          <div class="universe-empty-icon">✦</div>
+          <div class="universe-empty-text">还没有足够的点子来形成宇宙。<br>至少需要 2 个有内容的点子。</div>
         </div>
 
         <div class="universe-inspector" id="universeInspector" aria-hidden="true">
-          <button class="universe-inspector-close" onclick="closeUniverseInspector()" aria-label="鍏抽棴">鉁?/button>
-          <div class="universe-inspector-kicker" id="universeInspectorKicker">褰撳墠鏄熶綋</div>
+          <button class="universe-inspector-close" onclick="closeUniverseInspector()" aria-label="关闭">✕</button>
+          <div class="universe-inspector-kicker" id="universeInspectorKicker">当前星体</div>
           <div class="universe-inspector-title" id="universeInspectorTitle"></div>
           <div class="universe-inspector-core" id="universeInspectorCore"></div>
           <div class="universe-inspector-reason" id="universeInspectorReason"></div>
           <div class="universe-inspector-next" id="universeInspectorNext"></div>
           <div class="universe-inspector-meta" id="universeInspectorMeta"></div>
           <div class="universe-inspector-actions">
-            <button class="inspector-primary icon-only-btn" id="universeInspectorOpenBtn" onclick="openInspectedIdea()" aria-label="鎵撳紑鐐瑰瓙" title="鎵撳紑鐐瑰瓙">
+            <button class="inspector-primary icon-only-btn" id="universeInspectorOpenBtn" onclick="openInspectedIdea()" aria-label="打开点子" title="打开点子">
               <svg class="ui-icon" aria-hidden="true"><use href="#ui-open"></use></svg>
             </button>
-            <button class="icon-only-btn" id="universeInspectorFocusBtn" onclick="focusInspectedIdea()" aria-label="浠ュ畠涓轰腑蹇? title="浠ュ畠涓轰腑蹇?>
+            <button class="icon-only-btn" id="universeInspectorFocusBtn" onclick="focusInspectedIdea()" aria-label="以它为中心" title="以它为中心">
               <svg class="ui-icon" aria-hidden="true"><use href="#ui-focus"></use></svg>
             </button>
           </div>
@@ -409,16 +409,16 @@
         <!-- Universe Chatbox -->
         <div class="uchat" id="uChat">
           <div class="uchat-header">
-            <div class="uchat-title" id="uChatTitle">鉁?浜ゆ眹鐐?/div>
+            <div class="uchat-title" id="uChatTitle">✦ 交汇点</div>
             <div style="display:flex;gap:8px;align-items:center">
-              <button class="uchat-adopt" id="uChatAdopt" onclick="adoptSupernova()" style="display:none">馃殌 甯﹁蛋</button>
-              <button class="uchat-adopt" id="uChatDiscard" onclick="discardSupernova()" style="display:none; color: var(--muted); border-color: rgba(255,255,255,0.1); background: transparent;">馃棏锔?鏀惧純</button>
-              <button class="uchat-close" onclick="closeUChat()">鉁?/button>
+              <button class="uchat-adopt" id="uChatAdopt" onclick="adoptSupernova()" style="display:none">🚀 带走</button>
+              <button class="uchat-adopt" id="uChatDiscard" onclick="discardSupernova()" style="display:none; color: var(--muted); border-color: rgba(255,255,255,0.1); background: transparent;">🗑️ 放弃</button>
+              <button class="uchat-close" onclick="closeUChat()">✕</button>
             </div>
           </div>
           <div class="uchat-messages" id="uChatMessages"></div>
           <div class="uchat-input-wrap">
-            <textarea class="uchat-input" id="uChatInput" placeholder="鎺㈢储杩欎釜浜ゅ弶鐐光€? rows="1"></textarea>
+            <textarea class="uchat-input" id="uChatInput" placeholder="探索这个交叉点…" rows="1"></textarea>
           </div>
         </div>
         <div id="nodeTip" class="node-tip"></div>
@@ -426,19 +426,19 @@
         <!-- First-visit guide -->
         <div class="universe-guide" id="universeGuide" style="display:none;">
           <div class="universe-guide-item">
-            <span class="guide-icon" style="color:#d7a454;">鈼?/span> 榛勮壊鎭掓槦 鈫?浣犲睍寮€鐨勭偣瀛?
+            <span class="guide-icon" style="color:#d7a454;">●</span> 黄色恒星 → 你展开的点子
           </div>
           <div class="universe-guide-item">
-            <span class="guide-icon" style="color:#c5c9cc;">路</span> 鐧界煯鏄?鈫?灏氭湭灞曞紑鎴栭暱鏈熸矇瀵?
+            <span class="guide-icon" style="color:#c5c9cc;">·</span> 白矮星 → 尚未展开或长期沉寂
           </div>
           <div class="universe-guide-item">
-            <span class="guide-icon" style="color:#7ec8e3;">鉁?/span> 钃濊壊鏂版槦 鈫?纰版挒浜х敓鐨勫€欓€夋柟鍚?
+            <span class="guide-icon" style="color:#7ec8e3;">✦</span> 蓝色新星 → 碰撞产生的候选方向
           </div>
           <div class="universe-guide-item">
-            <span class="guide-line" style="border-color:#d7a454;"></span> 榛勮壊绾?鈫?鐐瑰瓙涔嬮棿鐨勬綔鍦ㄦ殫绾?
+            <span class="guide-line" style="border-color:#d7a454;"></span> 黄色线 → 点子之间的潜在暗线
           </div>
           <div class="universe-guide-item">
-            <span class="guide-line" style="border-color:#7ec8e3;"></span> 钃濊壊绾?鈫?鏂版槦涓庢瘝鐐瑰瓙鐨勭敓鎴愯缂?
+            <span class="guide-line" style="border-color:#7ec8e3;"></span> 蓝色线 → 新星与母点子的生成血缘
           </div>
         </div>
       </div>
@@ -446,36 +446,36 @@
       <!-- Idea View -->
       <div class="idea-view" id="ideaView" style="display: none;">
         <div class="card-birth-moment" id="cardBirthMoment" aria-hidden="true">
-          <div class="card-birth-star">鉁?/div>
+          <div class="card-birth-star">✦</div>
           <div class="card-birth-copy">
-            <span>鎯虫硶缁撴櫠浜?/span>
-            <strong>鍒氭墠鑱婃暎鐨勪笢瑗匡紝宸茬粡闀挎垚浜嗕竴寮犲崱鐗囥€?/strong>
+            <span>想法结晶了</span>
+            <strong>刚才聊散的东西，已经长成了一张卡片。</strong>
           </div>
           <div class="card-birth-actions">
-            <button class="primary" type="button" onclick="dismissCardBirthMoment(false)">鐪嬬湅杩欏紶鍗＄墖</button>
-            <button type="button" onclick="dismissCardBirthMoment(true)">缁х画鑱?/button>
+            <button class="primary" type="button" onclick="dismissCardBirthMoment(false)">看看这张卡片</button>
+            <button type="button" onclick="dismissCardBirthMoment(true)">继续聊</button>
           </div>
         </div>
         <div class="idea-bar">
           <div class="idea-hero-main">
-            <div class="idea-hero-kicker"><span class="idea-hero-star">鉁?/span><span>鏍稿績鐐瑰瓙</span><span class="idea-hero-number" id="ideaHeroNumber"></span></div>
-            <div class="idea-bar-name" id="ideaBarName" onclick="startRename()" title="鐐瑰嚮閲嶅懡鍚?>鐐瑰瓙杞藉叆涓?..</div>
+            <div class="idea-hero-kicker"><span class="idea-hero-star">✦</span><span>核心点子</span><span class="idea-hero-number" id="ideaHeroNumber"></span></div>
+            <div class="idea-bar-name" id="ideaBarName" onclick="startRename()" title="点击重命名">点子载入中...</div>
             <p class="idea-hero-summary" id="ideaHeroSummary"></p>
           </div>
           <div class="idea-hero-side">
             <div class="idea-hero-meta">
-              <span class="idea-meta-chip metric-chip" id="ideaConnectionChip" aria-label="宸茶繛鎺?0 涓妭鐐? title="宸茶繛鎺?0 涓妭鐐?>
+              <span class="idea-meta-chip metric-chip" id="ideaConnectionChip" aria-label="已连接 0 个节点" title="已连接 0 个节点">
                 <svg class="ui-icon" aria-hidden="true"><use href="#ui-nodes"></use></svg><b id="ideaConnectionCount">0</b>
               </span>
-              <span class="idea-meta-chip metric-chip" id="ideaCreatedChip" aria-label="鍒涘缓浜庝粖澶? title="鍒涘缓浜庝粖澶?>
-                <svg class="ui-icon" aria-hidden="true"><use href="#ui-calendar"></use></svg><b id="ideaCreatedDate">浠婂ぉ</b>
+              <span class="idea-meta-chip metric-chip" id="ideaCreatedChip" aria-label="创建于今天" title="创建于今天">
+                <svg class="ui-icon" aria-hidden="true"><use href="#ui-calendar"></use></svg><b id="ideaCreatedDate">今天</b>
               </span>
             </div>
             <div class="idea-bar-controls">
               <select class="status-sel" id="statusSel" onchange="updateStatus(this.value)">
-                <option value="seed">馃尡 钀岃娊</option>
-                <option value="grow">馃尶 鎺ㄨ繘</option>
-                <option value="pause">鉂勶笍 鎼佺疆</option>
+                <option value="seed">🌱 萌芽</option>
+                <option value="grow">🌿 推进</option>
+                <option value="pause">❄️ 搁置</option>
               </select>
             </div>
           </div>
@@ -483,10 +483,10 @@
 
         <div class="graph-hdr">
           <div class="panel-tabs">
-            <button class="tab-btn icon-only-btn active" id="tabCard" onclick="switchTab('card')" aria-label="鐐瑰瓙鍗＄墖" title="鐐瑰瓙鍗＄墖">
+            <button class="tab-btn icon-only-btn active" id="tabCard" onclick="switchTab('card')" aria-label="点子卡片" title="点子卡片">
               <svg class="ui-icon" aria-hidden="true"><use href="#ui-card"></use></svg>
             </button>
-            <button class="tab-btn icon-only-btn" id="tabGraph" onclick="switchTab('graph')" aria-label="鐏垫劅鍥捐氨" title="鐏垫劅鍥捐氨">
+            <button class="tab-btn icon-only-btn" id="tabGraph" onclick="switchTab('graph')" aria-label="灵感图谱" title="灵感图谱">
               <svg class="ui-icon" aria-hidden="true"><use href="#ui-graph"></use></svg>
             </button>
           </div>
@@ -495,23 +495,23 @@
         <!-- Card View -->
         <div class="card-panel" id="cardPanel">
           <div class="card-empty" id="cardEmpty">
-            <div class="card-empty-icon">馃摑</div>
-            <div class="card-empty-text">鑱婁笂鍑犲彞锛屾垜鏉ュ府浣犳暣鐞嗘€濊矾銆?/div>
+            <div class="card-empty-icon">📝</div>
+            <div class="card-empty-text">聊上几句，我来帮你整理思路。</div>
             <button class="card-gen-btn" id="cardGenBtn" style="display:none;"
-              onclick="generateIdeaCard(false)">鏁寸悊鎴愬崱鐗?/button>
+              onclick="generateIdeaCard(false)">整理成卡片</button>
           </div>
 
           <div class="card-content" id="cardContent" style="display:none;">
             <div class="card-toolbar">
-              <span class="card-toolbar-label">鐐瑰瓙鎽樿</span>
+              <span class="card-toolbar-label">点子摘要</span>
               <div class="card-toolbar-actions">
-                <button class="card-copy-btn" onclick="copyCard()" aria-label="澶嶅埗鍗＄墖" title="澶嶅埗鍗＄墖"><span aria-hidden="true">鈻?/span></button>
-                <button class="card-regen-btn" onclick="generateIdeaCard(false)" aria-label="閲嶆柊鏁寸悊鏁村紶鍗＄墖" title="閲嶆柊鏁寸悊鏁村紶鍗＄墖"><span aria-hidden="true">鈫?/span></button>
+                <button class="card-copy-btn" onclick="copyCard()" aria-label="复制卡片" title="复制卡片"><span aria-hidden="true">▣</span></button>
+                <button class="card-regen-btn" onclick="generateIdeaCard(false)" aria-label="重新整理整张卡片" title="重新整理整张卡片"><span aria-hidden="true">↻</span></button>
               </div>
             </div>
             <div class="card-column card-column-primary">
               <section class="idea-card core-card">
-              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">鉁?/span>鏍稿績瑙傜偣</div>
+              <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">✦</span>核心观点</div>
               <div class="card-core-text" id="cardCore"></div>
               </section>
 
@@ -521,30 +521,30 @@
 
             <div class="card-column card-column-actions">
               <section class="idea-card growth-dock" id="cardGrowthBlock">
-                <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">鉁?/span>鍙墽琛岀殑涓嬩竴姝?/div>
+                <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">✓</span>可执行的下一步</div>
                 <div class="growth-directions" id="cardBranchesBlock">
                   <div class="card-chips" id="cardBranches"></div>
                 </div>
                 <div class="growth-seed">
                   <div class="card-next-action" id="cardNextAction">
                     <span class="task-checkbox is-priority" aria-hidden="true"></span>
-                    <span class="task-copy"><span class="card-next-kicker">鎺ㄨ崘浼樺厛</span><span class="card-next-line"><span id="cardNext"></span></span></span>
+                    <span class="task-copy"><span class="card-next-kicker">推荐优先</span><span class="card-next-line"><span id="cardNext"></span></span></span>
                   </div>
                 </div>
                 <div class="growth-actions">
-                  <button onclick="growIdea('deeper')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionDeeper">鍐嶆寲娣变竴鐐?/span></button>
+                  <button onclick="growIdea('deeper')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionDeeper">再挖深一点</span></button>
                   <div class="growth-more" id="cardMoreActions" hidden>
-                    <button onclick="growIdea('outline')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionOutline">鍙樻垚鍒涗綔鎻愮翰</span></button>
-                    <button onclick="growIdea('echo')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionEcho">瀵绘壘鏃х偣瀛愮殑鍥炲０</span></button>
-                    <button onclick="growIdea('rest')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionRest">鍏堟斁鍦ㄨ繖閲?/span></button>
+                    <button onclick="growIdea('outline')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionOutline">变成创作提纲</span></button>
+                    <button onclick="growIdea('echo')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionEcho">寻找旧点子的回声</span></button>
+                    <button onclick="growIdea('rest')"><span class="task-checkbox" aria-hidden="true"></span><span id="cardActionRest">先放在这里</span></button>
                   </div>
-                  <button class="growth-more-toggle" id="cardMoreToggle" type="button" onclick="toggleCardMore()">+ 鍙﹀ 3 鏉?/button>
+                  <button class="growth-more-toggle" id="cardMoreToggle" type="button" onclick="toggleCardMore()">+ 另外 3 条</button>
                 </div>
               </section>
 
               <section class="idea-card card-tension-block" id="cardTensionBlock">
-                <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">?</span>杩樻病鎯虫竻妤氱殑闂</div>
-                <span class="question-state">寮€鏀鹃棶棰?/span>
+                <div class="card-section-label"><span class="card-label-icon" aria-hidden="true">?</span>还没想清楚的问题</div>
+                <span class="question-state">开放问题</span>
                 <div class="question-mark" aria-hidden="true">?</div>
                 <div class="card-tension-content" id="cardTensions"></div>
               </section>
@@ -552,17 +552,17 @@
 
             <div class="card-column card-column-context">
               <details class="idea-card card-context-details" id="cardContextDetails">
-                <summary><span><span class="card-label-icon" aria-hidden="true">鈼?/span>璧风偣涓庤浆鍙?/span><i aria-hidden="true">鈱?/i></summary>
+                <summary><span><span class="card-label-icon" aria-hidden="true">◒</span>起点与转变</span><i aria-hidden="true">⌄</i></summary>
                 <div class="card-context-body">
                   <div class="card-origin-block" id="cardOriginBlock" style="display:none;">
-                    <div class="card-section-label">鏈€鍒濈殑瑙﹀彂</div>
-                    <div class="origin-quote-mark" aria-hidden="true">鈥?/div>
+                    <div class="card-section-label">最初的触发</div>
+                    <div class="origin-quote-mark" aria-hidden="true">“</div>
                     <div class="card-origin-content" id="cardOrigin"></div>
                   </div>
                   <div class="card-turn-block" id="cardTurnBlock" style="display:none;">
-                    <div class="card-section-label">鎬濊矾鍙戠敓浜嗗彉鍖?/div>
+                    <div class="card-section-label">思路发生了变化</div>
                     <div class="turn-route" aria-hidden="true">
-                      <span>鏈€鍒濆叧娉?/span><i></i><b>鐜板湪鍏虫敞</b>
+                      <span>最初关注</span><i></i><b>现在关注</b>
                     </div>
                     <div class="card-turn-content" id="cardTurningPoint"></div>
                   </div>
@@ -575,58 +575,58 @@
         <!-- Graph View -->
         <div class="graph-svg-wrap" id="graphSvgWrap" style="display:none;">
           <div class="idea-graph-tools">
-            <label class="idea-graph-search" aria-label="妫€绱㈠浘璋?>
-              <span aria-hidden="true">鈱?/span>
-              <input id="graphSearchInput" type="search" placeholder="妫€绱㈣妭鐐规垨鍏崇郴鈥? autocomplete="off"
+            <label class="idea-graph-search" aria-label="检索图谱">
+              <span aria-hidden="true">⌕</span>
+              <input id="graphSearchInput" type="search" placeholder="检索节点或关系…" autocomplete="off"
                 oninput="filterIdeaGraph(this.value)">
               <kbd>/</kbd>
             </label>
-            <div class="idea-graph-filters" aria-label="鍥捐氨绛涢€?>
-              <button class="graph-filter is-active" type="button" data-filter="all" onclick="setIdeaGraphFilter('all')">鍏ㄩ儴</button>
-              <button class="graph-filter" type="button" data-filter="insight" onclick="setIdeaGraphFilter('insight')">娲炲療</button>
-              <button class="graph-filter" type="button" data-filter="todo" onclick="setIdeaGraphFilter('todo')">寰呭姙</button>
-              <button class="graph-filter" type="button" data-filter="inferred" onclick="setIdeaGraphFilter('inferred')">鎺ㄦ柇鍏崇郴</button>
+            <div class="idea-graph-filters" aria-label="图谱筛选">
+              <button class="graph-filter is-active" type="button" data-filter="all" onclick="setIdeaGraphFilter('all')">全部</button>
+              <button class="graph-filter" type="button" data-filter="insight" onclick="setIdeaGraphFilter('insight')">洞察</button>
+              <button class="graph-filter" type="button" data-filter="todo" onclick="setIdeaGraphFilter('todo')">待办</button>
+              <button class="graph-filter" type="button" data-filter="inferred" onclick="setIdeaGraphFilter('inferred')">推断关系</button>
             </div>
           </div>
           <svg id="graphSvg"></svg>
-          <div class="idea-graph-legend" aria-label="鍥捐氨鍥句緥">
-            <span><i class="legend-line insight"></i>鎬濊€?/ 娲炲療</span>
-            <span><i class="legend-line todo"></i>寰呭姙</span>
-            <span><i class="legend-line solid"></i>鏄庣‘鍏宠仈</span>
-            <span><i class="legend-line dashed"></i>绯荤粺鎺ㄦ柇</span>
+          <div class="idea-graph-legend" aria-label="图谱图例">
+            <span><i class="legend-line insight"></i>思考 / 洞察</span>
+            <span><i class="legend-line todo"></i>待办</span>
+            <span><i class="legend-line solid"></i>明确关联</span>
+            <span><i class="legend-line dashed"></i>系统推断</span>
           </div>
           <div class="graph-empty" id="graphEmpty">
-            <div class="graph-empty-icon">馃暩</div>
-            <div class="graph-empty-text">鍦ㄨ繖閲岄拤鍏ヤ綘鐨勬€濈淮鑺傜偣锛?br>杩炴垚绾匡紝缁囨垚缃戙€?/div>
+            <div class="graph-empty-icon">🕸</div>
+            <div class="graph-empty-text">在这里钉入你的思维节点，<br>连成线，织成网。</div>
           </div>
         </div>
 
         <!-- Drawer (Chat Interface) -->
         <button class="chat-dismiss-layer" id="chatDismissLayer" type="button"
-          aria-label="鏀惰捣瀵硅瘽" onclick="closeDrawer()"></button>
+          aria-label="收起对话" onclick="closeDrawer()"></button>
         <div class="drawer-panel closed" id="drawerPanel">
           <div class="drawer-header" onclick="toggleDrawer()">
             <div class="chat-head-main">
               <span class="chat-pixel-avatar" aria-hidden="true"><span></span></span>
               <div class="chat-head-copy">
-                <div class="chat-head-title">椤虹潃杩欎釜鐐瑰瓙鑱?/div>
-                <div class="chat-head-subtitle" id="chatIdeaSubtitle">缁х画鎶婅繕娌℃兂娓呮鐨勫湴鏂瑰線涓嬫寲</div>
+                <div class="chat-head-title">顺着这个点子聊</div>
+                <div class="chat-head-subtitle" id="chatIdeaSubtitle">继续把还没想清楚的地方往下挖</div>
               </div>
             </div>
-            <button class="drawer-toggle-btn icon-only-btn" id="drawerToggleBtn" type="button" aria-label="灞曞紑瀵硅瘽" title="灞曞紑瀵硅瘽">
-              <span class="visually-hidden" id="drawerToggleText">灞曞紑瀵硅瘽</span>
+            <button class="drawer-toggle-btn icon-only-btn" id="drawerToggleBtn" type="button" aria-label="展开对话" title="展开对话">
+              <span class="visually-hidden" id="drawerToggleText">展开对话</span>
               <svg class="ui-icon drawer-chat-icon" aria-hidden="true"><use href="#ui-chat"></use></svg>
               <svg class="ui-icon drawer-toggle-icon" aria-hidden="true"><use href="#ui-chevron"></use></svg>
             </button>
           </div>
-          <div class="chat-context-pin" id="chatContextPin"><span class="chat-pin-star">鉁?/span><span>姝ｅ湪寤剁画锛?/span><b id="chatContextText">褰撳墠鐐瑰瓙鐨勬牳蹇冮棶棰?/b></div>
+          <div class="chat-context-pin" id="chatContextPin"><span class="chat-pin-star">✦</span><span>正在延续：</span><b id="chatContextText">当前点子的核心问题</b></div>
           <div class="messages" id="messages"></div>
           <div class="chat-input-area" id="chatInputArea">
             <div class="input-row">
-              <textarea class="chat-input" id="chatInput" placeholder="鏂扮殑鐏姳..." rows="1"></textarea>
-              <button class="send-btn" id="sendBtn" onclick="sendMessage(event)">鈫?/button>
+              <textarea class="chat-input" id="chatInput" placeholder="新的火花..." rows="1"></textarea>
+              <button class="send-btn" id="sendBtn" onclick="sendMessage(event)">↵</button>
             </div>
-            <div class="input-hint">Shift+Enter 鎹㈣ 路 瀵硅瘽鐏垫劅鍙拤鍏ュ浘璋?/div>
+            <div class="input-hint">Shift+Enter 换行 · 对话灵感可钉入图谱</div>
           </div>
         </div>
       </div>
@@ -638,28 +638,28 @@
   <!-- MODALS -->
   <div class="overlay hidden" id="apiModal">
     <div class="modal">
-      <h2>娆㈣繋鏉ュ埌鎶藉眽</h2>
-      <p class="modal-desc">璇疯緭鍏ョ珯闀挎彁渚涚殑 <b>璁块棶鐮?/b>锛屾垨濉叆浣犺嚜宸辩殑 <b>SiliconFlow API Key</b>銆傛暟鎹粎瀛樺湪浜庢湰鍦般€?/p>
-      <input type="password" class="modal-input" id="apiKeyInput" placeholder="璁块棶鐮?鎴?sk-...">
-      <button class="modal-btn" onclick="saveApiKey()">淇濆瓨骞跺紑濮?/button>
-      <div class="modal-note">娌℃湁 Key锛熷幓 <a href="https://siliconflow.cn/" target="_blank"
-          style="color:var(--accent)">siliconflow.cn</a> 鍏嶈垂鐢宠涓€涓€?/div>
+      <h2>欢迎来到抽屉</h2>
+      <p class="modal-desc">请输入站长提供的 <b>访问码</b>，或填入你自己的 <b>SiliconFlow API Key</b>。数据仅存在于本地。</p>
+      <input type="password" class="modal-input" id="apiKeyInput" placeholder="访问码 或 sk-...">
+      <button class="modal-btn" onclick="saveApiKey()">保存并开始</button>
+      <div class="modal-note">没有 Key？去 <a href="https://siliconflow.cn/" target="_blank"
+          style="color:var(--accent)">siliconflow.cn</a> 免费申请一个。</div>
     </div>
   </div>
 
   <div class="overlay hidden" id="newIdeaModal">
     <div class="modal">
-      <h2>鎹曟崏鏂扮偣瀛?/h2>
-      <p>缁欒繖涓伒鎰熻捣涓悕瀛椼€傚埆鎷呭績锛屼互鍚庨殢鏃跺彲浠ユ敼銆?/p>
-      <input type="text" class="modal-input-lg" id="newIdeaInput" placeholder="鐐瑰瓙鍚嶇О..." autofocus>
-      <button class="modal-btn" onclick="createIdea()">鏀惧叆鎶藉眽</button>
-      <button class="modal-cancel" onclick="closeModal('newIdeaModal')">鍙栨秷</button>
+      <h2>捕捉新点子</h2>
+      <p>给这个灵感起个名字。别担心，以后随时可以改。</p>
+      <input type="text" class="modal-input-lg" id="newIdeaInput" placeholder="点子名称..." autofocus>
+      <button class="modal-btn" onclick="createIdea()">放入抽屉</button>
+      <button class="modal-cancel" onclick="closeModal('newIdeaModal')">取消</button>
     </div>
   </div>
 
   <div class="overlay hidden" id="settingsModal">
     <div class="modal">
-      <h2>搴旂敤璁剧疆</h2>
+      <h2>应用设置</h2>
 
       <div class="setting-item" style="margin-bottom:20px;">
         <label>API Key</label>
@@ -667,27 +667,27 @@
       </div>
 
       <div class="setting-item" style="margin-bottom:20px;">
-        <label>鏄剧ず瀛楀彿</label>
+        <label>显示字号</label>
         <select class="modal-input" id="fontSizeSel"
           style="background:var(--bg); color:var(--text); border:1px solid var(--border2);">
-          <option value="small">鍋忓皬</option>
-          <option value="medium">閫備腑</option>
-          <option value="large">鍋忓ぇ</option>
+          <option value="small">偏小</option>
+          <option value="medium">适中</option>
+          <option value="large">偏大</option>
         </select>
       </div>
 
       <div class="setting-item" style="margin-bottom:20px;">
-        <label>鏁版嵁澶囦唤</label>
-        <p class="modal-note" style="margin:7px 0 10px;">瀵煎嚭鎴栨仮澶嶅叏閮ㄧ偣瀛愩€佸崱鐗囥€佽妭鐐瑰拰鑱婂ぉ璁板綍锛屼笉鍖呭惈 API Key銆?/p>
-        <button class="modal-btn" id="exportBackupBtn" type="button" onclick="exportDrawerBackup()">瀵煎嚭瀹屾暣澶囦唤</button>
+        <label>数据备份</label>
+        <p class="modal-note" style="margin:7px 0 10px;">导出或恢复全部点子、卡片、节点和聊天记录，不包含 API Key。</p>
+        <button class="modal-btn" id="exportBackupBtn" type="button" onclick="exportDrawerBackup()">导出完整备份</button>
         <button class="modal-cancel" id="importBackupBtn" type="button"
-          onclick="document.getElementById('importBackupInput').click()">浠庡浠芥仮澶?/button>
+          onclick="document.getElementById('importBackupInput').click()">从备份恢复</button>
         <input id="importBackupInput" type="file" accept=".json,application/json" hidden
           onchange="importDrawerBackup(event)">
       </div>
 
-      <button class="modal-btn" onclick="saveSettings()">淇濆瓨鏇存敼</button>
-      <button class="modal-cancel" onclick="closeModal('settingsModal')">鍙栨秷</button>
+      <button class="modal-btn" onclick="saveSettings()">保存更改</button>
+      <button class="modal-cancel" onclick="closeModal('settingsModal')">取消</button>
     </div>
   </div>
 
@@ -696,7 +696,7 @@
   <script src="script.js?v=82"></script>
   <script src="atlas-view.js?v=77"></script>
   <script src="world-window.js?v=80"></script>
-  <script type="module" src="world-window-3d.js?v=2"></script>
+  <script type="module" src="world-window-3d.js?v=3"></script>
   <script>
     // Service Worker Registration
     if ('serviceWorker' in navigator) {

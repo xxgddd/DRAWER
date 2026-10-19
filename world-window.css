@@ -147,6 +147,16 @@
   margin-top: 1px;
 }
 .world-window .label.light .sub { text-align: right; }
+.world-window .label.light { text-align: right; }
+.world-window .label.light .sub.alt {
+  max-width: 170px;
+  margin-left: auto;
+  margin-top: 2px;
+  white-space: normal;
+  line-height: 1.35;
+  letter-spacing: 0.12em;
+  opacity: 0.6;
+}
 .world-window .label.idea .sub { text-align: center; }
 .world-window .label.show { opacity: 1; }
 .world-window .label.focus { filter: brightness(1.35); }
