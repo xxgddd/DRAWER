@@ -252,6 +252,10 @@
       return;
     }
     const starCount = data.context?.points?.length || 0;
+    if (!starCount) {
+      summary.textContent = t('示例星空 · 在抽屉里留下第一颗星后，这里会换成你的星', 'SAMPLE SKY · YOUR OWN STARS APPEAR ONCE YOU SAVE AN IDEA');
+      return;
+    }
     const anchorCount = data.anchors?.length || 0;
     const ignored = getIgnoredNames();
     const lightCount = (data.lights || []).filter(light => !ignored.has(String(light.name || '').toLowerCase())).length;
@@ -1351,7 +1355,8 @@
         updateSummary(data);
         updateDailyNudge(data);
         const empty = document.getElementById('worldWindowEmpty');
-        empty.hidden = data.context.points.length > 0;
+        // With no ideas yet the galaxy shows a sample sky; the hint lives in the summary line instead.
+        empty.hidden = true;
         if (isActive()) {
           renderSvg();
           renderLetter(selectedLight());
